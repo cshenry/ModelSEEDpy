@@ -2,9 +2,10 @@
 
 from __future__ import absolute_import
 import logging
+logger = logging.getLogger(__name__)
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 from optlang.symbolics import Zero
-import re
+import re  # !!! import is never used
 
 #Base class for FBA packages
 class SimpleThermoPkg(BaseFBAPkg):

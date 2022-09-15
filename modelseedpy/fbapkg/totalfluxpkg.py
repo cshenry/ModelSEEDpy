@@ -3,16 +3,14 @@
 from __future__ import absolute_import
 
 import logging
-import re
-from optlang.symbolics import Zero, add
-import json as _json
-from cobra.core import Gene, Metabolite, Model, Reaction
+import re  # !!! import is never used
+from optlang.symbolics import Zero, add  # !!! Neither import is never used
+import json as _json  # !!! import is never used
+from cobra.core import Gene, Metabolite, Model, Reaction  # !!! None of these import are ever used
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
+from modelseedpy.core.exceptions import FeasibilityError  # !!! import is never used
 
-#Adding a few exception classes to handle different types of errors
-class FeasibilityError(Exception):
-    """Error in FBA formulation"""
-    pass
+logger = logging.getLogger(__name__)
 
 #Base class for FBA packages
 class TotalFluxPkg(BaseFBAPkg):
@@ -28,6 +26,7 @@ class TotalFluxPkg(BaseFBAPkg):
                     self.variables["tf"][reaction.id] = self.model.problem.Variable(reaction.id+"_tf", lb=0,ub=upper_bound)
                     self.model.add_cons_vars(self.variables["tf"][reaction.id])
                     self.constraints["tf"][reaction.id] = self.model.problem.Constraint(
-                        reaction.forward_variable + reaction.reverse_variable - self.variables["tf"][reaction.id],lb=0,ub=0,name=reaction.id+"_tf"
+                        reaction.forward_variable + reaction.reverse_variable - self.variables["tf"][reaction.id],
+                        lb=0, ub=0, name=reaction.id+"_tf"
                     )
                     self.model.add_cons_vars(self.constraints["tf"][reaction.id])
