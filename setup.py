@@ -31,6 +31,9 @@ setup(
         "icecream",
         "deepdiff"
     ],
+    tests_require=[
+        "pytest",
+    ],
     project_urls={
         'Documentation': 'https://modelseedpy.readthedocs.io/en/stable/',
         'Issues': 'https://github.com/ModelSEED/ModelSEEDpy/issues',
