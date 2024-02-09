@@ -70,7 +70,7 @@ class RastClient:
         for o in res[0]["features"]:
             feature = genome.features.get_by_id(o["id"])
             if "function" in o:
-                functions = re.split("; | / | @ | => ", o["function"])
+                functions = re.split("; | / | @", o["function"])
                 for function in functions:
                     feature.add_ontology_term("RAST", function)
 
