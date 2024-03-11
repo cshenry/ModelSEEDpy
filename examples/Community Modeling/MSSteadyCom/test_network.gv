@@ -1,0 +1,43 @@
+digraph "Test network" {
+	node [color=lightblue2 shape=rectangle style=filled]
+	S0 [label=Species1]
+	subgraph mets {
+		rank=same
+		node [color=green shape=circle style=filled]
+		1 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00001_e0"]
+		9 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00009_e0"]
+		20 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00020_e0"]
+		39 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00039_e0"]
+		54 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00054_e0"]
+		65 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00065_e0"]
+		107 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00107_e0"]
+		119 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00119_e0"]
+		132 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00132_e0"]
+		221 [fixedsize=true height=0.5 url="https://modelseed.org/biochem/compounds/cpd00221_e0"]
+	}
+	S1 [label=Species2]
+	subgraph members {
+		rank=same
+	}
+	S0 -> 1 [arrowsize=1.2475320528119804]
+	1 -> S1 [arrowsize=0.8452873370022036]
+	S0 -> 9 [arrowsize=2.0]
+	9 -> S1 [arrowsize=0.28919656831303864]
+	S0 -> 20 [arrowsize=2.0]
+	20 -> S1 [arrowsize=2.0]
+	S0 -> 39 [arrowsize=0.05394038391384196]
+	39 -> S1 [arrowsize=0.057981577560309125]
+	54 -> S0 [arrowsize=0.24290439730154842]
+	S1 -> 54 [arrowsize=0.24290439730154842]
+	S0 -> 65 [arrowsize=1.9971659108407]
+	65 -> S1 [arrowsize=0.009588037396174398]
+	107 -> S0 [arrowsize=0.022462660715103618]
+	S1 -> 107 [arrowsize=0.022462660715103618]
+	S0 -> 119 [arrowsize=0.02396343008095058]
+	119 -> S1 [arrowsize=0.3206869747668711]
+	S0 -> 132 [arrowsize=0.04079483322396353]
+	132 -> S1 [arrowsize=0.040794833223964475]
+	S0 -> 221 [arrowsize=2.0]
+	221 -> S1 [arrowsize=1.1231001915536316]
+	overlap=false
+}

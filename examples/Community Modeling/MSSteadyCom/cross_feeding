@@ -1,0 +1,42 @@
+digraph cross_feeding {
+	node [color=lightblue2 shape=rectangle style=filled]
+	S0 [label=Species1]
+	subgraph mets {
+		rank=same
+		node [color=green shape=circle style=filled]
+		h2o [URL="https://modelseed.org/biochem/compounds/cpd00001" fixedsize=true height=0.4 tooltip="cpd00001 ; H2O"]
+		pi [URL="https://modelseed.org/biochem/compounds/cpd00009" fixedsize=true height=0.4 tooltip="cpd00009 ; Phosphate"]
+		pyr [URL="https://modelseed.org/biochem/compounds/cpd00020" fixedsize=true height=0.4 tooltip="cpd00020 ; Pyruvate"]
+		lys [URL="https://modelseed.org/biochem/compounds/cpd00039" fixedsize=true height=0.4 tooltip="cpd00039 ; L-Lysine"]
+		ser [URL="https://modelseed.org/biochem/compounds/cpd00054" fixedsize=true height=0.4 tooltip="cpd00054 ; L-Serine"]
+		trp [URL="https://modelseed.org/biochem/compounds/cpd00065" fixedsize=true height=0.4 tooltip="cpd00065 ; L-Tryptophan"]
+		leu [URL="https://modelseed.org/biochem/compounds/cpd00107" fixedsize=true height=0.4 tooltip="cpd00107 ; L-Leucine"]
+		his [URL="https://modelseed.org/biochem/compounds/cpd00119" fixedsize=true height=0.4 tooltip="cpd00119 ; L-Histidine"]
+		asn [URL="https://modelseed.org/biochem/compounds/cpd00132" fixedsize=true height=0.4 tooltip="cpd00132 ; L-Asparagine"]
+		lac [URL="https://modelseed.org/biochem/compounds/cpd00221" fixedsize=true height=0.4 tooltip="cpd00221 ; D-Lactate"]
+	}
+	S1 [label=Species2]
+	subgraph members {
+		rank=same
+	}
+	S0 -> h2o [arrowsize=1.2475320528119804 edgetooltip=623.7660264059903]
+	h2o -> S1 [arrowsize=0.8452873370022036 edgetooltip=-422.6436685011018]
+	S0 -> pi [arrowsize=2.0 edgetooltip=1000.0]
+	pi -> S1 [arrowsize=0.28919656831303864 edgetooltip=-144.59828415651933]
+	S0 -> pyr [arrowsize=2.0 edgetooltip=1000.0]
+	pyr -> S1 [arrowsize=2.0 edgetooltip=-1000.0]
+	S0 -> lys [arrowsize=0.05394038391384196 edgetooltip=26.97019195692098]
+	lys -> S1 [arrowsize=0.057981577560309125 edgetooltip=-28.990788780154563]
+	ser -> S0 [arrowsize=0.24290439730154842 edgetooltip=-121.4521986507742]
+	S1 -> ser [arrowsize=0.24290439730154842 edgetooltip=121.4521986507742]
+	S0 -> trp [arrowsize=1.9971659108407 edgetooltip=998.58295542035]
+	trp -> S1 [arrowsize=0.009588037396174398 edgetooltip=-4.794018698087199]
+	leu -> S0 [arrowsize=0.022462660715103618 edgetooltip=-11.231330357551808]
+	S1 -> leu [arrowsize=0.022462660715103618 edgetooltip=11.231330357551808]
+	S0 -> his [arrowsize=0.02396343008095058 edgetooltip=11.98171504047529]
+	his -> S1 [arrowsize=0.3206869747668711 edgetooltip=-160.34348738343553]
+	S0 -> asn [arrowsize=0.04079483322396353 edgetooltip=20.397416611981765]
+	asn -> S1 [arrowsize=0.040794833223964475 edgetooltip=-20.397416611982237]
+	S0 -> lac [arrowsize=2.0 edgetooltip=1000.0]
+	lac -> S1 [arrowsize=1.1231001915536316 edgetooltip=-561.5500957768159]
+}

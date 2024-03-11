@@ -1,0 +1,128 @@
+<script type="text/x-mathjax-config">
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ["\\(", "\\)"]],
+        processEscapes: true,
+      }
+    }
+  </script>
+
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<div class="app-description">
+    <h2>Background</h2>
+    <p>
+        Microbial communities are characteristically complex and high-dimensional. The interactions between members in these systems are unfortunately intractable for experimental methods, and are insufficiently captured by computational simulations, due to their combinatorial complexity. Metrics that isolate and quantify biological dimensions of interaction (e.g. metabolic competition, functional complementarity, parasitic potential) are therefore attractive to simplify community complexity and elucidate which dimensions govern interactions between member groupings. Several scores have been proposed since 2008, which principally includes the <i><b>S</b>pecies <b>Met</b>abolic Interaction <b>Ana</b>lysis</i> (SMETANA) suite of scores <sup><a href="#smetana">[1]</a></sup>. The SMETANA scores, however, do not capture several biologically dimensions that are involved in interactions and are additionally not comprehensively wrapped into an open-source web Application.
+    </p>
+
+    <h2>CommScores</h2>
+    <p>
+        We therefore developed an expanded set of community scores (CommScores) that embody additional biological dimensions while also curating a handful of published scores, including several from SMETANA, to create a comprehensive assessment of microbial interactions in community environments. The scores are generalizable between any two groupings of organisms, e.g. sub-communities or individual members, but we express the scores exclusively as between members <i>1</i> and <i>2</i> for simplicity, computational ease, and to reveal the most basic ecological comparison. CommScores is available in the ModelSEEDpy API for use in Notebook workflows, and is also wrapped into the <b>Calculate Metabolic Interaction Scores</b> Application of KBase. The included scores are defined in the following sub-sections, and are further elaborated in our <a href=""><i>bioRxiv</i> preprint</a>.
+    </p>
+
+    <h3>Novel scores</h3>
+
+    <h4>Functional Complementarity (FC)</h4>    
+    <p>
+        The FC score is calculated as the Jiccard Index of ontologies $O$ from either RAST or another annotation software available on KBase <sup><a href="#kbase">[2]</a></sup>
+        <div class="latex">
+            \[ FC= \left( \frac{O_1 \cap O_2}{O_1 \cup O_2} \right)~~. \]
+        </div>
+        This score captures the potential for niche overlap and therefore negative interactions. The broad assessment of the entire genome further captures secondary metabolic interactions as well as the primary metabolism that is embodied in genome-scale metabolic models.
+    </p>
+
+    <h4>Growth Yield Difference (GYD)</h4>    
+    <p>
+        The GYD score evaluates the disparity in growth rate between the isolated members
+        <div class="latex">
+            \[ GYD = \frac{abs(G_{1}-G_{2})}{min(G_{1}, G_{2})}~~, \]
+        </div>
+        by normalizing the difference in the member's growth rates by the growth rate of the slower growing member. A relatively large disparity in the isolate growth rates may foreshadow a negative interaction when the members are combined, where one member rapidly begins dominating the environment and media consumption which leaves the other member potentially starved and possibly launching antibiotic warfare in desparation to survive.
+    </p>
+
+    <h4>Costless Interaction Potential (CIP)</h4>    
+    <p>
+        The CIP score quantifies the union of costless excreta <i>CE</i> (compounds that are excreted at maximal growth and therefore have no fitness cost associated with their excretion) in the isolated members
+        <div class="latex">
+            \[ CIP = len(CE_1 \cup CE_2)~~, \]
+        </div>
+        which may contextualize syntrophic exchanges in their likelihood for exchange based on the fitness expense of their excretion. Our curation of the MIP score can be further contextualized with costless excreta via the intersection of exchanged compounds in the MIP score and the CIP for the same member pair. 
+    </p>
+
+    <h4>Biological Interaction Potential (BIT)</h4>    
+    <p>
+        The BIT score categorizes the member interaction into one of the classical descriptions -- competitive, amensalism, neutral, parasitism, commensalism, and mutualism -- based on relative growth of the members as isolates <i>G<sub>1</sub></i> versus in the community environment <i>G<sub>1,comm</sub></i>
+        <div class="latex">
+            \[ BIT_1 = G_{1,comm}-G_1 \]
+        </div>
+        <div class="latex">
+            \[ BIT_2 = G_{2,comm}-G_2 \]
+        </div>
+        which provides a tangible biological description of the member interaction based on growth through the primary metabolism.
+    </p>
+
+    <h3>Curated scores</h3>
+
+    <h4>MRO</h4>
+    <p>
+        The <i><b>M</b>etabolic <b>R</b>esource <b>O</b>verlap</i> (MRO) score is in the SMETANA suite and was published in several earlier studies as well, albeit with slight algorithmic variations. The MRO quantifies the fraction of a member's nutritional requirements, in a given media or the complete media by default, that overlap with the other member's nutritional requirements
+            <div class="latex">\[ MRO= \frac{|M_1 \cap M_2|}{|M_1|} \]</div>
+        and is importantly directional (by replacing the denominator member), which can capture directional dependencies of interactions (e.g. lawn versus spot). The minimal media $M$ of each member is determined by minimizing the total exchange flux.
+    </p>
+
+    <h4>MIP</h4>
+    <p>
+        The <i><b>M</b>etabolic <b>I</b>nteraction <b>P</b>otential</i> (MIP) score is also in the SMETANA suite and earlier studies. This score quantifies syntrophic exchanges between the members. Our curation computes the MIP as the difference in exchanged compounds versus transported compounds in the compartmentalized community model
+            <div class="latex">\[ MIP=M_{transports}-M_{exchanges}~~, \]</div>
+        where compounds that the members are transporting but the community is not exchanging with the media must be sourced from syntrophy. The MIP compounds that are costlessly excreted can also be quantified as a subscore of the MIP, and may better represent the compounds that are favorably exchanged in the community.
+    </p>
+
+    <h4>PC</h4>
+    <p>
+        The <i><b>P</b>otential <b>C</b>ooperation</i> (PC) score quantifies the net effect of co-growth relative to isolate growth, and in our curation is determined as the ratio of community growth to the sum of isolated member growths
+            <div class="latex">\[ PC = \frac{G_{comm}}{G_1+G_2}~~, \]</div>
+        and is therefore essentially a continuous quantitative representation of the discrete qualitative BIT score.
+    </p>
+
+    <h4>BSS</h4>
+    <p>
+        The <i><b>B</b>iosynthetic <b>S</b>upport <b>S</b>core</i> (BSS) score quantifies the capacity of a member to parasitize another member by topologically evaluating the proportion of a member's nutritional requirements that are in the other member's cytoplasmic metabolites
+            <div class="latex">\[ BSS = \frac{M_i \cap R_j}{M_i}~~. \]</div>
+        This score therefore quantifies the capacity or incentive for negative interaction.
+    </p>
+
+    <!-- <h4>MSI</h4>
+    <p>
+        The <i><b>M</b>etabolic <b>S</b>upport <b>I</b>ndex</i> is the newest published score that we curated, and uniquely captures the ability of a member to activate the metabolism of another member based on a comparison of the topology of the metabolic networks of each model.
+    </p> -->
+
+    <h3>Calculate Metabolic Interaction Scores Application</h3>
+    <p>
+        CommScores is wrapped in the <i>Calculate Metabolic Interaction Scores</i> KBase Application, where users provide media and member FBA models and receive an output of two tabs: the first tab displays a table with all results, including metadata information and subscores; the second tab displays a heatmap table of just the only numerical scores and may therefore be advantageous for quantitative post-processing. The output tables can be downloaded as the raw HTML via the <b>index.html</b>.
+    </p>
+    <p>Future developments include:</p>
+    <ol>
+        <li>developing additional scores of other biological dimensions, such as phylogenetic similarity</li>
+        <li>improving the format of model outputs to foster user interpretation</li>
+        <li>expanding the Application UI to accept more parameters that are available in the API</li>
+    </ol>
+</div>
+
+
+<div class="publication">
+    <h3>Related Publications</h3>
+    <ol>
+        <li id="smetana">
+            Zelezniak, A., Andrejev, S., Ponomarova, O., Mende, D. R., Bork, P., &#38; Patil, K. R. (2015). 
+            Metabolic dependencies drive species co-occurrence in diverse microbial communities. <i>Proceedings of the National Academy of Sciences of the United States of America</i>, 
+            <i>112</i>(20), 6449-6454. <a href="https://www.pnas.org/doi/abs/10.1073/pnas.1421834112">https://www.pnas.org/doi/abs/10.1073/pnas.1421834112</a>
+        </li>
+        <li id="kbase">
+            Arkin, A. P., Cottingham, R. W., Henry, C. S., Harris, N. L., Stevens, R. L., Maslov, S., Dehal, P., Ware, D., Perez, F., Canon, S., Sneddon, 
+            M. W., Henderson, M. L., Riehl, W. J., Murphy-Olson, D., Chan, S. Y., Kamimura, R. T., Kumari, S., Drake, M. M., Brettin, T. S., … Yu, D. (2018). 
+            KBase: The United States department of energy systems biology knowledgebase. <i>Nature Biotechnology</i>, <i>36</i>(7), 566-569. 
+            <a href="https://doi.org/10.1038/nbt.4163">https://doi.org/10.1038/nbt.4163</a>
+        </li>
+    </ol>
+</div>

@@ -2,37 +2,60 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as f:
+with open("README.rst") as f:
     readme = f.read()
 
-with open('LICENSE') as f:
+with open("LICENSE") as f:
     license = f.read()
 
 setup(
-    name='ModelSEEDpy',
-    version='0.2.2',
-    description='Python package for building and analyzing models using ModelSEED',
+    name="ModelSEEDpy",
+    version="0.3.3",
+    description="Python package for building and analyzing models using ModelSEED",
+    long_description_content_type="text/x-rst",
     long_description=readme,
-    author='Christopher Henry',
-    author_email='chenry@anl.gov',
-    url='https://github.com/ModelSEED/ModelSEEDpy',
+    author="Christopher Henry",
+    author_email="chenry@anl.gov",
+    url="https://github.com/ModelSEED/ModelSEEDpy",
     license=license,
-    packages=find_packages(exclude=('docs')),
+    packages=find_packages(exclude=("docs")),
+    package_data={
+        "modelseedpy": ["config.cfg", "community/*.html", "core/*.html", "data/*", "data/categories/*", "data/templates/*"],
+    },
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Topic :: Scientific/Engineering :: Bio-Informatics",
+        "Intended Audience :: Science/Research",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Natural Language :: English",
+    ],
     include_package_data =True,
     install_requires=[
         "networkx >= 2.4",
         "cobra >= 0.17.1",
-        "scikit-learn >= 0.23.2",  # too support KBase pickle models  # !!! The >= designation is necessary for Windows import
+        "scikit-learn == 1.2.0",  # version lock for pickle ML models
         "scipy >= 1.5.4",
         "chemicals >= 1.0.13",
         "chemw >= 0.3.2",
         "matplotlib >= 3.0.0",
-        "pyeda",
+        # "pyeda",
         "icecream",
-        "deepdiff"
+        "deepdiff",
+        "openpyxl",
+        "jinja2",
+        "multiprocess",
+        "h5py",
+        "graphviz"
+    ],
+    tests_require=[
+        "pytest",
     ],
     project_urls={
-        'Documentation': 'https://modelseedpy.readthedocs.io/en/stable/',
-        'Issues': 'https://github.com/ModelSEED/ModelSEEDpy/issues',
-    }
+        "Documentation": "https://modelseedpy.readthedocs.io/en/latest/",
+        "Issues": "https://github.com/ModelSEED/ModelSEEDpy/issues",
+    },
 )

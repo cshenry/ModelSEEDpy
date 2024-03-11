@@ -1,0 +1,42 @@
+digraph "Test network" {
+	node [color=lightblue2 shape=rectangle style=filled]
+	S0 [label=Species1]
+	subgraph mets {
+		rank=same
+		node [color=green shape=circle style=filled]
+		1 [URL="https://modelseed.org/biochem/compounds/cpd00001" fixedsize=true height=0.4 tooltip=H2O]
+		9 [URL="https://modelseed.org/biochem/compounds/cpd00009" fixedsize=true height=0.4 tooltip=Phosphate]
+		20 [URL="https://modelseed.org/biochem/compounds/cpd00020" fixedsize=true height=0.4 tooltip=Pyruvate]
+		39 [URL="https://modelseed.org/biochem/compounds/cpd00039" fixedsize=true height=0.4 tooltip="L-Lysine"]
+		54 [URL="https://modelseed.org/biochem/compounds/cpd00054" fixedsize=true height=0.4 tooltip="L-Serine"]
+		65 [URL="https://modelseed.org/biochem/compounds/cpd00065" fixedsize=true height=0.4 tooltip="L-Tryptophan"]
+		107 [URL="https://modelseed.org/biochem/compounds/cpd00107" fixedsize=true height=0.4 tooltip="L-Leucine"]
+		119 [URL="https://modelseed.org/biochem/compounds/cpd00119" fixedsize=true height=0.4 tooltip="L-Histidine"]
+		132 [URL="https://modelseed.org/biochem/compounds/cpd00132" fixedsize=true height=0.4 tooltip="L-Asparagine"]
+		221 [URL="https://modelseed.org/biochem/compounds/cpd00221" fixedsize=true height=0.4 tooltip="D-Lactate"]
+	}
+	S1 [label=Species2]
+	subgraph members {
+		rank=same
+	}
+	S0 -> 1 [arrowsize=1.2475320528119804 edgetooltip=623.7660264059903]
+	1 -> S1 [arrowsize=0.8452873370022036 edgetooltip=-422.6436685011018]
+	S0 -> 9 [arrowsize=2.0 edgetooltip=1000.0]
+	9 -> S1 [arrowsize=0.28919656831303864 edgetooltip=-144.59828415651933]
+	S0 -> 20 [arrowsize=2.0 edgetooltip=1000.0]
+	20 -> S1 [arrowsize=2.0 edgetooltip=-1000.0]
+	S0 -> 39 [arrowsize=0.05394038391384196 edgetooltip=26.97019195692098]
+	39 -> S1 [arrowsize=0.057981577560309125 edgetooltip=-28.990788780154563]
+	54 -> S0 [arrowsize=0.24290439730154842 edgetooltip=-121.4521986507742]
+	S1 -> 54 [arrowsize=0.24290439730154842 edgetooltip=121.4521986507742]
+	S0 -> 65 [arrowsize=1.9971659108407 edgetooltip=998.58295542035]
+	65 -> S1 [arrowsize=0.009588037396174398 edgetooltip=-4.794018698087199]
+	107 -> S0 [arrowsize=0.022462660715103618 edgetooltip=-11.231330357551808]
+	S1 -> 107 [arrowsize=0.022462660715103618 edgetooltip=11.231330357551808]
+	S0 -> 119 [arrowsize=0.02396343008095058 edgetooltip=11.98171504047529]
+	119 -> S1 [arrowsize=0.3206869747668711 edgetooltip=-160.34348738343553]
+	S0 -> 132 [arrowsize=0.04079483322396353 edgetooltip=20.397416611981765]
+	132 -> S1 [arrowsize=0.040794833223964475 edgetooltip=-20.397416611982237]
+	S0 -> 221 [arrowsize=2.0 edgetooltip=1000.0]
+	221 -> S1 [arrowsize=1.1231001915536316 edgetooltip=-561.5500957768159]
+}

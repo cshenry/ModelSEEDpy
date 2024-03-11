@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+        <title>SteadyCom Results</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
+        <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js">
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+        </script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous">
+        </script>
+        <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js">
+        </script>
+        <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js">
+        </script>
+        <style>
+            h2, table, p {
+                padding-top: 40px;
+            }
+            table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            }
+            th, td {
+            padding: 5px;
+            }
+            th {
+            text-align: center;
+            }
+        </style>
+    </head>
+    <body class="container">
+        <h1>SMETANA Results</h1>
+        <ul class="nav nav-tabs" id="nav-tab" role="tablist">
+            <li><a class="nav-item nav-link active" id="nav-table-tab" data-toggle="tab" href="#nav-table" role="tab" aria-controls="nav-table" aria-selected="true">Interaction table</a> </li>
+            <li><a class="nav-item nav-link" id="nav-heatmap-tab" data-toggle="tab" href="#nav-heatmap" role="tab" aria-controls="nav-heatmap" aria-selected="true">Interaction Heatmap</a> </li>
+            <!-- <li><a class="nav-item nav-link" id="nav-mets-tab" data-toggle="tab" href="#nav-mets" role="tab" aria-controls="nav-mets" aria-selected="true">Interacted mets</a> </li> -->
+        </ul>
+        <div class="tab-content" id="nav-tabContent">
+            <div class="tab-pane fade show active" id="nav-table" role="tabpanel" aria-labelledby="nav-summary-tab">
+                <p>The biomass yields are expressed in [gm/hr*(gm CDW)]</p>
+                <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>model1</th>
+      <th>model2</th>
+      <th>mro_model1</th>
+      <th>mro_model2</th>
+      <th>mip</th>
+      <th>model1_biomass yield</th>
+      <th>model2_biomass yield</th>
+      <th>comm_biomass_yield</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Bacteroides_thetaiotaomicron_VPI-5482.fbamdl.23</td>
+      <td>iML1515</td>
+      <td>0.34615 (9/26)</td>
+      <td>0.29032 (9/31)</td>
+      <td>30</td>
+      <td>86.915871</td>
+      <td>75.544743</td>
+      <td>86.915871</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>iML1515</td>
+      <td>Bacteroides_thetaiotaomicron_VPI-5482.fbamdl.23</td>
+      <td>0.29032 (9/31)</td>
+      <td>0.34615 (9/26)</td>
+      <td>30</td>
+      <td>75.544743</td>
+      <td>86.915871</td>
+      <td>86.915871</td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+            <div class="tab-pane fade" id="nav-heatmap" role="tabpanel" aria-labelledby="nav-heatmap-tab">
+                <style type="text/css">
+#T_98059_row0_col0, #T_98059_row0_col3, #T_98059_row0_col5, #T_98059_row1_col1, #T_98059_row1_col4 {
+  background-color: #023858;
+  color: #f1f1f1;
+}
+#T_98059_row0_col1, #T_98059_row0_col2, #T_98059_row0_col4, #T_98059_row1_col0, #T_98059_row1_col2, #T_98059_row1_col3, #T_98059_row1_col5 {
+  background-color: #fff7fb;
+  color: #000000;
+}
+</style>
+<table id="T_98059">
+  <thead>
+    <tr>
+      <th class="blank level0" >&nbsp;</th>
+      <th id="T_98059_level0_col0" class="col_heading level0 col0" >mro_model1</th>
+      <th id="T_98059_level0_col1" class="col_heading level0 col1" >mro_model2</th>
+      <th id="T_98059_level0_col2" class="col_heading level0 col2" >mip</th>
+      <th id="T_98059_level0_col3" class="col_heading level0 col3" >model1_biomass yield</th>
+      <th id="T_98059_level0_col4" class="col_heading level0 col4" >model2_biomass yield</th>
+      <th id="T_98059_level0_col5" class="col_heading level0 col5" >comm_biomass_yield</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th id="T_98059_level0_row0" class="row_heading level0 row0" >Bacteroides_thetaiotaomicron_VPI-5482.fbamdl.23 ++ iML1515</th>
+      <td id="T_98059_row0_col0" class="data row0 col0" >0.346150</td>
+      <td id="T_98059_row0_col1" class="data row0 col1" >0.290320</td>
+      <td id="T_98059_row0_col2" class="data row0 col2" >30.000000</td>
+      <td id="T_98059_row0_col3" class="data row0 col3" >86.915871</td>
+      <td id="T_98059_row0_col4" class="data row0 col4" >75.544743</td>
+      <td id="T_98059_row0_col5" class="data row0 col5" >86.915871</td>
+    </tr>
+    <tr>
+      <th id="T_98059_level0_row1" class="row_heading level0 row1" >iML1515 ++ Bacteroides_thetaiotaomicron_VPI-5482.fbamdl.23</th>
+      <td id="T_98059_row1_col0" class="data row1 col0" >0.290320</td>
+      <td id="T_98059_row1_col1" class="data row1 col1" >0.346150</td>
+      <td id="T_98059_row1_col2" class="data row1 col2" >30.000000</td>
+      <td id="T_98059_row1_col3" class="data row1 col3" >75.544743</td>
+      <td id="T_98059_row1_col4" class="data row1 col4" >86.915871</td>
+      <td id="T_98059_row1_col5" class="data row1 col5" >86.915871</td>
+    </tr>
+  </tbody>
+</table>
+
+            </div>
+            <!-- <div class="tab-pane fade" id="nav-mets" role="tabpanel" aria-labelledby="nav-mets-tab">
+                [{'mip_mets': [root['EX_phearg_e0'], root['EX_cpd00263_e0'], root['EX_cpd00220_e0'], root['EX_glyasn_e0'], root['EX_cpd00065_e0'], root['EX_cpd00104_e0'], root['EX_cpd00218_e0'], root['EX_cpd10516_e0'], root['EX_cpd00393_e0'], root['EX_pe_cer1_bt_e0'], root['EX_cpd11591_e0'], root['EX_stys_e0'], root['EX_cpd10515_e0'], root['EX_cpd00182_e0'], root['EX_cpd11584_e0'], root['EX_cpd00009_e0'], root['EX_s2l2n2m2m_e0'], root['EX_cpd15836_e0'], root['EX_cpd15551_e0'], root['EX_cpd15500_e0'], root['EX_cpd11580_e0'], root['EX_cpd00305_e0'], root['EX_cpd00311_e0'], root['EX_cpd00654_e0'], root['EX_cpd00007_e0'], root['EX_cpd00367_e0'], root['EX_cpd15606_e0'], root['EX_cpd01017_e0'], root['EX_cpd01391_e0'], root['EX_s2l2n2m2mn_e0']], 'mro_mets': [({'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00254_e0', 'EX_cpd00305_e0', 'EX_cpd00030_e0', 'EX_cpd00104_e0', 'EX_cpd00149_e0', 'EX_cpd00182_e0', 'EX_cpd00205_e0'}, {'EX_cpd00971_e0': 0.00046679999999999546, 'EX_cps_bt_e0': 0.00046680000000000007, 'EX_cpd10515_e0': 0.00046680000000000007, 'EX_cpd00182_e0': 0.021694300001701413, 'EX_cpd11591_e0': 0.0154008, 'EX_cpd00205_e0': 0.00046680000000000007, 'EX_hspg_e0': 0.1430718400003499, 'EX_cpd00063_e0': 0.00046680000000000007, 'EX_glycogen1500_e0': 0.0014393652031613616, 'EX_cpd00009_e0': 0.16636580000312617, 'EX_sphmyln_bt_e0': 0.0004668000000000001, 'EX_cpd00034_e0': 0.00046680000000000007, 'EX_cpd00149_e0': 0.00046680000000000007, 'EX_cpd00166_e0': 0.00046680000000000007, 'EX_cpd00030_e0': 0.00046679999999999996, 'EX_cpd00028_e0': 0.00046680000000000007, 'EX_cpd00104_e0': 0.00046680000000000007, 'EX_cpd00393_e0': 0.0014004000000000006, 'EX_lps_bt_e0': 0.0019450000000000003, 'EX_cpd03725_e0': 0.00046680000000000007, 'EX_pe_cer1_bt_e0': 0.0004668000000000001, 'EX_argarg_e0': 0.0146474, 'EX_cpd00254_e0': 0.00046680000000000007, 'EX_cpd00311_e0': 0.024193900000000008, 'EX_cpd00305_e0': 0.0004668000000000001, 'EX_cpd01017_e0': 0.009831599999914465}), ({'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00254_e0', 'EX_cpd00305_e0', 'EX_cpd00030_e0', 'EX_cpd00104_e0', 'EX_cpd00149_e0', 'EX_cpd00182_e0', 'EX_cpd00205_e0'}, {'EX_cpd01092_e0': 0.0711044749959362, 'EX_cpd00205_e0': 0.0195193, 'EX_cpd00018_e0': 0.015686099576586572, 'EX_cpd00037_e0': 0.017026999997681095, 'EX_cpd11574_e0': 7.000000000000003e-07, 'EX_cpd00104_e0': 2.0000000000000007e-07, 'EX_cpd15387_e0': 0.03709490000000001, 'EX_cpd00244_e0': 3.2300000000000006e-05, 'EX_cpd00007_e0': 0.0003904000007562899, 'EX_cpd00277_e0': 0.0003904000002814381, 'EX_cpd00051_e0': 0.029579200000000003, 'EX_cpd00048_e0': 0.00043380000000000003, 'EX_cpd00034_e0': 3.4099999999999995e-05, 'EX_cpd00149_e0': 2.5e-06, 'EX_cpd00355_e0': 0.0002277999996356193, 'EX_cpd26527_e0': 6.689999999999748e-05, 'EX_cpd00126_e0': 0.02432280000000002, 'EX_cpd03586_e0': 0.0019456, 'EX_cpd00305_e0': 2.2299999185114247e-05, 'EX_cpd00065_e0': 0.005684299999960198, 'EX_cpd00030_e0': 6.910000000000001e-05, 'EX_cpd00099_e0': 0.0005205000000000001, 'EX_cpd01329_e0': 0.13599151287257688, 'EX_cpd00058_e0': 7.090000000000002e-05, 'EX_cpd00042_e0': 0.04077819999932438, 'EX_cpd00182_e0': 0.00254410000047828, 'EX_cpd00294_e0': 0.0022262004269565615, 'EX_cpd00046_e0': 0.016052500003092853, 'EX_cpd00063_e0': 0.0005205, 'EX_cpd00119_e0': 0.009473799999999944, 'EX_cpd00254_e0': 0.0008675000000000002})]}, {'mip_mets': [root['EX_cpd00263_e0'], root['EX_cpd00220_e0'], root['EX_cpd00393_e0'], root['EX_glyasn_e0'], root['EX_pe_cer1_bt_e0'], root['EX_cpd15500_e0'], root['EX_cpd00311_e0'], root['EX_cpd00007_e0'], root['EX_s2l2n2m2mn_e0'], root['EX_cpd00305_e0'], root['EX_cpd01017_e0'], root['EX_cpd00218_e0'], root['EX_cpd00367_e0'], root['EX_cpd00065_e0'], root['EX_cpd15551_e0'], root['EX_cpd00104_e0'], root['EX_cpd15606_e0'], root['EX_stys_e0'], root['EX_cpd10515_e0'], root['EX_cpd00182_e0'], root['EX_cpd11584_e0'], root['EX_cpd11591_e0'], root['EX_cpd00654_e0'], root['EX_cpd00009_e0'], root['EX_cpd10516_e0'], root['EX_phearg_e0'], root['EX_s2l2n2m2m_e0'], root['EX_cpd15836_e0'], root['EX_cpd11580_e0'], root['EX_cpd01391_e0']], 'mro_mets': [({'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00254_e0', 'EX_cpd00305_e0', 'EX_cpd00030_e0', 'EX_cpd00104_e0', 'EX_cpd00149_e0', 'EX_cpd00182_e0', 'EX_cpd00205_e0'}, {'EX_cpd01092_e0': 0.0711044749959362, 'EX_cpd00205_e0': 0.0195193, 'EX_cpd00018_e0': 0.015686099576586572, 'EX_cpd00037_e0': 0.017026999997681095, 'EX_cpd11574_e0': 7.000000000000003e-07, 'EX_cpd00104_e0': 2.0000000000000007e-07, 'EX_cpd15387_e0': 0.03709490000000001, 'EX_cpd00244_e0': 3.2300000000000006e-05, 'EX_cpd00007_e0': 0.0003904000007562899, 'EX_cpd00277_e0': 0.0003904000002814381, 'EX_cpd00051_e0': 0.029579200000000003, 'EX_cpd00048_e0': 0.00043380000000000003, 'EX_cpd00034_e0': 3.4099999999999995e-05, 'EX_cpd00149_e0': 2.5e-06, 'EX_cpd00355_e0': 0.0002277999996356193, 'EX_cpd26527_e0': 6.689999999999748e-05, 'EX_cpd00126_e0': 0.02432280000000002, 'EX_cpd03586_e0': 0.0019456, 'EX_cpd00305_e0': 2.2299999185114247e-05, 'EX_cpd00065_e0': 0.005684299999960198, 'EX_cpd00030_e0': 6.910000000000001e-05, 'EX_cpd00099_e0': 0.0005205000000000001, 'EX_cpd01329_e0': 0.13599151287257688, 'EX_cpd00058_e0': 7.090000000000002e-05, 'EX_cpd00042_e0': 0.04077819999932438, 'EX_cpd00182_e0': 0.00254410000047828, 'EX_cpd00294_e0': 0.0022262004269565615, 'EX_cpd00046_e0': 0.016052500003092853, 'EX_cpd00063_e0': 0.0005205, 'EX_cpd00119_e0': 0.009473799999999944, 'EX_cpd00254_e0': 0.0008675000000000002}), ({'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00254_e0', 'EX_cpd00305_e0', 'EX_cpd00030_e0', 'EX_cpd00104_e0', 'EX_cpd00149_e0', 'EX_cpd00182_e0', 'EX_cpd00205_e0'}, {'EX_cpd00971_e0': 0.00046679999999999546, 'EX_cps_bt_e0': 0.00046680000000000007, 'EX_cpd10515_e0': 0.00046680000000000007, 'EX_cpd00182_e0': 0.021694300001701413, 'EX_cpd11591_e0': 0.0154008, 'EX_cpd00205_e0': 0.00046680000000000007, 'EX_hspg_e0': 0.1430718400003499, 'EX_cpd00063_e0': 0.00046680000000000007, 'EX_glycogen1500_e0': 0.0014393652031613616, 'EX_cpd00009_e0': 0.16636580000312617, 'EX_sphmyln_bt_e0': 0.0004668000000000001, 'EX_cpd00034_e0': 0.00046680000000000007, 'EX_cpd00149_e0': 0.00046680000000000007, 'EX_cpd00166_e0': 0.00046680000000000007, 'EX_cpd00030_e0': 0.00046679999999999996, 'EX_cpd00028_e0': 0.00046680000000000007, 'EX_cpd00104_e0': 0.00046680000000000007, 'EX_cpd00393_e0': 0.0014004000000000006, 'EX_lps_bt_e0': 0.0019450000000000003, 'EX_cpd03725_e0': 0.00046680000000000007, 'EX_pe_cer1_bt_e0': 0.0004668000000000001, 'EX_argarg_e0': 0.0146474, 'EX_cpd00254_e0': 0.00046680000000000007, 'EX_cpd00311_e0': 0.024193900000000008, 'EX_cpd00305_e0': 0.0004668000000000001, 'EX_cpd01017_e0': 0.009831599999914465})]}]
+            </div> -->
+        </div>
+    </body>
+</html>

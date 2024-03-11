@@ -1,4 +1,5 @@
 .DS_Store
+@eaDir
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -56,6 +57,9 @@ coverage.xml
 # Translations
 *.mo
 *.pot
+
+# local cobrakbase fonts
+examples/Flux Analysis/Users/
 
 # Django stuff:
 *.log
@@ -128,5 +132,16 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Julia dev models
+*.mat
+*.zip
+
 # Pyre type checker
 .pyre/
+
+
+*.FASTQ/
+.pydevproject
+.settings/*
+*data/*
+*.lp

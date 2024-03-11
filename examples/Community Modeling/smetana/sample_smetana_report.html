@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+        <title>SteadyCom Results</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
+        <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js">
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+        </script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous">
+        </script>
+        <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js">
+        </script>
+        <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js">
+        </script>
+        <style>
+            h2, table, p {
+                padding-top: 40px;
+            }
+            table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            }
+            th, td {
+            padding: 5px;
+            }
+            th {
+            text-align: center;
+            }
+        </style>
+    </head>
+    <body class="container">
+        <h1>SMETANA Results</h1>
+        <ul class="nav nav-tabs" id="nav-tab" role="tablist">
+            <li><a class="nav-item nav-link active" id="nav-table-tab" data-toggle="tab" href="#nav-table" role="tab" aria-controls="nav-table" aria-selected="true">Interaction table</a> </li>
+            <li><a class="nav-item nav-link" id="nav-heatmap-tab" data-toggle="tab" href="#nav-heatmap" role="tab" aria-controls="nav-heatmap" aria-selected="true">Interaction Heatmap</a> </li>
+            <!-- <li><a class="nav-item nav-link" id="nav-mets-tab" data-toggle="tab" href="#nav-mets" role="tab" aria-controls="nav-mets" aria-selected="true">Interacted mets</a> </li> -->
+        </ul>
+        <div class="tab-content" id="nav-tabContent">
+            <div class="tab-pane fade show active" id="nav-table" role="tabpanel" aria-labelledby="nav-summary-tab">
+                <p>The biomass yields are expressed in [gm/hr*(gm CDW)]</p>
+                <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>model1</th>
+      <th>model2</th>
+      <th>mro_model1</th>
+      <th>mro_model2</th>
+      <th>mip</th>
+      <th>model1_biomass yield</th>
+      <th>model2_biomass yield</th>
+      <th>comm_biomass_yield</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>GCF_001422325.1.RAST.fbamodel</td>
+      <td>GCF_001424455.1.RAST.fbamodel</td>
+      <td>0.79412 (27/34)</td>
+      <td>0.69231 (27/39)</td>
+      <td>17</td>
+      <td>77.001287</td>
+      <td>98.762741</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>GCF_001422815.1.RAST.fbamodel</td>
+      <td>GCF_001421245.1.RAST.fbamodel</td>
+      <td>0.65789 (25/38)</td>
+      <td>0.69444 (25/36)</td>
+      <td>19</td>
+      <td>100.824414</td>
+      <td>77.829476</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>GCF_001424505.1.RAST.fbamodel</td>
+      <td>GCF_001421245.1.RAST.fbamodel</td>
+      <td>0.81818 (27/33)</td>
+      <td>0.75000 (27/36)</td>
+      <td>22</td>
+      <td>76.233263</td>
+      <td>77.829476</td>
+      <td>100.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>GCF_001422325.1.RAST.fbamodel</td>
+      <td>GCF_001421245.1.RAST.fbamodel</td>
+      <td>0.70588 (24/34)</td>
+      <td>0.66667 (24/36)</td>
+      <td>20</td>
+      <td>77.001287</td>
+      <td>77.829476</td>
+      <td>100.0</td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+            <div class="tab-pane fade" id="nav-heatmap" role="tabpanel" aria-labelledby="nav-heatmap-tab">
+                <style type="text/css">
+#T_4a352_row0_col0 {
+  background-color: #045e94;
+  color: #f1f1f1;
+}
+#T_4a352_row0_col1 {
+  background-color: #bdc8e1;
+  color: #000000;
+}
+#T_4a352_row0_col2, #T_4a352_row0_col5, #T_4a352_row1_col0, #T_4a352_row1_col4, #T_4a352_row1_col5, #T_4a352_row2_col3, #T_4a352_row2_col4, #T_4a352_row2_col5, #T_4a352_row3_col1, #T_4a352_row3_col4, #T_4a352_row3_col5 {
+  background-color: #fff7fb;
+  color: #000000;
+}
+#T_4a352_row0_col3, #T_4a352_row3_col3 {
+  background-color: #fbf3f9;
+  color: #000000;
+}
+#T_4a352_row0_col4, #T_4a352_row1_col3, #T_4a352_row2_col0, #T_4a352_row2_col1, #T_4a352_row2_col2 {
+  background-color: #023858;
+  color: #f1f1f1;
+}
+#T_4a352_row1_col1 {
+  background-color: #b4c4df;
+  color: #000000;
+}
+#T_4a352_row1_col2 {
+  background-color: #9cb9d9;
+  color: #000000;
+}
+#T_4a352_row3_col0 {
+  background-color: #c0c9e2;
+  color: #000000;
+}
+#T_4a352_row3_col2 {
+  background-color: #4295c3;
+  color: #f1f1f1;
+}
+</style>
+<table id="T_4a352">
+  <thead>
+    <tr>
+      <th class="blank level0" >&nbsp;</th>
+      <th id="T_4a352_level0_col0" class="col_heading level0 col0" >mro_model1</th>
+      <th id="T_4a352_level0_col1" class="col_heading level0 col1" >mro_model2</th>
+      <th id="T_4a352_level0_col2" class="col_heading level0 col2" >mip</th>
+      <th id="T_4a352_level0_col3" class="col_heading level0 col3" >model1_biomass yield</th>
+      <th id="T_4a352_level0_col4" class="col_heading level0 col4" >model2_biomass yield</th>
+      <th id="T_4a352_level0_col5" class="col_heading level0 col5" >comm_biomass_yield</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th id="T_4a352_level0_row0" class="row_heading level0 row0" >GCF_001422325.1.RAST.fbamodel ++ GCF_001424455.1.RAST.fbamodel</th>
+      <td id="T_4a352_row0_col0" class="data row0 col0" >0.794120</td>
+      <td id="T_4a352_row0_col1" class="data row0 col1" >0.692310</td>
+      <td id="T_4a352_row0_col2" class="data row0 col2" >17.000000</td>
+      <td id="T_4a352_row0_col3" class="data row0 col3" >77.001287</td>
+      <td id="T_4a352_row0_col4" class="data row0 col4" >98.762741</td>
+      <td id="T_4a352_row0_col5" class="data row0 col5" >100.000000</td>
+    </tr>
+    <tr>
+      <th id="T_4a352_level0_row1" class="row_heading level0 row1" >GCF_001422815.1.RAST.fbamodel ++ GCF_001421245.1.RAST.fbamodel</th>
+      <td id="T_4a352_row1_col0" class="data row1 col0" >0.657890</td>
+      <td id="T_4a352_row1_col1" class="data row1 col1" >0.694440</td>
+      <td id="T_4a352_row1_col2" class="data row1 col2" >19.000000</td>
+      <td id="T_4a352_row1_col3" class="data row1 col3" >100.824414</td>
+      <td id="T_4a352_row1_col4" class="data row1 col4" >77.829476</td>
+      <td id="T_4a352_row1_col5" class="data row1 col5" >100.000000</td>
+    </tr>
+    <tr>
+      <th id="T_4a352_level0_row2" class="row_heading level0 row2" >GCF_001424505.1.RAST.fbamodel ++ GCF_001421245.1.RAST.fbamodel</th>
+      <td id="T_4a352_row2_col0" class="data row2 col0" >0.818180</td>
+      <td id="T_4a352_row2_col1" class="data row2 col1" >0.750000</td>
+      <td id="T_4a352_row2_col2" class="data row2 col2" >22.000000</td>
+      <td id="T_4a352_row2_col3" class="data row2 col3" >76.233263</td>
+      <td id="T_4a352_row2_col4" class="data row2 col4" >77.829476</td>
+      <td id="T_4a352_row2_col5" class="data row2 col5" >100.000000</td>
+    </tr>
+    <tr>
+      <th id="T_4a352_level0_row3" class="row_heading level0 row3" >GCF_001422325.1.RAST.fbamodel ++ GCF_001421245.1.RAST.fbamodel</th>
+      <td id="T_4a352_row3_col0" class="data row3 col0" >0.705880</td>
+      <td id="T_4a352_row3_col1" class="data row3 col1" >0.666670</td>
+      <td id="T_4a352_row3_col2" class="data row3 col2" >20.000000</td>
+      <td id="T_4a352_row3_col3" class="data row3 col3" >77.001287</td>
+      <td id="T_4a352_row3_col4" class="data row3 col4" >77.829476</td>
+      <td id="T_4a352_row3_col5" class="data row3 col5" >100.000000</td>
+    </tr>
+  </tbody>
+</table>
+
+            </div>
+            <!-- <div class="tab-pane fade" id="nav-mets" role="tabpanel" aria-labelledby="nav-mets-tab">
+                [{'mip_mets': [root['EX_cpd00069_e0'], root['EX_cpd00276_e0'], root['EX_cpd00307_e0'], root['EX_cpd00053_e0'], root['EX_cpd00322_e0'], root['EX_cpd00118_e0'], root['EX_cpd00132_e0'], root['EX_cpd00066_e0'], root['EX_cpd00027_e0'], root['EX_cpd00107_e0'], root['EX_cpd00039_e0'], root['EX_cpd00215_e0'], root['EX_cpd10515_e0'], root['EX_cpd00119_e0'], root['EX_cpd00179_e0'], root['EX_cpd11581_e0'], root['EX_cpd11580_e0']], 'mro_mets': [({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd00794_e0', 'EX_cpd10515_e0', 'EX_cpd00179_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00307_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477478773942, 'EX_cpd00069_e0': 0.012067660460661198, 'EX_cpd00058_e0': 0.00028061591595913103, 'EX_cpd00017_e0': 0.029445492937190024, 'EX_cpd00276_e0': 0.4242830040936696, 'EX_cpd00307_e0': 0.02097770964241892, 'EX_cpd00179_e0': 1.5077268390151592, 'EX_cpd00051_e0': 0.024669682270134094, 'EX_cpd00104_e0': 0.000280615915959131, 'EX_cpd00132_e0': 0.020083080692834796, 'EX_cpd00393_e0': 0.0008418477478773931, 'EX_cpd00107_e0': 0.0375388847540127, 'EX_cpd00156_e0': 0.0352233189091625, 'EX_cpd00063_e0': 0.00028061591595913103, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00039_e0': 0.0285438020490179, 'EX_cpd00205_e0': 0.000280615915959131, 'EX_cpd00028_e0': 0.00028061591595913103, 'EX_cpd10515_e0': 0.0008418477478773931, 'EX_cpd00048_e0': 0.00028061591595913103, 'EX_cpd00119_e0': 0.00792636000737159, 'EX_cpd00151_e0': 1.2966427174079202e-19, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00794_e0': 0.01000423908435776, 'EX_cpd00644_e0': 0.0005612318319184069, 'EX_cpd00264_e0': 0.000280615915959131, 'EX_cpd00254_e0': 0.000280615915959131, 'EX_cpd00007_e0': 0.0012627716218149515, 'EX_cpd00030_e0': 0.00028061591595913103, 'EX_cpd00065_e0': 0.004720191914502181, 'EX_cpd00034_e0': 0.000280615915959131, 'EX_cpd00053_e0': 0.06812154789913727, 'EX_cpd00080_e0': 0.08097447425892337, 'EX_cpd00793_e0': 0.000280615915959131}), ({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd00794_e0', 'EX_cpd10515_e0', 'EX_cpd00179_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00307_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477478773948, 'EX_cpd00058_e0': 0.000280615915959131, 'EX_cpd00017_e0': 0.029445291006706894, 'EX_cpd00307_e0': 0.020977507712267213, 'EX_cpd11580_e0': 0.02484763473517333, 'EX_cpd15603_e0': 0.008175881052483094, 'EX_cpd00179_e0': 1.0133611586196514, 'EX_cpd00051_e0': 0.0246696822701341, 'EX_cpd00104_e0': 0.000280615915959131, 'EX_cpd00218_e0': 0.000561231831646402, 'EX_cpd00393_e0': 0.0008418477478773929, 'EX_cpd11583_e0': 0.03753888475401271, 'EX_cpd11584_e0': 0.00792636000737159, 'EX_cpd00156_e0': 0.0352233189091625, 'EX_cpd00063_e0': 0.0002806159159591311, 'EX_cpd00039_e0': 0.005727662613927046, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00209_e0': 0.021336869420352587, 'EX_cpd00205_e0': 0.0002806159159591311, 'EX_cpd00028_e0': 0.000280615915959131, 'EX_cpd10515_e0': 0.0008418477478773933, 'EX_cpd00048_e0': 0.000280615915959131, 'EX_cpd15605_e0': 0.0038421993759319008, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00794_e0': 0.010004239084357758, 'EX_cpd00644_e0': 0.0005612318319182525, 'EX_cpd00264_e0': 0.000280615915959131, 'EX_cpd01017_e0': 0.00028061591595913103, 'EX_cpd00254_e0': 0.00028061591595913103, 'EX_cpd00007_e0': 0.0007015397898978276, 'EX_cpd00065_e0': 0.004720191914502182, 'EX_cpd00030_e0': 0.0002806159159591311, 'EX_cpd00034_e0': 0.000280615915959131, 'EX_cpd15606_e0': 0.012067660460661198, 'EX_cpd11587_e0': 0.043273913163948706, 'EX_cpd00080_e0': 0.08097407039794928, 'EX_cpd00793_e0': 0.00028061591595912925, 'EX_cpd11581_e0': 0.0200830806928348, 'EX_cpd00322_e0': 0.024179851033723502})]}, {'mip_mets': [root['EX_cpd00080_e0'], root['EX_cpd00084_e0'], root['EX_cpd00033_e0'], root['EX_cpd00051_e0'], root['EX_cpd00118_e0'], root['EX_cpd00132_e0'], root['EX_cpd00066_e0'], root['EX_cpd11581_e0'], root['EX_cpd00136_e0'], root['EX_cpd00107_e0'], root['EX_cpd00069_e0'], root['EX_cpd00246_e0'], root['EX_cpd00277_e0'], root['EX_cpd00039_e0'], root['EX_cpd00129_e0'], root['EX_cpd15604_e0'], root['EX_cpd00119_e0'], root['EX_cpd00024_e0'], root['EX_cpd00182_e0']], 'mro_mets': [({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00322_e0', 'EX_cpd00218_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00215_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477478773932, 'EX_cpd00069_e0': 0.012067660460661205, 'EX_cpd00058_e0': 0.0002806159159591311, 'EX_cpd01080_e0': 0.024916275954454094, 'EX_cpd00017_e0': 0.001964311411713844, 'EX_cpd00654_e0': 1.2899897464598038, 'EX_cpd00084_e0': 0.008456496968442353, 'EX_cpd00051_e0': 0.024950298186093234, 'EX_cpd00104_e0': 0.00028061591595913103, 'EX_cpd00218_e0': 0.0005612318320589001, 'EX_cpd00066_e0': 0.01545194900312432, 'EX_cpd00060_e0': 0.011096446763322014, 'EX_cpd00393_e0': 0.0008418477478773927, 'EX_cpd00107_e0': 0.03753888475401271, 'EX_cpd00156_e0': 0.035223318909228855, 'EX_cpd00063_e0': 0.00028061591595913103, 'EX_cpd00277_e0': 0.0156518597149588, 'EX_cpd00099_e0': 0.0002806159159591311, 'EX_cpd00039_e0': 0.02854380204901787, 'EX_cpd10516_e0': 0.000841847747877393, 'EX_cpd00205_e0': 0.0002806159159591311, 'EX_cpd00215_e0': 0.0002806159159591311, 'EX_cpd00028_e0': 0.0002806159159591311, 'EX_cpd00182_e0': 0.10501146771552722, 'EX_cpd00009_e0': 0.08097460668465378, 'EX_cpd00048_e0': 0.0002806159159591311, 'EX_cpd00119_e0': 0.00792636000737159, 'EX_cpd00149_e0': 0.0002806159159591311, 'EX_cpd00644_e0': 0.0005612318319183814, 'EX_cpd00264_e0': 0.00028061591595911954, 'EX_cpd03847_e0': 0.002501059771087902, 'EX_cpd00254_e0': 0.00028061591595913114, 'EX_cpd00007_e0': 0.6406733673887536, 'EX_cpd00030_e0': 0.00028061591595913103, 'EX_cpd00065_e0': 0.004720191914502229, 'EX_cpd00034_e0': 0.0002806159159591311, 'EX_cpd00793_e0': 0.00028061591595913103, 'EX_cpd00322_e0': 0.02417985103372351}), ({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00322_e0', 'EX_cpd00218_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00215_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477475549427, 'EX_cpd00058_e0': 0.000280615915959131, 'EX_cpd00017_e0': 0.02944555914817441, 'EX_cpd15603_e0': 0.00845649696844238, 'EX_cpd00051_e0': 0.0246696822701341, 'EX_cpd00076_e0': 0.22081181809992617, 'EX_cpd00118_e0': 0.0002806159159591311, 'EX_cpd00104_e0': 0.0002806159159591311, 'EX_cpd00218_e0': 0.0005612318314539154, 'EX_cpd00393_e0': 0.0008418477478773926, 'EX_cpd00136_e0': 0.0002806159159591311, 'EX_cpd11583_e0': 0.037538884754012715, 'EX_cpd00156_e0': 0.035223318909162506, 'EX_cpd00063_e0': 0.0002806159159591311, 'EX_cpd00039_e0': 0.0285438020490179, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00205_e0': 0.000280615915959131, 'EX_cpd00215_e0': 0.00028061591595913103, 'EX_cpd00028_e0': 0.000280615915959131, 'EX_cpd10515_e0': 0.0008418477478773931, 'EX_cpd00048_e0': 0.0002806159159589847, 'EX_cpd15605_e0': 0.015451949003134497, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00644_e0': 0.0005612318319182596, 'EX_cpd00264_e0': 0.0002806159159591311, 'EX_cpd00254_e0': 0.00028061591595913103, 'EX_cpd00007_e0': 1.1422985253126412, 'EX_cpd00030_e0': 0.0002806159159591311, 'EX_cpd00065_e0': 0.004720191914502182, 'EX_cpd00034_e0': 0.0002806159159591311, 'EX_cpd15606_e0': 0.012067660460661201, 'EX_cpd11587_e0': 0.09161647323704382, 'EX_cpd00080_e0': 0.08097460668059801, 'EX_cpd00793_e0': 0.0002806159159591407, 'EX_cpd11581_e0': 0.019654471457986218, 'EX_cpd00322_e0': 0.024179851033723502})]}, {'mip_mets': [root['EX_cpd00039_e0'], root['EX_cpd00132_e0'], root['EX_cpd00066_e0'], root['EX_cpd00107_e0'], root['EX_cpd00118_e0'], root['EX_cpd00082_e0'], root['EX_cpd11580_e0'], root['EX_cpd00129_e0'], root['EX_cpd15604_e0'], root['EX_cpd00106_e0'], root['EX_cpd00137_e0'], root['EX_cpd10515_e0'], root['EX_cpd00119_e0'], root['EX_cpd00051_e0'], root['EX_cpd15605_e0'], root['EX_cpd00264_e0'], root['EX_cpd00065_e0'], root['EX_cpd15606_e0'], root['EX_cpd11588_e0'], root['EX_cpd11581_e0'], root['EX_cpd00136_e0'], root['EX_cpd00053_e0']], 'mro_mets': [({'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd11581_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd00322_e0', 'EX_cpd00218_e0', 'EX_cpd00104_e0', 'EX_cpd15606_e0', 'EX_cpd00215_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00393_e0', 'EX_cpd15605_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477478773947, 'EX_cpd00058_e0': 0.00028061591595913103, 'EX_cpd00017_e0': 0.02944575449217276, 'EX_cpd11580_e0': 0.33417669835838754, 'EX_cpd00137_e0': 0.001683695495754786, 'EX_cpd01329_e0': 0.9089933533590799, 'EX_cpd00051_e0': 0.026661581231972976, 'EX_cpd00104_e0': 0.0002806159159590925, 'EX_cpd00218_e0': 0.000561231831918204, 'EX_cpd00393_e0': 0.0008418477478773677, 'EX_cpd00156_e0': 0.035223318908980096, 'EX_cpd00063_e0': 0.0002806159159591311, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd10516_e0': 0.0008418477478773931, 'EX_cpd15604_e0': 0.03753888475401271, 'EX_cpd00205_e0': 0.00028061591595913103, 'EX_cpd00215_e0': 0.000280615915959131, 'EX_cpd00028_e0': 0.00028061591595913103, 'EX_cpd00119_e0': 0.35615128667307155, 'EX_cpd00048_e0': 0.008737112884401453, 'EX_cpd15605_e0': 0.015451949003134504, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00644_e0': 0.0005612318319183107, 'EX_cpd00254_e0': 0.00028061591595913103, 'EX_cpd00007_e0': 0.0007015397898978279, 'EX_cpd00030_e0': 0.0002806159159591311, 'EX_cpd00065_e0': 0.00472019191450218, 'EX_cpd00034_e0': 0.00028061591595913103, 'EX_cpd15606_e0': 0.012067660460661203, 'EX_cpd00080_e0': 0.0809749973698135, 'EX_cpd00793_e0': 0.0002806159159591311, 'EX_cpd11581_e0': 0.020083080692834803, 'EX_cpd00322_e0': 0.024179851033723505}), ({'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd11581_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd00322_e0', 'EX_cpd00218_e0', 'EX_cpd00104_e0', 'EX_cpd15606_e0', 'EX_cpd00215_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00393_e0', 'EX_cpd15605_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477475549427, 'EX_cpd00058_e0': 0.000280615915959131, 'EX_cpd00017_e0': 0.02944555914817441, 'EX_cpd15603_e0': 0.00845649696844238, 'EX_cpd00051_e0': 0.0246696822701341, 'EX_cpd00076_e0': 0.22081181809992617, 'EX_cpd00118_e0': 0.0002806159159591311, 'EX_cpd00104_e0': 0.0002806159159591311, 'EX_cpd00218_e0': 0.0005612318314539154, 'EX_cpd00393_e0': 0.0008418477478773926, 'EX_cpd00136_e0': 0.0002806159159591311, 'EX_cpd11583_e0': 0.037538884754012715, 'EX_cpd00156_e0': 0.035223318909162506, 'EX_cpd00063_e0': 0.0002806159159591311, 'EX_cpd00039_e0': 0.0285438020490179, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00205_e0': 0.000280615915959131, 'EX_cpd00215_e0': 0.00028061591595913103, 'EX_cpd00028_e0': 0.000280615915959131, 'EX_cpd10515_e0': 0.0008418477478773931, 'EX_cpd00048_e0': 0.0002806159159589847, 'EX_cpd15605_e0': 0.015451949003134497, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00644_e0': 0.0005612318319182596, 'EX_cpd00264_e0': 0.0002806159159591311, 'EX_cpd00254_e0': 0.00028061591595913103, 'EX_cpd00007_e0': 1.1422985253126412, 'EX_cpd00030_e0': 0.0002806159159591311, 'EX_cpd00065_e0': 0.004720191914502182, 'EX_cpd00034_e0': 0.0002806159159591311, 'EX_cpd15606_e0': 0.012067660460661201, 'EX_cpd11587_e0': 0.09161647323704382, 'EX_cpd00080_e0': 0.08097460668059801, 'EX_cpd00793_e0': 0.0002806159159591407, 'EX_cpd11581_e0': 0.019654471457986218, 'EX_cpd00322_e0': 0.024179851033723502})]}, {'mip_mets': [root['EX_cpd00106_e0'], root['EX_cpd10515_e0'], root['EX_cpd00119_e0'], root['EX_cpd00066_e0'], root['EX_cpd00116_e0'], root['EX_cpd00027_e0'], root['EX_cpd00107_e0'], root['EX_cpd00039_e0'], root['EX_cpd00129_e0'], root['EX_cpd00069_e0'], root['EX_cpd00132_e0'], root['EX_cpd00136_e0'], root['EX_cpd15604_e0'], root['EX_cpd00082_e0'], root['EX_cpd00276_e0'], root['EX_cpd00179_e0'], root['EX_cpd00118_e0'], root['EX_cpd00053_e0'], root['EX_cpd00322_e0'], root['EX_cpd00307_e0']], 'mro_mets': [({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd10515_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477478773942, 'EX_cpd00069_e0': 0.012067660460661198, 'EX_cpd00058_e0': 0.00028061591595913103, 'EX_cpd00017_e0': 0.029445492937190024, 'EX_cpd00276_e0': 0.4242830040936696, 'EX_cpd00307_e0': 0.02097770964241892, 'EX_cpd00179_e0': 1.5077268390151592, 'EX_cpd00051_e0': 0.024669682270134094, 'EX_cpd00104_e0': 0.000280615915959131, 'EX_cpd00132_e0': 0.020083080692834796, 'EX_cpd00393_e0': 0.0008418477478773931, 'EX_cpd00107_e0': 0.0375388847540127, 'EX_cpd00156_e0': 0.0352233189091625, 'EX_cpd00063_e0': 0.00028061591595913103, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00039_e0': 0.0285438020490179, 'EX_cpd00205_e0': 0.000280615915959131, 'EX_cpd00028_e0': 0.00028061591595913103, 'EX_cpd10515_e0': 0.0008418477478773931, 'EX_cpd00048_e0': 0.00028061591595913103, 'EX_cpd00119_e0': 0.00792636000737159, 'EX_cpd00151_e0': 1.2966427174079202e-19, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00794_e0': 0.01000423908435776, 'EX_cpd00644_e0': 0.0005612318319184069, 'EX_cpd00264_e0': 0.000280615915959131, 'EX_cpd00254_e0': 0.000280615915959131, 'EX_cpd00007_e0': 0.0012627716218149515, 'EX_cpd00030_e0': 0.00028061591595913103, 'EX_cpd00065_e0': 0.004720191914502181, 'EX_cpd00034_e0': 0.000280615915959131, 'EX_cpd00053_e0': 0.06812154789913727, 'EX_cpd00080_e0': 0.08097447425892337, 'EX_cpd00793_e0': 0.000280615915959131}), ({'EX_cpd00039_e0', 'EX_cpd00051_e0', 'EX_cpd00028_e0', 'EX_cpd00644_e0', 'EX_cpd00063_e0', 'EX_cpd00034_e0', 'EX_cpd00065_e0', 'EX_cpd00007_e0', 'EX_cpd00030_e0', 'EX_cpd00080_e0', 'EX_cpd10515_e0', 'EX_cpd00104_e0', 'EX_cpd00793_e0', 'EX_cpd00254_e0', 'EX_cpd00058_e0', 'EX_cpd00017_e0', 'EX_cpd00205_e0', 'EX_cpd00149_e0', 'EX_cpd00156_e0', 'EX_cpd00099_e0', 'EX_cpd00048_e0', 'EX_cpd00264_e0', 'EX_cpd00393_e0', 'EX_cpd00220_e0'}, {'EX_cpd00220_e0': 0.0008418477475549427, 'EX_cpd00058_e0': 0.000280615915959131, 'EX_cpd00017_e0': 0.02944555914817441, 'EX_cpd15603_e0': 0.00845649696844238, 'EX_cpd00051_e0': 0.0246696822701341, 'EX_cpd00076_e0': 0.22081181809992617, 'EX_cpd00118_e0': 0.0002806159159591311, 'EX_cpd00104_e0': 0.0002806159159591311, 'EX_cpd00218_e0': 0.0005612318314539154, 'EX_cpd00393_e0': 0.0008418477478773926, 'EX_cpd00136_e0': 0.0002806159159591311, 'EX_cpd11583_e0': 0.037538884754012715, 'EX_cpd00156_e0': 0.035223318909162506, 'EX_cpd00063_e0': 0.0002806159159591311, 'EX_cpd00039_e0': 0.0285438020490179, 'EX_cpd00099_e0': 0.00028061591595913103, 'EX_cpd00205_e0': 0.000280615915959131, 'EX_cpd00215_e0': 0.00028061591595913103, 'EX_cpd00028_e0': 0.000280615915959131, 'EX_cpd10515_e0': 0.0008418477478773931, 'EX_cpd00048_e0': 0.0002806159159589847, 'EX_cpd15605_e0': 0.015451949003134497, 'EX_cpd00149_e0': 0.00028061591595913103, 'EX_cpd00644_e0': 0.0005612318319182596, 'EX_cpd00264_e0': 0.0002806159159591311, 'EX_cpd00254_e0': 0.00028061591595913103, 'EX_cpd00007_e0': 1.1422985253126412, 'EX_cpd00030_e0': 0.0002806159159591311, 'EX_cpd00065_e0': 0.004720191914502182, 'EX_cpd00034_e0': 0.0002806159159591311, 'EX_cpd15606_e0': 0.012067660460661201, 'EX_cpd11587_e0': 0.09161647323704382, 'EX_cpd00080_e0': 0.08097460668059801, 'EX_cpd00793_e0': 0.0002806159159591407, 'EX_cpd11581_e0': 0.019654471457986218, 'EX_cpd00322_e0': 0.024179851033723502})]}]
+            </div> -->
+        </div>
+    </body>
+</html>

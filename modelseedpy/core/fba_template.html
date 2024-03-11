@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+	<title>COBRApyBasedFBA Results</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
+    <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
+    <style>
+        table, th, td {
+          border: 1px solid black;
+          border-collapse: collapse;
+        }
+        th, td {
+          padding: 5px;
+        }
+        th {
+          text-align: center;
+        }
+    </style>
+</head>
+<body class="container">
+<div>
+    <h1>COBRApyBasedFBA Results</h1>
+	<ul class="nav nav-tabs" id="nav-tab" role="tablist">
+        <li><a class="nav-item nav-link active" id="nav-summary-tab" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="true">Summary</a> </li>
+		<li><a class="nav-item nav-link" id="nav-overview-tab" data-toggle="tab" href="#nav-overview" role="tab" aria-controls="nav-overview" aria-selected="false">Overview</a> </li>
+		<li><a class="nav-item nav-link" id="nav-atp-tab" data-toggle="tab" href="#nav-atp" role="tab" aria-controls="nav-overview" aria-selected="false">ATP</a> </li>
+		<li><a class="nav-item nav-link" id="nav-reactions-tab" data-toggle="tab" href="#nav-reactions" role="tab" aria-controls="nav-reactions" aria-selected="false">Reactions</a> </li>
+		<li><a class="nav-item nav-link" id="nav-compounds-tab" data-toggle="tab" href="#nav-compounds" role="tab" aria-controls="nav-compounds" aria-selected="false">Compounds</a> </li>
+        <li><a class="nav-item nav-link" id="nav-ex-reactions-tab" data-toggle="tab" href="#nav-ex-reactions" role="tab" aria-controls="nav-ex-reactions" aria-selected="false">Exchange Reactions</a> </li>
+        <li><a class="nav-item nav-link" id="nav-genes-tab" data-toggle="tab" href="#nav-genes" role="tab" aria-controls="nav-genes" aria-selected="false">Essential Genes</a> </li>
+	</ul>
+	<div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-summary" role="tabpanel" aria-labelledby="nav-summary-tab">
+            <p><small>Note: flux units are in (mmol/gm CDW hr) except for biomass flux which is measured in (gm/gm CDW hr)</small></p>
+            <h2>FBA summary</h2>
+            <table style="width:100%">
+                <tr>
+                    <th>IN FLUXES (ID)</th>
+                    <th>IN FLUXES (FLUX)</th>
+                    <th>OUT FLUXES (ID)</th>
+                    <th>OUT FLUXES (FLUX)</th>
+                    <th>OBJECTIVES (ID)</th>
+                    <th>OBJECTIVES (FLUX)</th>
+                </tr>
+                {% for row in summary %}
+                <tr>
+                    {% for entry in row %}
+                        <td style="text-align: center">{{ entry }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+		<div class="tab-pane fade" id="nav-overview" role="tabpanel" aria-labelledby="nav-overview-tab">
+            {% if atp_summary.is_atp_summary %}
+                <table style="width:100%">
+                    <tr>
+                    <th>SIDE</th>
+                    <th>NAME (ID)</th>
+                    <th>PERCENT</th>
+                    <th>FLUX</th>
+                    <th>REACTION</th>
+                    </tr>
+                    {% for row in atp_summary.summary %}
+                        <tr>
+                        {% for entry in row %}
+                            <td style="text-align: center">{{ entry }}</td>
+                        {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </table>
+            {% else %}
+                {{atp_summary.summary}}
+            {% endif %}
+		</div>
+		<div class="tab-pane fade" id="nav-atp" role="tabpanel" aria-labelledby="nav-overview-tab">
+			<table class="table table-striped table-bordered">
+				<tbody>
+                    {% for data in atp_summary %}
+                        <tr>
+                            <td>{{ data.name }}</td>
+                            <td>{{ data.value }}</td>
+                        </tr>  
+                    {% endfor %}
+				</tbody>
+			</table>
+		</div>
+        <div class="tab-pane fade" id="nav-reactions" role="tabpanel" aria-labelledby="nav-reactions-tab">
+            {% if reaction_tab.is_reactions %}
+                <table id="table-reactions" class="table table-striped table-bordered" style="width:100%">
+                    <tr>
+                        <th>REACTION (ID)</th>
+                        <th>NAME</th>
+                        <th>EQUATION</th>
+                        <th>GENES</th>
+                        <th>GAPFILLING</th>
+                        </tr>
+                        {% for rxn in reactions_tab.reactions %}
+                            <tr>
+                            {% for entry in rxn %}
+                                <td style="text-align: center">{{ entry }}</td>
+                            {% endfor %}
+                            </tr>
+                        {% endfor %}
+                </table>
+            {% else %}
+                <p> {{ reaction_tab.help }} </p>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="nav-compounds" role="tabpanel" aria-labelledby="nav-reactions-tab">
+            {% if reaction_tab.is_reactions %}
+                <table id="table-compounds" class="table table-striped table-bordered" style="width:100%">
+                    <tr>
+                        <th>REACTION (ID)</th>
+                        <th>NAME</th>
+                        <th>EQUATION</th>
+                        <th>GENES</th>
+                        <th>GAPFILLING</th>
+                        </tr>
+                        {% for rxn in reactions_tab.reactions %}
+                            <tr>
+                            {% for entry in rxn %}
+                                <td style="text-align: center">{{ entry }}</td>
+                            {% endfor %}
+                            </tr>
+                        {% endfor %}
+                </table>
+            {% else %}
+                <p> {{ reaction_tab.help }} </p>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="nav-ex-reactions" role="tabpanel" aria-labelledby="nav-ex-reactions-tab">
+            {% if ex_reaction_tab.is_reactions %}
+                <table id="table-ex-reactions" class="table table-striped table-bordered" style="width:100%">
+                    <tr>
+                        <th>REACTION (ID)</th>
+                        <th>NAME</th>
+                        <th>EQUATION</th>
+                        <th>GENES</th>
+                        <th>GAPFILLING</th>
+                        </tr>
+                        {% for rxn in ex_reaction_tab.reactions %}
+                            <tr>
+                            {% for entry in rxn %}
+                                <td style="text-align: center">{{ entry }}</td>
+                            {% endfor %}
+                            </tr>
+                        {% endfor %}
+                </table>
+            {% else %}
+                <p> {{ ex_reaction_tab.help }} </p>
+            {% endif %}
+        </div>
+        <div class="tab-pane fade" id="nav-genes" role="tabpanel" aria-labelledby="nav-genes-tab">
+            {% if essential_genes_tab.is_essential_genes %}
+                <table id="table-genes" class="table table-striped table-bordered" style="width:100%"></table>
+            {% else %}
+                <p> {{ essential_genes_tab.help }} </p>
+            {% endif %}
+        </div>
+	</div>
+</div>
+<script>
+$(document).ready(function() {
+    "use strict";
+    var reactions = {
+        data: {{ reaction_tab.reactions|safe }},
+        cols: {
+            id: {
+                title: "Reaction",
+                data:   d => d.id,
+            },
+            name: {
+                title: "Name",
+                data:   d => d.name,
+            },
+            flux: {
+                title: "Flux (mmol/gm CDW hr)",
+                data:   d => d.flux,
+            },
+            min_flux: {
+                title: "Min flux (mmol/gm CDW hr)",
+                data:   d => d.min_flux,
+            },
+            max_flux: {
+                title: "Max flux (mmol/gm CDW hr)",
+                data:   d => d.max_flux,
+            },
+            class_: {
+                title: "Class",
+                data:   d => d.class,
+            },
+            equation: {
+                title: "Equation",
+                data:   d => d.equation,
+            }
+        },
+        colOrder: [
+            'id',
+            'name',
+            'flux',
+            'min_flux',
+            'max_flux',
+            'class_',
+            'equation'
+        ],
+    },
+    ex_reactions = {
+        data: {{ ex_reaction_tab.reactions|safe }},
+        cols: {
+            id: {
+                title: "Compound",
+                data:   d => d.id,
+            },
+            name: {
+                title: "Exchange Reaction",
+                data:   d => d.name,
+            },
+            flux: {
+                title: "Echange Flux (mmol/gm CDW hr)",
+                data:   d => d.flux,
+            },
+            min_flux: {
+                title: "Min Exchange (mmol/gm CDW hr)",
+                data:   d => d.min_flux,
+            },
+            max_flux: {
+                title: "Max Exchange (mmol/gm CDW hr)",
+                data:   d => d.max_flux,
+            },
+            class_: {
+                title: "Class",
+                data:   d => d.class,
+            },
+            equation: {
+                title: "Formula",
+                data:   d => d.equation,
+            }
+        },
+        colOrder: [
+            'id',
+            'name',
+            'flux',
+            'min_flux',
+            'max_flux',
+            'class_',
+            'equation'
+        ],
+    },
+    essential_genes = {
+        data: {{ essential_genes_tab.essential_genes|safe }},
+        cols: {
+            id: {
+                title: "Name",
+                data:   d => d.name,
+            },
+            essential: {
+                title: "Essential",
+                data:   d => d.essential,
+            }
+        },
+        colOrder: [
+            'id',
+            'essential'
+        ],
+    }
+
+    $('#nav-tab a').on('click', function (e) {
+      e.preventDefault()
+      $(this).tab('show')
+    })
+
+    $('a[data-toggle="tab"]').on( 'shown.bs.tab', function (e) {
+        $.fn.dataTable.tables( {visible: true, api: true} ).columns.adjust();
+    } );
+
+    $('#table-reactions').DataTable( {
+        data: Object.values( reactions.data ),
+        columns: reactions.colOrder.map( e => reactions.cols[ e ] ),
+    } );
+
+    $('#table-ex-reactions').DataTable( {
+        data: Object.values( ex_reactions.data ),
+        columns: ex_reactions.colOrder.map( e => ex_reactions.cols[ e ] ),
+    } );
+
+    $('#table-genes').DataTable( {
+        data: Object.values( essential_genes.data ),
+        columns: essential_genes.colOrder.map( e => essential_genes.cols[ e ] ),
+    } );
+
+
+} );
+</script>
+</body>
+</html>

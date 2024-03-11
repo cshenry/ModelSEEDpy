@@ -1,0 +1,138 @@
+{
+  "metadata" : [
+    [
+      91,
+      "GCF_001423105.1.RAST.mdl",
+      "KBaseFBA.FBAModel-15.0",
+      "2023-08-20T01:46:57+0000",
+      1,
+      "freiburgermsu",
+      154981,
+      "freiburgermsu:narrative_1692451483798",
+      "03f291c043ae0949b7d818f3a6a198f5",
+      1275963,
+      {
+        "Genome" : "154981/15/2",
+        "Name" : "Frondihabitans sp. Leaf304",
+        "Number biomasses" : "1",
+        "Number compartments" : "2",
+        "Number compounds" : "1026",
+        "Number gapfills" : "1",
+        "Number gapgens" : "0",
+        "Number reactions" : "1012",
+        "Source" : "",
+        "Source ID" : "",
+        "Type" : ""
+      }
+    ]
+  ],
+  "provenance" : [
+    {
+      "copy_source_inaccessible" : null,
+      "created" : "2023-08-20T01:46:56+0000",
+      "creator" : "freiburgermsu",
+      "extracted_ids" : null,
+      "info" : [
+        91,
+        "GCF_001423105.1.RAST.mdl",
+        "KBaseFBA.FBAModel-15.0",
+        "2023-08-20T01:46:57+0000",
+        1,
+        "freiburgermsu",
+        154981,
+        "freiburgermsu:narrative_1692451483798",
+        "03f291c043ae0949b7d818f3a6a198f5",
+        1275963,
+        {
+          "Genome" : "154981/15/2",
+          "Name" : "Frondihabitans sp. Leaf304",
+          "Number biomasses" : "1",
+          "Number compartments" : "2",
+          "Number compounds" : "1026",
+          "Number gapfills" : "1",
+          "Number gapgens" : "0",
+          "Number reactions" : "1012",
+          "Source" : "",
+          "Source ID" : "",
+          "Type" : ""
+        }
+      ],
+      "provenance" : [
+        {
+          "custom" : { },
+          "description" : "build_metabolic_models",
+          "external_data" : [ ],
+          "input_ws_objects" : [
+            "154981/23/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/20/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/18/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/17/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/15/2",
+            "154981/21/1",
+            "154981/21/1"
+          ],
+          "intermediate_incoming" : [ ],
+          "intermediate_outgoing" : [ ],
+          "method" : "build_metabolic_models",
+          "method_params" : [
+            {
+              "atp_safe" : 1,
+              "automated_atp_evaluation" : 1,
+              "core_template_ref" : null,
+              "forced_atp_list" : [ ],
+              "gapfilling_media_list" : [
+                "154981/21/1"
+              ],
+              "genome_refs" : [
+                "154981/23/2",
+                "154981/20/2",
+                "154981/18/2",
+                "154981/17/2",
+                "154981/15/2",
+                "154981/14/2",
+                "154981/13/2"
+              ],
+              "gs_template" : "auto",
+              "gs_template_ref" : null,
+              "run_gapfilling" : 1,
+              "suffix" : ".mdl",
+              "workspace" : "freiburgermsu:narrative_1692451483798"
+            }
+          ],
+          "resolved_ws_objects" : [
+            "154981/23/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/20/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/18/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/17/2",
+            "154981/21/1",
+            "154981/21/1",
+            "154981/15/2",
+            "154981/21/1",
+            "154981/21/1"
+          ],
+          "service" : "ModelSEEDReconstruction",
+          "service_ver" : "0.1.0",
+          "subactions" : [ ]
+        }
+      ],
+      "refs" : [
+        "154981/21/1",
+        "154981/15/2"
+      ]
+    }
+  ]
+}

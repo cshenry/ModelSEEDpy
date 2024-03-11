@@ -1,0 +1,102 @@
+{
+  "metadata" : [
+    [
+      95,
+      "GCF_001422185.1.RAST.mdl",
+      "KBaseFBA.FBAModel-15.0",
+      "2023-08-20T02:12:56+0000",
+      1,
+      "freiburgermsu",
+      154981,
+      "freiburgermsu:narrative_1692451483798",
+      "bfd559b04455ca7697fcc9ba213c51da",
+      1429962,
+      {
+        "Genome" : "154981/11/2",
+        "Name" : "Sphingomonas sp. Leaf257",
+        "Number biomasses" : "1",
+        "Number compartments" : "2",
+        "Number compounds" : "1130",
+        "Number gapfills" : "0",
+        "Number gapgens" : "0",
+        "Number reactions" : "1103",
+        "Source" : "",
+        "Source ID" : "",
+        "Type" : ""
+      }
+    ]
+  ],
+  "provenance" : [
+    {
+      "copy_source_inaccessible" : null,
+      "created" : "2023-08-20T02:12:56+0000",
+      "creator" : "freiburgermsu",
+      "extracted_ids" : null,
+      "info" : [
+        95,
+        "GCF_001422185.1.RAST.mdl",
+        "KBaseFBA.FBAModel-15.0",
+        "2023-08-20T02:12:56+0000",
+        1,
+        "freiburgermsu",
+        154981,
+        "freiburgermsu:narrative_1692451483798",
+        "bfd559b04455ca7697fcc9ba213c51da",
+        1429962,
+        {
+          "Genome" : "154981/11/2",
+          "Name" : "Sphingomonas sp. Leaf257",
+          "Number biomasses" : "1",
+          "Number compartments" : "2",
+          "Number compounds" : "1130",
+          "Number gapfills" : "0",
+          "Number gapgens" : "0",
+          "Number reactions" : "1103",
+          "Source" : "",
+          "Source ID" : "",
+          "Type" : ""
+        }
+      ],
+      "provenance" : [
+        {
+          "custom" : { },
+          "description" : "build_metabolic_models",
+          "external_data" : [ ],
+          "input_ws_objects" : [
+            "154981/11/2"
+          ],
+          "intermediate_incoming" : [ ],
+          "intermediate_outgoing" : [ ],
+          "method" : "build_metabolic_models",
+          "method_params" : [
+            {
+              "atp_safe" : 1,
+              "automated_atp_evaluation" : 1,
+              "core_template_ref" : null,
+              "forced_atp_list" : [ ],
+              "gapfilling_media_list" : [ ],
+              "genome_refs" : [
+                "154981/11/2",
+                "154981/12/2"
+              ],
+              "gs_template" : "auto",
+              "gs_template_ref" : null,
+              "run_gapfilling" : 1,
+              "suffix" : ".mdl",
+              "workspace" : "freiburgermsu:narrative_1692451483798"
+            }
+          ],
+          "resolved_ws_objects" : [
+            "154981/11/2"
+          ],
+          "service" : "ModelSEEDReconstruction",
+          "service_ver" : "0.1.0",
+          "subactions" : [ ]
+        }
+      ],
+      "refs" : [
+        "154981/11/2"
+      ]
+    }
+  ]
+}
