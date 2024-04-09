@@ -125,7 +125,6 @@ class CommunityModelSpecies:
 
 
 class MSCommunity:
-
     def __init__(
         self,
         model=None,  # the model that will be defined
