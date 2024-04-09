@@ -27,7 +27,6 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Intended Audience :: Science/Research",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -35,7 +34,7 @@ setup(
     ],
     install_requires=[
         "networkx >= 2.4",
-        "cobra >= 0.28.0",
+        "cobra >= 0.29.0",
         "scikit-learn == 1.2.0",  # version lock for pickle ML models
         "scipy >= 1.5.4",
         "chemicals >= 1.0.13",
