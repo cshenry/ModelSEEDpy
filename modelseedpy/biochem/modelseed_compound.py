@@ -57,7 +57,9 @@ class ModelSEEDCompound2(Metabolite):
             self.flags |= set(flags)
 
     def to_template_compartment_compound(self, compartment):
-        cpd_id = f"{self.seed_id}_{compartment}"
+        cpd_id = f"{self.seed_id}"
+        if compartment:
+            cpd_id += f"_{compartment}"
         # build Template Compound
         metabolite = MSTemplateMetabolite(
             self.seed_id,
@@ -71,6 +73,8 @@ class ModelSEEDCompound2(Metabolite):
             self.abbr,
         )
         # build Template Compartment Compound
+        if compartment is None:
+            compartment = 'x'
         res = MSTemplateSpecies(cpd_id, self.charge, compartment, metabolite.id)
 
         # assign Compound to Compartment Compound

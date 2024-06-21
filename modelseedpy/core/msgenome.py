@@ -8,6 +8,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_SPLIT = " "
 
 
+def to_fasta(features, filename, l=80, fn_header=None):
+    with open(filename, "w") as fh:
+        for feature in features:
+            h = f">{feature.id}\n"
+            if fn_header:
+                h = fn_header(feature)
+            fh.write(h)
+            lines = [
+                feature.seq[i: i + l] + "\n" for i in range(0, len(feature.seq), l)
+            ]
+            for line in lines:
+                fh.write(line)
+    return filename
+
+
 def normalize_role(s):
     s = s.strip().lower()
     s = re.sub(r"[\W_]+", "", s)
@@ -111,17 +126,7 @@ class MSGenome:
         return genome
 
     def to_fasta(self, filename, l=80, fn_header=None):
-        with open(filename, "w") as fh:
-            for feature in self.features:
-                h = f">{feature.id}\n"
-                if fn_header:
-                    h = fn_header(feature)
-                fh.write(h)
-                lines = [
-                    feature.seq[i : i + l] + "\n" for i in range(0, len(feature.seq), l)
-                ]
-                for line in lines:
-                    fh.write(line)
+        to_fasta(self.features, filename, l, fn_header)
         return filename
 
     @staticmethod

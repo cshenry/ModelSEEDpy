@@ -174,8 +174,11 @@ class ModelSEEDReaction2(Reaction):
             raise ValueError("invalid compartment setup")
         from modelseedpy.core.msmodel import get_cmp_token
 
+        rxn_id = f"{self.id}"
         reaction_compartment = get_cmp_token(compartment_setup.values())
-        rxn_id = f"{self.id}_{reaction_compartment}"
+        if reaction_compartment:
+            rxn_id += f"_{reaction_compartment}"
+
         name = f"{self.name}"
         metabolites = {}
         for m, v in self.metabolites.items():
