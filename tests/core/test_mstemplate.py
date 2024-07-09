@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import pytest
+
 from modelseedpy.core.mstemplate import (
     MSTemplate,
     MSTemplateMetabolite,
