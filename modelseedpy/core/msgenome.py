@@ -16,7 +16,7 @@ def to_fasta(features, filename, l=80, fn_header=None):
                 h = fn_header(feature)
             fh.write(h)
             lines = [
-                feature.seq[i: i + l] + "\n" for i in range(0, len(feature.seq), l)
+                feature.seq[i : i + l] + "\n" for i in range(0, len(feature.seq), l)
             ]
             for line in lines:
                 fh.write(line)
@@ -38,6 +38,17 @@ def read_fasta(f, split=DEFAULT_SPLIT, h_func=None):
     else:
         with open(f, "r") as fh:
             return parse_fasta_str(fh.read(), split, h_func)
+
+
+def read_fasta2(f, split=DEFAULT_SPLIT, h_func=None):
+    if f.endswith(".gz"):
+        import gzip
+
+        with gzip.open(f, "rb") as fh:
+            return extract_features(fh.read().decode("utf-8"), split, h_func)
+    else:
+        with open(f, "r") as fh:
+            return extract_features(fh.read(), split, h_func)
 
 
 def parse_fasta_str(faa_str, split=DEFAULT_SPLIT, h_func=None):
@@ -65,6 +76,37 @@ def parse_fasta_str(faa_str, split=DEFAULT_SPLIT, h_func=None):
                 seq.seq += line.strip()
     if seq and seq.seq and len(seq.seq) > 0:
         features.append(seq)
+    return features
+
+
+def extract_features(faa_str, split=DEFAULT_SPLIT, h_func=None):
+    features = []
+    active_seq = None
+    seq_lines = []
+    for line in faa_str.split("\n"):
+        if line.startswith(">"):
+            if active_seq is not None:
+                active_seq.seq = "".join(seq_lines)
+                features.append(active_seq)
+                seq_lines = []
+            seq_id = line[1:]
+            desc = None
+            if h_func:
+                seq_id, desc = h_func(seq_id)
+            elif split:
+                header_data = line[1:].split(split, 1)
+                seq_id = header_data[0]
+                if len(header_data) > 1:
+                    desc = header_data[1]
+            active_seq = MSFeature(seq_id, "", desc)
+        else:
+            seq_lines.append(line.strip())
+
+    # add last sequence
+    if len(seq_lines) > 0:
+        active_seq.seq = "".join(seq_lines)
+        features.append(active_seq)
+
     return features
 
 
@@ -123,6 +165,12 @@ class MSGenome:
     ):  # !!! the contigs argument is never used
         genome = MSGenome()
         genome.features += read_fasta(filename, split, h_func)
+        return genome
+
+    @staticmethod
+    def from_fasta2(filename, split=" ", h_func=None):
+        genome = MSGenome()
+        genome.features += read_fasta2(filename, split, h_func)
         return genome
 
     def to_fasta(self, filename, l=80, fn_header=None):

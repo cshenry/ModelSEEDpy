@@ -74,7 +74,7 @@ class ModelSEEDCompound2(Metabolite):
         )
         # build Template Compartment Compound
         if compartment is None:
-            compartment = 'x'
+            compartment = "x"
         res = MSTemplateSpecies(cpd_id, self.charge, compartment, metabolite.id)
 
         # assign Compound to Compartment Compound
