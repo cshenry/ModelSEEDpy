@@ -14,7 +14,7 @@ from modelseedpy.helpers import config
 
 __author__ = "Christopher Henry"
 __email__ = "chenry@anl.gov"
-__version__ = "0.3.3"
+__version__ = "0.4.0"
 
 logger = logging.getLogger(__name__)
 

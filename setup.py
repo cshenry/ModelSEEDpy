@@ -10,7 +10,7 @@ with open("LICENSE") as f:
 
 setup(
     name="ModelSEEDpy",
-    version="0.3.3",
+    version="0.4.0",
     description="Python package for building and analyzing models using ModelSEED",
     long_description_content_type="text/x-rst",
     long_description=readme,
@@ -40,7 +40,8 @@ setup(
         "chemicals >= 1.0.13",
         "chemw >= 0.3.2",
         "matplotlib >= 3.0.0",
-        "pyeda",
+        "Jinja2 >= 3.1.4",
+        "sympy >=1.12.0",
     ],
     tests_require=[
         "pytest",

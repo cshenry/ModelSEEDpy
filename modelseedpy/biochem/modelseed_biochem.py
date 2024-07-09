@@ -250,6 +250,56 @@ def _load_metabolites(
     return metabolites
 
 
+def build_modelseed_reaction(
+    o, names, aliases, ec_numbers, metabolites_indexed, metabolites
+):
+    if "id" in o and o["id"]:
+        rxn_names = set()
+        if o["id"] in names:
+            rxn_names |= names[o["id"]]
+        (
+            lower_bound,
+            upper_bound,
+        ) = get_reaction_constraints_from_direction(o.get("reversibility"))
+        stoichiometry = o.get("stoichiometry")
+        reaction_metabolites = {}
+        for s in stoichiometry:
+            cmp_token = s["compartment"]
+            value = s["coefficient"]
+            cpd = metabolites[s["compound"]]
+            cpd_index_id = f"{cpd.id}_{cmp_token}"
+            if cpd_index_id not in metabolites_indexed:
+                cpd_token = cpd.copy()
+                cpd_token.id = f"{cpd.id}_{cmp_token}"
+                cpd_token.base_id = cpd.id
+                cpd_token.compartment = cmp_token
+                metabolites_indexed[cpd_index_id] = cpd_token
+            reaction_metabolites[metabolites_indexed[cpd_index_id]] = value
+        rxn = ModelSEEDReaction2(
+            o["id"],
+            o.get("name"),
+            "",
+            lower_bound,
+            upper_bound,
+            "",
+            rxn_names,
+            o.get("deltag"),
+            o.get("deltagerr"),
+            o.get("is_obsolete"),
+            None,
+            o.get("status"),
+            o.get("source"),
+        )
+        rxn.add_metabolites(reaction_metabolites)
+        if rxn.id in aliases:
+            rxn.annotation.update(aliases[rxn.id])
+        if rxn.id in ec_numbers:
+            rxn.annotation["ec-code"] = ec_numbers[rxn.id]
+        return rxn
+    else:
+        raise ValueError("unable to build reaction")
+
+
 def _load_reactions(
     database_path: str, metabolites: dict, aliases=None, names=None, ec_numbers=None
 ) -> (dict, dict):
