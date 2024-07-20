@@ -529,6 +529,8 @@ class MSTemplateBiomass:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -543,6 +545,8 @@ class MSTemplateBiomass:
         :param lipid:float
         :param cellwall:float
         :param cofactor:float
+        :param pigment:float
+        :param carbohydrate:float
         :param energy:float
         :param other:float
         """
@@ -555,6 +559,8 @@ class MSTemplateBiomass:
         self.lipid = lipid
         self.cellwall = cellwall
         self.cofactor = cofactor
+        self.pigment = pigment
+        self.carbohydrate = carbohydrate
         self.energy = energy
         self.other = other
         self.templateBiomassComponents = DictList()
@@ -573,6 +579,8 @@ class MSTemplateBiomass:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -586,6 +594,8 @@ class MSTemplateBiomass:
             lipid,
             cellwall,
             cofactor,
+            pigment,
+            carbohydrate,
             energy,
             other,
         )
@@ -633,6 +643,8 @@ class MSTemplateBiomass:
             d["lipid"],
             d["cellwall"],
             d["cofactor"],
+            d["pigment"],
+            d["carbohydrate"],
             d["energy"],
             d["other"],
         )
@@ -689,6 +701,8 @@ class MSTemplateBiomass:
     def build_biomass(self, model, index="0", classic=False, GC=0.5, add_to_model=True):
         types = [
             "cofactor",
+            "pigment",
+            "carbohydrate",
             "lipid",
             "cellwall",
             "protein",
@@ -699,6 +713,8 @@ class MSTemplateBiomass:
         ]
         type_abundances = {
             "cofactor": self.cofactor,
+            "pigment": self.pigment,
+            "carbohydrate": self.carbohydrate,
             "lipid": self.lipid,
             "cellwall": self.cellwall,
             "protein": self.protein,
@@ -876,6 +892,8 @@ class MSTemplateBiomass:
             "lipid": self.lipid,
             "cellwall": self.cellwall,
             "cofactor": self.cofactor,
+            "pigment": self.pigment,
+            "carbohydrate": self.carbohydrate,
             "energy": self.energy,
             "other": self.other,
             "templateBiomassComponents": [],
@@ -1122,6 +1140,8 @@ class MSTemplate:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -1139,6 +1159,8 @@ class MSTemplate:
             lipid,
             cellwall,
             cofactor,
+            pigment,
+            carbohydrate,
             energy,
             other,
         )
