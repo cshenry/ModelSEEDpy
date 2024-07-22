@@ -1,17 +1,22 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 import logging
 import cobra
 import re
 import json
+import numpy as np
+import pandas as pd
 from optlang.symbolics import Zero, add
 from modelseedpy.core import FBAHelper  # !!! the import is never used
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.core.msmodelutl import MSModelUtil
 from modelseedpy.core.exceptions import GapfillingError
+from collections import defaultdict
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(
-    logging.INFO#WARNING
+    logging.INFO  # WARNING
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
 
@@ -148,11 +153,13 @@ class MSGapfill:
             self.gfpkgmgr.getpkg("GapfillingPkg").filter_database_based_on_tests(
                 self.test_conditions
             )
-            gf_filter = self.gfpkgmgr.getpkg("GapfillingPkg").modelutl.get_attributes("gf_filter", {})
+            gf_filter = self.gfpkgmgr.getpkg("GapfillingPkg").modelutl.get_attributes(
+                "gf_filter", {}
+            )
             base_filter = self.mdlutl.get_attributes("gf_filter", {})
             for media_id in gf_filter:
                 base_filter[media_id] = gf_filter[media_id]
-            
+
         # Testing if gapfilling can work after filtering
         if not self.test_gapfill_database(media, target, before_filtering=False):
             return False
@@ -176,7 +183,7 @@ class MSGapfill:
             Name or expression describing the reaction or combination of reactions to the optimized
         minimum_obj : double
             Value to use for the minimal objective threshold that the model must be gapfilled to achieve
-        binary_check : bool 
+        binary_check : bool
             Indicates if the solution should be checked to ensure it is minimal in the number of reactions involved
         prefilter : bool
             Indicates if the gapfilling database should be prefiltered using the tests provided in the MSGapfill constructor before running gapfilling
@@ -264,6 +271,7 @@ class MSGapfill:
         binary_check=False,
         prefilter=True,
         check_for_growth=True,
+        simultaneous_gapfilling=False,
     ):
         """Run gapfilling across an array of media conditions ultimately using different integration policies: simultaneous gapfilling, independent gapfilling, cumulative gapfilling
         Parameters
@@ -276,32 +284,41 @@ class MSGapfill:
             Media-specific minimal objective thresholds that the model must be gapfilled to achieve
         default_minimum_objective : double
             Default value to use for the minimal objective threshold that the model must be gapfilled to achieve
-        binary_check : bool 
+        binary_check : bool
             Indicates if the solution should be checked to ensure it is minimal in the number of reactions involved
         prefilter : bool
             Indicates if the gapfilling database should be prefiltered using the tests provided in the MSGapfill constructor before running gapfilling
         check_for_growth : bool
             Indicates if the model should be checked to ensure that the resulting gapfilling solution produces a nonzero objective
         """
-        
+
         if not default_minimum_objective:
             default_minimum_objective = self.default_minimum_objective
-        first = True
         solution_dictionary = {}
-        for item in media_list:
-            minimum_obj = default_minimum_objective
-            if item in minimum_objectives:
-                minimum_obj = minimum_objectives[item]
-            if first:
-                solution_dictionary[item] = self.run_gapfilling(
-                    item, target, minimum_obj, binary_check, prefilter, check_for_growth
-                )
-            else:
-                solution_dictionary[item] = self.run_gapfilling(
-                    item, None, minimum_obj, binary_check, False, check_for_growth
-                )
-            false = False
-        return solution_dictionary
+        if simultaneous_gapfilling:
+            for item in media_list:
+                pass
+        else:
+            first = True
+            for item in media_list:
+                minimum_obj = default_minimum_objective
+                if item in minimum_objectives:
+                    minimum_obj = minimum_objectives[item]
+                if first:
+                    solution_dictionary[item] = self.run_gapfilling(
+                        item,
+                        target,
+                        minimum_obj,
+                        binary_check,
+                        prefilter,
+                        check_for_growth,
+                    )
+                else:
+                    solution_dictionary[item] = self.run_gapfilling(
+                        item, None, minimum_obj, binary_check, False, check_for_growth
+                    )
+                false = False
+            return solution_dictionary
 
     def integrate_gapfill_solution(
         self, solution, cumulative_solution=[], link_gaps_to_objective=True
@@ -347,8 +364,8 @@ class MSGapfill:
                     cumulative_solution.append([rxn_id, "<"])
                     rxn.upper_bound = 0
                     rxn.lower_bound = -100
-        
-        #Sometimes for whatever reason, the solution includes useless reactions that should be stripped out before saving the final model
+
+        # Sometimes for whatever reason, the solution includes useless reactions that should be stripped out before saving the final model
         unneeded = self.mdlutl.test_solution(
             solution, keep_changes=True
         )  # Strips out unneeded reactions - which undoes some of what is done above
@@ -357,11 +374,16 @@ class MSGapfill:
                 if item[0] == oitem[0] and item[1] == oitem[1]:
                     cumulative_solution.remove(oitem)
                     break
-        #Adding the gapfilling solution data to the model, which is needed for saving the model in KBase
+        # Adding the gapfilling solution data to the model, which is needed for saving the model in KBase
         self.mdlutl.add_gapfilling(solution)
-        #Testing which gapfilled reactions are needed to produce each reactant in the objective function
+        # Testing which gapfilled reactions are needed to produce each reactant in the objective function
         if link_gaps_to_objective:
-            logger.info("Gapfilling sensitivity analysis running on succesful run in "+solution["media"].id+" for target "+solution["target"])
+            logger.info(
+                "Gapfilling sensitivity analysis running on succesful run in "
+                + solution["media"].id
+                + " for target "
+                + solution["target"]
+            )
             gf_sensitivity = self.mdlutl.get_attributes("gf_sensitivity", {})
             if solution["media"].id not in gf_sensitivity:
                 gf_sensitivity[solution["media"].id] = {}
@@ -374,6 +396,109 @@ class MSGapfill:
             )
             self.mdlutl.save_attributes(gf_sensitivity, "gf_sensitivity")
         self.cumulative_gapfilling.extend(cumulative_solution)
+
+    def compute_reaction_weights_from_expression_data(self, omics_data, annoont):
+        """Computing reaction weights based on input gene-level omics data
+        Parameters
+        ----------
+        omics_data : pandas dataframe with genes as rows and conditions as columns
+            Specifies the reactions to be added to the model to implement the gapfilling solution
+        annoont : annoont object
+            Contains reaction, feature id, ontologies, probabilities. Restructured into dataframe in function
+        Returns :
+            A dictionary with Rxns as the keys and calculated result as the value.
+        """
+
+        ### Restructure annoont into Dataframe
+        rows_list = []
+        for reaction, genes in annoont.get_reaction_gene_hash().items():
+            for gene, gene_info in genes.items():
+                # Initialize the row with 'Gene' and 'Reactions'
+                row = {"Gene": gene, "Reactions": reaction}
+                # Loop through each evidence in the gene's evidence list
+                for evidence in gene_info["evidence"]:
+                    # Construct column name from the event and ontology for uniqueness
+                    column_name = f"{evidence['ontology']}"
+                    if column_name in row:
+                        row[column_name] = f"{row[column_name]}, {evidence['term']}"
+                    else:
+                        row[column_name] = evidence["term"]
+                rows_list.append(row)
+        restructured_anoot = pd.DataFrame(rows_list)
+
+        ### Integrate Omics, set weights, find indexes for features
+        feature_ids_set = set(omics_data["feature_ids"])
+
+        # Find indices where 'Gene' values are in 'feature_ids'
+        # isin method returns a boolean series that is True where tbl_supAno['Gene'] is in feature_ids_set
+        mask = restructured_anoot["Gene"].isin(feature_ids_set)
+        # Get the indices of True values in the mask
+        idx_measuredGene = mask[mask].index.tolist()
+        # Calculate the dimensions for the measuredGeneScore array
+        num_genes = len(restructured_anoot["Gene"])
+        num_columns = len(restructured_anoot.columns[2:])
+        # Initialize the measuredGeneScore array with zeros
+        measuredGeneScore = np.zeros((num_genes, num_columns))
+        measuredGeneScore[idx_measuredGene, :] = 1
+        num_weights = len(restructured_anoot.columns[3:])
+        w = np.repeat(1 / num_weights, num_weights)
+
+        ### Calculate Weights and generate the reaction/weight hash
+        num_cols = len(restructured_anoot.columns[2:])
+        w = np.full((num_cols, 1), 1 / num_cols)
+        p = np.zeros(len(restructured_anoot["Reactions"]))
+        # computed_weights is the rxn_hash ({rxn: weight, ...})
+        computed_weights = {}
+
+        # Precompute gene reaction lookups
+        gene_reaction_lookup = {}
+        for idx, row in restructured_anoot.iterrows():
+            gene = row["Gene"]
+            reaction = row["Reactions"]
+            if gene in gene_reaction_lookup:
+                gene_reaction_lookup[gene].append(reaction)
+            else:
+                gene_reaction_lookup[gene] = [reaction]
+
+        for rxn in range(0, len(restructured_anoot)):
+            substr_rxns = [rxn for rxn in restructured_anoot["Reactions"][[rxn]]]
+            # Get the indices of the rows where the condition is True
+            mask = restructured_anoot["Reactions"] == substr_rxns[0]
+            idx_gene = mask[mask].index
+            nAG = 0
+            nMG = 0
+            nCG = 0
+
+            if len(idx_gene) > 0:
+                # number of genes that map to a reaction
+                nAG = len(idx_gene)
+                for iGene in range(0, nAG):
+                    subset = restructured_anoot.iloc[idx_gene[iGene], 2:].to_numpy()
+                    # Checking for non-empty elements in the subset
+                    non_empty_check = np.vectorize(lambda x: x is not None and x == x)(
+                        subset
+                    )
+                    # Finding the maximum value between the non-empty check and the corresponding row in measuredGeneScore
+                    max_value = np.maximum(
+                        non_empty_check, measuredGeneScore[idx_gene[iGene], :]
+                    )
+                    # Multiplying by the weight and adding to nMG
+                    nMG += max(sum((max_value * w)))
+                    selected_gene = restructured_anoot["Gene"].iloc[idx_gene[iGene]]
+
+                    # Finding reactions associated with genes that contain the selected gene
+                    associated_reactions = gene_reaction_lookup.get(selected_gene, [])
+
+                    # Checking if there are more than one unique reactions
+                    if len(associated_reactions) > 1:
+                        nCG += 1
+
+                p[rxn] = (nMG / nAG) * (1 / (1 + (nCG / nAG)))
+
+            # Add item to output rxn hash dictionary
+            computed_weights[restructured_anoot.iloc[rxn, 0]] = p[rxn]
+
+        return computed_weights
 
     @staticmethod
     def gapfill(

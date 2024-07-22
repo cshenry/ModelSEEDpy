@@ -299,9 +299,7 @@ class MSModelUtil:
             else:
                 self.attributes = value
         if hasattr(self.model, "computed_attributes"):
-            logger.info(
-                "Setting FBAModel computed_attributes to mdlutl attributes"
-            )
+            logger.info("Setting FBAModel computed_attributes to mdlutl attributes")
             self.attributes["gene_count"] = len(self.model.genes)
             self.model.computed_attributes = self.attributes
 
@@ -740,7 +738,7 @@ class MSModelUtil:
         if model.solver.status != "optimal":
             self.printlp(condition["media"].id + "-Testing-Infeasible.lp")
             logger.critical(
-                ondition["media"].id
+                condition["media"].id
                 + "testing leads to infeasible problem. LP file printed to debug!"
             )
             return False
@@ -902,7 +900,11 @@ class MSModelUtil:
         return filtered_list
 
     def reaction_expansion_test(
-        self, reaction_list, condition_list, binary_search=True,attribute_label="gf_filter"
+        self,
+        reaction_list,
+        condition_list,
+        binary_search=True,
+        attribute_label="gf_filter",
     ):
         """Adds reactions in reaction list one by one and appplies tests, filtering reactions that fail
 
@@ -1046,33 +1048,34 @@ class MSModelUtil:
             output = {}
             for item in ko_list:
                 logger.debug("KO:" + item[0] + item[1])
-                rxnobj = tempmodel.reactions.get_by_id(item[0])
-                if item[1] == ">":
-                    original_bound = rxnobj.upper_bound
-                    rxnobj.upper_bound = 0
-                    if item[0] not in output:
-                        output[item[0]] = {}
-                    output[item[0]][item[1]] = self.run_biomass_dependency_test(
-                        target_rxn_obj,
-                        tempmodel,
-                        original_objective,
-                        min_flex_obj,
-                        rxn_list,
-                    )
-                    rxnobj.upper_bound = original_bound
+                if item[0] not in output:
+                    output[item[0]] = {}
+                if item[0] in tempmodel.reactions:
+                    rxnobj = tempmodel.reactions.get_by_id(item[0])
+                    if item[1] == ">":
+                        original_bound = rxnobj.upper_bound
+                        rxnobj.upper_bound = 0
+                        output[item[0]][item[1]] = self.run_biomass_dependency_test(
+                            target_rxn_obj,
+                            tempmodel,
+                            original_objective,
+                            min_flex_obj,
+                            rxn_list,
+                        )
+                        rxnobj.upper_bound = original_bound
+                    else:
+                        original_bound = rxnobj.lower_bound
+                        rxnobj.lower_bound = 0
+                        output[item[0]][item[1]] = self.run_biomass_dependency_test(
+                            target_rxn_obj,
+                            tempmodel,
+                            original_objective,
+                            min_flex_obj,
+                            rxn_list,
+                        )
+                        rxnobj.lower_bound = original_bound
                 else:
-                    original_bound = rxnobj.lower_bound
-                    rxnobj.lower_bound = 0
-                    if item[0] not in output:
-                        output[item[0]] = {}
-                    output[item[0]][item[1]] = self.run_biomass_dependency_test(
-                        target_rxn_obj,
-                        tempmodel,
-                        original_objective,
-                        min_flex_obj,
-                        rxn_list,
-                    )
-                    rxnobj.lower_bound = original_bound
+                    output[item[0]][item[1]] = []
             return output
 
     def run_biomass_dependency_test(
