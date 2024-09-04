@@ -1,20 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
-import cobra
-import copy
 import json
-import time
 import pandas as pd
-from os.path import abspath as _abspath
-from os.path import dirname as _dirname
-from optlang.symbolics import Zero, add
-from modelseedpy.core.rast_client import RastClient
-from modelseedpy.core.msgenome import normalize_role
-from modelseedpy.core.msmodel import (
-    get_gpr_string,
-    get_reaction_constraints_from_direction,
-)
-from cobra.core import Gene, Metabolite, Model, Reaction
 from modelseedpy.core.msmodelutl import MSModelUtil
 from modelseedpy.core.mstemplate import MSTemplateBuilder
 from modelseedpy.core import FBAHelper, MSGapfill, MSMedia
@@ -22,11 +9,6 @@ from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.helpers import get_template
 
 logger = logging.getLogger(__name__)
-logger.setLevel(
-    logging.INFO
-)  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
-
-_path = _dirname(_abspath(__file__))
 
 min_gap = {
     "Glc.O2": 5,
@@ -90,12 +72,6 @@ class MSATPCorrection:
             self.modelutl = MSModelUtil.get(model_or_mdlutl)
         # Setting atpcorrection attribute in model utl so link is bidirectional
         self.modelutl.atputl = self
-
-        if default_media_path:
-            self.default_media_path = default_media_path
-        else:
-            self.default_media_path = _path + "/../data/atp_medias.tsv"
-
         self.compartment = compartment
 
         if atp_hydrolysis_id and atp_hydrolysis_id in self.model.reactions:
@@ -106,21 +82,18 @@ class MSATPCorrection:
 
         self.media_hash = {}
         self.atp_medias = []
+
         if load_default_medias:
-            self.load_default_medias()
+            self.load_default_medias(default_media_path)
 
         media_ids = set()
-        for media in atp_medias:
-            if isinstance(media, list):
-                if media[0].id in media_ids:
-                    raise ValueError("media ids not unique")
-                media_ids.add(media[0].id)
-                self.atp_medias.append(media)
-            else:
-                if media.id in media_ids:
-                    raise ValueError("media ids not unique")
-                media_ids.add(media.id)
-                self.atp_medias.append([media, 0.01])
+        for media_or_list in atp_medias:
+            media = media_or_list[0] if isinstance(media_or_list, list) else media_or_list
+            min_obj = media_or_list[1] if isinstance(media_or_list, list) else 0.01
+            if media.id in media_ids:
+                raise ValueError("media ids not unique")
+            media_ids.add(media.id)
+            self.atp_medias.append((media, min_obj))
             self.media_hash[media.id] = media
         if "empty" not in self.media_hash:
             media = MSMedia.from_dict({})
@@ -164,8 +137,12 @@ class MSATPCorrection:
             get_template("template_core"), None
         ).build()
 
-    def load_default_medias(self):
-        filename = self.default_media_path
+    def load_default_medias(self, default_media_path=None):
+        if default_media_path is None:
+            import os.path as _path
+            current_file_path = _path.dirname(_path.abspath(__file__))
+            default_media_path = f"{current_file_path}/../data/atp_medias.tsv"
+        filename = default_media_path
         medias = pd.read_csv(filename, sep="\t", index_col=0).to_dict()
         for media_id in medias:
             media_d = {}
@@ -179,7 +156,7 @@ class MSATPCorrection:
             media.id = media_id
             media.name = media_id
             min_obj = 0.01
-            self.atp_medias.append([media, min_gap.get(media_d, min_obj)])
+            self.atp_medias.append((media, min_gap.get(media_d, min_obj)))
 
     @staticmethod
     def find_reaction_in_template(model_reaction, template, compartment):

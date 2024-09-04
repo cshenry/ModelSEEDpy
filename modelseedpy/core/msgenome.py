@@ -160,15 +160,7 @@ class MSGenome:
         self.features += feature_list
 
     @staticmethod
-    def from_fasta(
-        filename, contigs=0, split="|", h_func=None
-    ):  # !!! the contigs argument is never used
-        genome = MSGenome()
-        genome.features += read_fasta(filename, split, h_func)
-        return genome
-
-    @staticmethod
-    def from_fasta2(filename, split=" ", h_func=None):
+    def from_fasta(filename, split=" ", h_func=None):
         genome = MSGenome()
         genome.features += read_fasta2(filename, split, h_func)
         return genome
