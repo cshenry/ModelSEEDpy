@@ -357,7 +357,7 @@ def _load_reactions(
                             None,
                             o.get("status"),
                             o.get("source"),
-                            pathways=o.get('pathways')
+                            pathways=o.get("pathways"),
                         )
                         rxn.add_metabolites(reaction_metabolites)
                         if rxn.id in aliases:

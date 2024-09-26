@@ -134,7 +134,7 @@ class ModelSEEDReaction2(Reaction):
         status=None,
         source=None,
         flags=None,
-        pathways=None
+        pathways=None,
     ):
 
         super().__init__(rxn_id, name, subsystem, lower_bound, upper_bound)

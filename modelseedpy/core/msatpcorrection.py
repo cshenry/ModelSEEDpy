@@ -88,7 +88,9 @@ class MSATPCorrection:
 
         media_ids = set()
         for media_or_list in atp_medias:
-            media = media_or_list[0] if isinstance(media_or_list, list) else media_or_list
+            media = (
+                media_or_list[0] if isinstance(media_or_list, list) else media_or_list
+            )
             min_obj = media_or_list[1] if isinstance(media_or_list, list) else 0.01
             if media.id in media_ids:
                 raise ValueError("media ids not unique")
@@ -140,6 +142,7 @@ class MSATPCorrection:
     def load_default_medias(self, default_media_path=None):
         if default_media_path is None:
             import os.path as _path
+
             current_file_path = _path.dirname(_path.abspath(__file__))
             default_media_path = f"{current_file_path}/../data/atp_medias.tsv"
         filename = default_media_path
