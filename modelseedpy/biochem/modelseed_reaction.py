@@ -134,6 +134,7 @@ class ModelSEEDReaction2(Reaction):
         status=None,
         source=None,
         flags=None,
+        pathways=None
     ):
 
         super().__init__(rxn_id, name, subsystem, lower_bound, upper_bound)
@@ -164,6 +165,8 @@ class ModelSEEDReaction2(Reaction):
         self.flags = set()
         if flags:
             self.flags |= set(flags)
+
+        self.pathways = pathways
 
     @property
     def compound_ids(self):
