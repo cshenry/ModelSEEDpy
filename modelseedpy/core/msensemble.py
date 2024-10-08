@@ -200,6 +200,7 @@ class MSEnsemble:
                     self.data["reactions"][rxnid]["presence"] += "1"
                 else:
                     self.data["reactions"][rxnid]["presence"] += "0"
+        
 
     def unpack_models(self,model_list=None):
         output_models = [None]*self.size

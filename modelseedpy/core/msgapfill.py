@@ -152,7 +152,7 @@ class MSGapfill:
         )
         return False
 
-    def prefilter(self,test_conditions=None,growth_conditions=[],use_prior_filtering=True,base_filter_only=False):
+    def prefilter(self,test_conditions=None,growth_conditions=[],use_prior_filtering=False,base_filter_only=False):
         """Prefilters the database by removing any reactions that break specified ATP tests
         Parameters
         ----------
@@ -714,7 +714,7 @@ class MSGapfill:
                 #elif not remove_unneeded_reactions:
                 #    cumulative_solution.append(item)
         logger.info(f"Unneeded: {str(unneeded)}")
-        logger.info(f"Cumulative: {str(cumulative_gapfilling)}")
+        logger.info(f"Cumulative: {str(self.cumulative_gapfilling)}")
         #Checking that the final integrated model grows
         if check_for_growth:
             self.mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(solution["media"])

@@ -27,11 +27,10 @@ class FluxFittingPkg(BaseFBAPkg):
                 "rescale_vfit_by_flux": True,
             },
         )
-        if self.parameters["totalflux"] == 0:
+        if self.parameters["totalflux"] == 1:
             self.pkgmgr.getpkg("RevBinPkg", 1).build_package(
                 self.parameters["target_flux"]
             )
-        else:
             self.pkgmgr.getpkg("TotalFluxPkg", 1).build_package(
                 self.parameters["target_flux"]
             )
@@ -39,9 +38,7 @@ class FluxFittingPkg(BaseFBAPkg):
         for rxnid in self.parameters["target_flux"]:
             if rxnid in self.model.reactions:
                 rxnobj = self.model.reactions.get_by_id(rxnid)
-                var = self.build_variable(
-                    self, "vfit", -1000, 1000, "continuous", rxnobj
-                )
+                var = self.build_variable(rxnobj)
                 objvars.append(var**2)
                 self.build_constraint(rxnobj)
         if self.parameters["set_objective"] == 1:
@@ -51,7 +48,7 @@ class FluxFittingPkg(BaseFBAPkg):
 
     def build_variable(self, object):
         return BaseFBAPkg.build_variable(
-            self, "vfit", -1000, 1000, "continuous", object
+            self, "vfit", -100000, 100000, "continuous", object
         )
 
     def build_constraint(self, cobra_obj):

@@ -8,6 +8,7 @@ import pandas as pd
 import cobra
 from cobra import Model, Reaction, Metabolite
 from optlang.symbolics import Zero
+from cobra.flux_analysis import pfba
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.biochem.modelseed_biochem import ModelSEEDBiochem
 from modelseedpy.core.fbahelper import FBAHelper
@@ -20,6 +21,256 @@ logger.setLevel(
     logging.INFO
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
+core_rxns = {
+    "rxn00994_c0": "<",
+    "rxn00151_c0": ">",
+    "rxn24606_c0": ">",
+    "rxn00161_c0": ">",
+    "rxn14426_c0": ">",
+    "rxn00762_c0": "=",
+    "rxn05145_c0": ">",
+    "rxn00871_c0": ">",
+    "rxn01236_c0": "<",
+    "rxn05226_c0": ">",
+    "rxn01116_c0": "=",
+    "rxn00251_c0": "=",
+    "rxn05602_c0": "=",
+    "rxn09001_c0": ">",
+    "rxn00995_c0": ">",
+    "rxn14419_c0": ">",
+    "rxn14420_c0": ">",
+    "rxn24607_c0": "=",
+    "rxn00324_c0": "<",
+    "rxn01334_c0": "=",
+    "rxn05209_c0": "=",
+    "rxn00611_c0": "=",
+    "rxn00544_c0": "<",
+    "rxn01121_c0": ">",
+    "rxn03249_c0": "=",
+    "rxn00392_c0": "=",
+    "rxn05581_c0": "=",
+    "rxn00990_c0": ">",
+    "rxn00985_c0": "=",
+    "sul00004_c0": "=",
+    "rxn00160_c0": ">",
+    "rxn00615_c0": ">",
+    "rxn09003_c0": ">",
+    "rxn00083_c0": ">",
+    "rxn05493_c0": "=",
+    "rxn00248_c0": "=",
+    "rxn00678_c0": "=",
+    "rxn00558_c0": "=",
+    "rxn02376_c0": "=",
+    "rxn24608_c0": ">",
+    "rxn14424_c0": ">",
+    "rxn09174_c0": "=",
+    "rxn03250_c0": "=",
+    "rxn00162_c0": ">",
+    "rxn00549_c0": ">",
+    "rxn00779_c0": ">",
+    "rxn05573_c0": ">",
+    "rxn00506_c0": ">",
+    "rxn14425_c0": ">",
+    "rxn01872_c0": "=",
+    "rxn01996_c0": "=",
+    "rxn00507_c0": ">",
+    "rxn08528_c0": "=",
+    "rxn24609_c0": "=",
+    "rxn03884_c0": ">",
+    "rxn05488_c0": "=",
+    "rxn03079_c0": "=",
+    "rxn24610_c0": "=",
+    "rxn00178_c0": ">",
+    "rxn08793_c0": ">",
+    "rxn01130_c0": ">",
+    "rxn00512_c0": "<",
+    "rxn08355_c0": ">",
+    "rxn02342_c0": ">",
+    "rxn02314_c0": "=",
+    "rxn39373_c0": "=",
+    "rxn31759_c0": "=",
+    "rxn11937_c0": "<",
+    "rxn46184_c0": "=",
+    "rxn01123_c0": ">",
+    "rxn14421_c0": ">",
+    "rxn00379_c0": ">",
+    "rxn08734_c0": ">",
+    "rxn00668_c0": "=",
+    "rxn14418_c0": ">",
+    "rxn10570_c0": "=",
+    "rxn05553_c0": ">",
+    "rxn09295_c0": ">",
+    "rxn05759_c0": "=",
+    "rxn01343_c0": ">",
+    "rxn00545_c0": ">",
+    "rxn00250_c0": "=",
+    "rxn00785_c0": "=",
+    "rxn00305_c0": ">",
+    "rxn01387_c0": "=",
+    "rxn00974_c0": "=",
+    "rxn00604_c0": ">",
+    "rxn00875_c0": ">",
+    "rxn05528_c0": ">",
+    "rxn00623_c0": "<",
+    "rxn13974_c0": "<",
+    "rxn00770_c0": "=",
+    "rxn08900_c0": ">",
+    "rxn05468_c0": ">",
+    "rxn00199_c0": ">",
+    "rxn00499_c0": "=",
+    "rxn06493_c0": "=",
+    "rxn01275_c0": ">",
+    "rxn14412_c0": ">",
+    "rxn01106_c0": "=",
+    "rxn08428_c0": "=",
+    "rxn00777_c0": "=",
+    "rxn03644_c0": "=",
+    "rxn14414_c0": ">",
+    "rxn01480_c0": "=",
+    "rxn06526_c0": "=",
+    "rxn00543_c0": "=",
+    "rxn01115_c0": ">",
+    "rxn01870_c0": "=",
+    "rxn00677_c0": "=",
+    "rxn00799_c0": "=",
+    "rxn08975_c0": ">",
+    "rxn03240_c0": "=",
+    "rxn05312_c0": "<",
+    "rxn08558_c0": ">",
+    "sul00008_c0": ">",
+    "rxn01187_c0": ">",
+    "rxn00171_c0": "=",
+    "rxn15383_c0": ">",
+    "rxn00224_c0": "=",
+    "rxn03127_c0": "=",
+    "rxn01834_c0": "=",
+    "rxn24613_c0": "=",
+    "rxn14428_c0": "<",
+    "rxn08689_c0": "=",
+    "rxn02527_c0": ">",
+    "rxn00336_c0": ">",
+    "rxn05040_c0": ">",
+    "rxn08783_c0": ">",
+    "rxn14427_c0": ">",
+    "rxn00616_c0": "=",
+    "rxn05313_c0": ">",
+    "rxn03020_c0": "=",
+    "rxn11322_c0": "=",
+    "rxn00206_c0": "<",
+    "rxn09167_c0": ">",
+    "rxn10122_c0": ">",
+    "rxn00763_c0": "=",
+    "rxn06299_c0": "=",
+    "rxn05561_c0": "=",
+    "rxn08966_c0": "=",
+    "rxn10471_c0": "=",
+    "rxn15962_c0": "<",
+    "rxn00786_c0": "=",
+    "rxn00157_c0": "<",
+    "rxn00216_c0": "=",
+    "rxn00077_c0": "=",
+    "rxn01241_c0": "=",
+    "rxn01100_c0": "=",
+    "rxn00748_c0": ">",
+    "rxn00935_c0": "=",
+    "rxn00548_c0": "=",
+    "rxn08557_c0": ">",
+    "rxn05466_c0": "=",
+    "rxn08655_c0": ">",
+    "rxn00441_c0": ">",
+    "rxn01476_c0": ">",
+    "rxn02168_c0": "=",
+    "rxn00569_c0": "<",
+    "rxn17445_c0": ">",
+    "rxn01274_c0": ">",
+    "rxn00006_c0": "<",
+    "rxn08792_c0": ">",
+    "rxn08691_c0": "=",
+    "sul00003_c0": "=",
+    "rxn04794_c0": "=",
+    "rxn00568_c0": "<",
+    "rxn00225_c0": "=",
+    "rxn09318_c0": "=",
+    "rxn01057_c0": "=",
+    "rxn00247_c0": ">",
+    "rxn00285_c0": "=",
+    "rxn09004_c0": "=",
+    "rxn24612_c0": "=",
+    "rxn00371_c0": ">",
+    "rxn00159_c0": ">",
+    "rxn01333_c0": "=",
+    "rxn01388_c0": "=",
+    "rxn02480_c0": "=",
+    "rxn02167_c0": ">",
+    "rxn08971_c0": ">",
+    "rxn00612_c0": "=",
+    "rxn01806_c0": ">",
+    "rxn00148_c0": "<",
+    "rxn00122_c0": ">",
+    "rxn05469_c0": "=",
+    "rxn00265_c0": ">",
+    "rxn00330_c0": "<",
+    "rxn00602_c0": "<",
+    "rxn08179_c0": ">",
+    "rxn09269_c0": ">",
+    "rxn01200_c0": "=",
+    "rxn08556_c0": ">",
+    "rxn05627_c0": ">",
+    "rxn08656_c0": ">",
+    "rxn00097_c0": "=",
+    "rxn05319_c0": "=",
+    "rxn03085_c0": "=",
+    "rxn08178_c0": ">",
+    "rxn00747_c0": "=",
+    "rxn05559_c0": "=",
+    "rxn09314_c0": ">",
+    "rxn15961_c0": "=",
+    "rxn08976_c0": ">",
+    "rxn00172_c0": "<",
+    "rxn00868_c0": "<",
+    "rxn08173_c0": "=",
+    "rxn00102_c0": "=",
+    "rxn09272_c0": ">",
+    "rxn03126_c0": "=",
+    "sul00002_c0": "=",
+    "rxn01871_c0": "<",
+    "rxn00500_c0": "=",
+    "rxn00175_c0": ">",
+    "rxn00459_c0": "=",
+    "rxn24611_c0": "=",
+    "rxn09008_c0": "=",
+    "rxn00173_c0": "=",
+    "rxn33011_c0": "=",
+    "rxn08901_c0": ">",
+    "rxn00782_c0": "<",
+    "rxn03643_c0": "=",
+    "rxn08527_c0": "=",
+    "rxn00869_c0": "<",
+    "rxn05651_c0": "=",
+    "rxn10126_c0": ">",
+    "rxn00874_c0": "=",
+    "rxn10577_c0": ">",
+    "rxn00001_c0": ">",
+    "sul00010_c0": ">",
+    "rxn05625_c0": "=",
+    "rxn00670_c0": "=",
+    "rxn00147_c0": ">",
+    "rxn00288_c0": ">",
+    "rxn06777_c0": "=",
+    "rxn01452_c0": "<",
+    "rxn08518_c0": ">",
+    "rxn14422_c0": ">",
+    "rxn01477_c0": ">",
+    "rxn08350_c0": "=",
+    "rxn00256_c0": "<",
+    "rxn08977_c0": ">",
+    "rxn00781_c0": "=",
+    "rxn05467_c0": "=",
+    "rxn00011_c0": "<",
+    "rxn39175_c0": "=",
+    "rxn14423_c0": ">",
+    "rxn40505_c0": "="
+}
 
 class MSModelUtil:
     mdlutls = {}
@@ -97,11 +348,6 @@ class MSModelUtil:
             return MSModelUtil.mdlutls[model]
         else:
             return None
-
-    @staticmethod
-    def from_cobrapy_json(filename):
-        model = cobra.io.load_json_model(filename)
-        return MSModelUtil(model)
     
     @staticmethod
     def build_from_kbase_json_file(filename, kbaseapi):
@@ -134,6 +380,7 @@ class MSModelUtil:
         self.integrated_gapfillings = []
         self.attributes = {}
         self.atp_tests = None
+        self.reliability_scores = None
         if hasattr(self.model, "computed_attributes"):
             if self.model.computed_attributes:
                 self.attributes = self.model.computed_attributes
@@ -143,6 +390,50 @@ class MSModelUtil:
             self.attributes["auxotrophy"] = {}
         if "fbas" not in self.attributes:
             self.attributes["fbas"] = {}
+
+    ########I/O functions
+    @staticmethod
+    def from_cobrapy_json(filename):
+        model = cobra.io.load_json_model(filename)
+        return MSModelUtil(model)
+    
+    def save_model(self, filename):
+        """
+        Saves the associated cobrapy model to a json file
+
+        Parameters
+        ----------
+        filename: name of the file the model should be saved to
+        """
+        cobra.io.save_json_model(self.model, filename)
+    
+    def printlp(self, lpfilename="debug.lp"):
+        with open(lpfilename, "w") as out:
+            out.write(str(self.model.solver))
+
+    def print_solutions(self, solution_hash,filename="reaction_solutions.csv"):
+        records = []
+        for rxn in self.model.reactions:
+            record = {"id":rxn.id,"name":rxn.name,"equation":rxn.build_reaction_string(use_metabolite_names=True)}
+            records.append(record)
+            for key in solution_hash:
+                record[key] = solution_hash[key].fluxes[rxn.id]
+        df = pd.DataFrame.from_records(records)
+        df.to_csv(filename)
+
+    ########FBA utility functions
+    def set_media(self, media):
+        """
+        Sets the media of the model from a media object or dictionary
+
+        Parameters
+        ----------
+        media: MSMedia object | dict : media object or dictionary with media formulation
+        """
+        if isinstance(media, dict):
+            from modelseedpy.core.msmedia import MSMedia
+            media = MSMedia.from_dict(media)
+        self.pkgmgr.getpkg("KBaseMediaPkg").build_package(media)
 
     ########Functions related to ATP gapfilling method
     def get_atputl(self,atp_media_filename=None,core_template=None,gapfilling_delta=0,max_gapfilling=0,forced_media=[],remake_atputil=False):
@@ -232,10 +523,6 @@ class MSModelUtil:
         :return:
         """
         self.reaction_scores = {}
-
-    def printlp(self, lpfilename="debug.lp"):
-        with open(lpfilename, "w") as out:
-            out.write(str(self.model.solver))
 
     def build_metabolite_hash(self):
         self.metabolite_hash = {}
@@ -559,6 +846,110 @@ class MSModelUtil:
     #################################################################################
     # Functions related to utility functions
     #################################################################################
+    def assign_reliability_scores_to_reactions(self):
+        """Assigns a reliability score to every model reaction which indicates how likely the reaction is to be accurate and to take place
+
+        Returns
+        -------
+        { reaction ID<string> : { reaction direction<string> : score<float> }  }
+        """
+        if self.reliability_scores == None:
+            self.reliability_scores = {}
+            biochem = ModelSEEDBiochem.get()
+            for reaction in self.model.reactions:
+                #Pulling model reaction related data
+                transported_charge = 0
+                for met in reaction.metabolites:
+                    coef = reaction.metabolites[met]
+                    if met.id.split("_")[-1][0:1] == "e":
+                        transported_charge += coef * met.charge
+                #Pulling ModelSEED Biochemistry related data
+                msid = MSModelUtil.reaction_msid(reaction)
+                if msid:
+                    #Penalizing for net transport of ions in the wrong direction
+                    forwardscore = 0
+                    reversescore = 0
+                    if transported_charge > 0:
+                        forwardscore += 50*transported_charge
+                    if transported_charge < 0:
+                        reversescore += -50*transported_charge
+                    basescore = 0
+                    msrxn = biochem.reactions[msid]
+                    #Penalizing for mass imbalance
+                    if msrxn["status"][0:2] == "MI":
+                        basescore = 1000
+                    #Penalizing for charge imbalance
+                    if msrxn["status"][0:2] == "CI":
+                        basescore = 800
+                    #Penalizing if no pathways
+                    if msrxn["pathways"] == None:
+                        basescore = 50
+                    #Penalizing if there is no deltaG
+                    if "deltag" not in msrxn or msrxn["deltag"] == 10000000:
+                        basescore = 200
+                    else:
+                        #Penalizing in the direction of infeasiblility
+                        if msrxn["deltag"] <= -5:
+                            reversescore += 20
+                        if msrxn["deltag"] <= -10:
+                            reversescore += 20
+                        if msrxn["deltag"] >= 5:
+                            forwardscore += 20
+                        if msrxn["deltag"] >= 10:
+                            forwardscore += 20
+                    #Penalizing reactions in direction of production of ATP
+                    array = str(msrxn["stoichiometry"]).split(";")
+                    for item in array:
+                        subarray = item.split(":")
+                        if len(subarray) > 1:
+                            if subarray[1] == "cpd00002":
+                                if float(subarray[0]) < 0:
+                                    reversescore += 100
+                                elif float(subarray[0]) > 0:
+                                    forwardscore += 100
+                            #Penalizing if a compound structure is unkown
+                            if subarray[1] in biochem.compounds:
+                                if "inchikey" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["inchikey"] == None:
+                                    basescore += 40
+                                if "formula" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["formula"] == None:
+                                    basescore += 60
+                                if "deltag" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["deltag"] == 10000000:
+                                    basescore += 20
+                    self.reliability_scores[reaction.id] = {}
+                    self.reliability_scores[reaction.id][">"] = basescore+forwardscore
+                    self.reliability_scores[reaction.id]["<"] = basescore+reversescore
+                elif reaction.id[0:3] == "EX_" or reaction.id[0:3] == "SK_" or reaction.id[0:3] == "DM_" or reaction.id[0:3] == "bio":
+                    self.reliability_scores[reaction.id] = {}
+                    self.reliability_scores[reaction.id][">"] = -10
+                    self.reliability_scores[reaction.id]["<"] = -10
+                else:
+                    self.reliability_scores[reaction.id] = {}
+                    self.reliability_scores[reaction.id][">"] = 1000
+                    self.reliability_scores[reaction.id]["<"] = 1000
+        return self.reliability_scores     
+    
+    def is_core(self,rxn):
+        """Indicates if a specified reaction is a core reaction
+
+        Parameters
+        ----------
+        reaction: Raction|string
+
+        Returns
+        -------
+        bool
+        """
+        if not isinstance(rxn, str):
+            rxn = rxn.id
+        if "core_reactions" in self.get_attributes():
+            print("Using core reactions attribute!")
+            if rxn in self.get_attributes("core_reactions"):
+                return True
+            return False
+        elif rxn in core_rxns:
+            return True
+        return False
+    
     def build_model_data_hash(self):
         data = {
             "Model": self.id,
@@ -984,7 +1375,7 @@ class MSModelUtil:
         #    model.objective.direction = "min"
         pkgmgr.getpkg("KBaseMediaPkg").build_package(condition["media"])
 
-    def test_single_condition(self, condition, apply_condition=True, model=None):
+    def test_single_condition(self, condition, apply_condition=True, model=None,report_atp_loop_reactions=False,analyze_failures=True,rxn_list=[]):
         """Runs a single test condition to determine if objective value on set media exceeds threshold
 
         Parameters
@@ -1032,6 +1423,14 @@ class MSModelUtil:
             return False
         if value >= condition["threshold"] and condition["is_max_threshold"]:
             logger.debug("Failed high:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
+            if analyze_failures and len(rxn_list) == 1:
+                #Constraining test objective at failed value
+                if value > 1000:
+                    value = 1000
+                self.model.reactions.get_by_id(condition["objective"]).lower_bound = value
+                solution = pfba(self.model)
+                self.analyze_minimal_reaction_set(solution,rxn_list[0][0].id)
+                self.model.reactions.get_by_id(condition["objective"]).lower_bound = 0
             return False
         elif value <= condition["threshold"] and not condition["is_max_threshold"]:
             print("Failed low:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
@@ -1040,7 +1439,7 @@ class MSModelUtil:
         logger.debug("Passed:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
         return True
 
-    def test_condition_list(self, condition_list, model=None,positive_growth=[]):
+    def test_condition_list(self, condition_list, model=None,positive_growth=[],rxn_list=[]):
         """Runs a set of test conditions to determine if objective values on set medias exceed thresholds
 
         Parameters
@@ -1061,7 +1460,7 @@ class MSModelUtil:
         if model == None:
             model = self.model
         for condition in condition_list:
-            if not self.test_single_condition(condition,apply_condition=True,model=model):
+            if not self.test_single_condition(condition,apply_condition=True,model=model,rxn_list=rxn_list):
                 return False
         return True
 
@@ -1138,7 +1537,8 @@ class MSModelUtil:
         newdepth = depth + 1
         filtered_list = []
         # First run the full test
-        if self.test_single_condition(condition,apply_condition=False,model=currmodel):
+        if self.test_single_condition(condition,apply_condition=False,model=currmodel,rxn_list=reaction_list):
+            print("Reaction set passed"," ".join(map(str, reaction_list)))
             return []
         # Check if input list contains only one reaction:
         if len(reaction_list) == 1:
@@ -1234,7 +1634,8 @@ class MSModelUtil:
         condition_list,
         binary_search=True,
         attribute_label="gf_filter",
-        positive_growth=[]
+        positive_growth=[],
+        resort_by_score=True
     ):
         """Adds reactions in reaction list one by one and appplies tests, filtering reactions that fail
 
@@ -1256,6 +1657,11 @@ class MSModelUtil:
         logger.debug(f"Expansion started! Binary = {binary_search}")
         self.breaking_reaction = None
         filtered_list = []
+        if resort_by_score:
+            scores = self.assign_reliability_scores_to_reactions()
+            reaction_list = sorted(reaction_list, key=lambda x: scores[x[0].id][x[1]])
+            for item in reaction_list:
+                print(item[0].id+":"+item[1]+":"+str(scores[item[0].id][item[1]]))
         for condition in condition_list:
             logger.debug(f"testing condition {condition}")
             currmodel = self.model
@@ -1349,6 +1755,102 @@ class MSModelUtil:
                             condition["threshold"]
                         ][item[0].id][item[1]] = item[2]
         return filtered_list
+
+    #################################################################################
+    # Functions for reaction set analysis
+    #################################################################################
+    def analyze_minimal_reaction_set(self,solution,label,print_output=True):
+        """Systematically exploring alternative options for each reaction in an input minimal reaction set
+
+        Parameters
+        ----------
+        reaction_set : list<obj reaction>
+            List of reactions to be evaluated for alternative options
+        print_output : bool
+            Prints output to stdout if true
+
+        Returns
+        -------
+        {obj reaction: list<list<obj reaction> >} : list of reactions pointing to their alternative options
+
+        Raises
+        ------
+        """
+        #Determining reaction set as the set of currently active reactions in the input solution
+        reaction_set = []
+        output = {}
+        original_objective = self.model.objective
+        minimal_deviation_objective = self.model.problem.Objective(0, direction="min")
+        initial_zero_reactions = {}
+        obj_coef = dict()
+        scores = self.assign_reliability_scores_to_reactions()
+        for rxn in self.model.reactions:
+            if abs(solution.fluxes[rxn.id]) < 0.000000001:
+                initial_zero_reactions[rxn.id] = {">":True,"<":True}
+                obj_coef[rxn.forward_variable] = 1
+                obj_coef[rxn.reverse_variable] = 1
+            elif solution.fluxes[rxn.id] > 0.000000001 and rxn.lower_bound <= 0:
+                output[rxn.id] = [">",[]]
+                reaction_set.append([rxn,">",solution.fluxes[rxn.id],scores[rxn.id][">"],self.is_core(rxn)])
+                initial_zero_reactions[rxn.id] = {"<":True}
+                obj_coef[rxn.reverse_variable] = 1
+            elif solution.fluxes[rxn.id] < -0.000000001 and rxn.upper_bound >= 0:
+                output[rxn.id] = ["<",[]]
+                reaction_set.append([rxn,"<",solution.fluxes[rxn.id],scores[rxn.id]["<"],self.is_core(rxn)])
+                initial_zero_reactions[rxn.id] = {">":True}
+                obj_coef[rxn.forward_variable] = 1
+        self.model.objective = minimal_deviation_objective
+        minimal_deviation_objective.set_linear_coefficients(obj_coef)
+        #Knocking reactions out one at a time and checking for alternative options
+        for item in reaction_set:
+            original_bound = None
+            if item[1] == ">":
+                original_bound = item[0].upper_bound
+                item[0].upper_bound = 0
+            else:
+                original_bound = item[0].lower_bound
+                item[0].lower_bound = 0
+            new_solution = self.model.optimize()
+            result = {"alternatives":[],"coupled":[],"failed":False,"flux":item[2],"score":item[3],"core":item[4]}
+            output[item[0].id][1].append(result)
+            if new_solution.status == "optimal":
+                for secitem in reaction_set:
+                    if secitem != item:
+                        if abs(new_solution.fluxes[secitem[0].id]) < 0.000000001:
+                            result["coupled"].append(secitem)
+                for rxn in self.model.reactions:
+                    if rxn.id in initial_zero_reactions and abs(new_solution.fluxes[rxn.id]) > 0.000000001:
+                        if new_solution.fluxes[rxn.id] > 0.000000001 and ">" in initial_zero_reactions[rxn.id]:
+                            result["alternatives"].append([rxn,">"])
+                        elif new_solution.fluxes[rxn.id] < -0.000000001 and "<" in initial_zero_reactions[rxn.id]:
+                            result["alternatives"].append([rxn,"<"])
+            else:
+                result["failed"] = True
+            if original_bound != None:
+                if item[1] == ">":
+                    item[0].upper_bound = original_bound
+                else:
+                    item[0].lower_bound = original_bound
+
+        self.model.objective = original_objective
+        #Printing output if requested
+        if print_output:
+            records = []
+            for rxnid in output:
+                item = output[rxnid]
+                record = {"id":rxnid,"direction":item[0],"flux":item[1][0]["flux"],"score":item[1][0]["score"],"core":item[1][0]["core"],"equation":self.model.reactions.get_by_id(rxnid).build_reaction_string(use_metabolite_names=True),"coupled":"","alternatives":"","failed":item[1][0]["failed"]}
+                for subitem in item[1][0]["alternatives"]:
+                    if len(record["alternatives"]):
+                        record["alternatives"] += ";"
+                    record["alternatives"] += subitem[1]+subitem[0].id+":"+subitem[0].build_reaction_string(use_metabolite_names=True)
+                for subitem in item[1][0]["coupled"]:
+                    if len(record["coupled"]):
+                        record["coupled"] += ";"
+                    record["coupled"] += subitem[1]+subitem[0].id+":"+subitem[0].build_reaction_string(use_metabolite_names=True)
+                records.append(record)
+            df = pd.DataFrame.from_records(records)
+            df.to_csv("nboutput/rxn_analysis/"+label+"-min_rxn_set_analysis.csv",index=False)
+        return output
 
     #################################################################################
     # Functions related to biomass sensitivity analysis

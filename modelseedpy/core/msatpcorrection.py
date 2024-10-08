@@ -53,7 +53,6 @@ default_threshold_multipiers = {
     "default": 1.2,
 }
 
-
 class MSATPCorrection:
 
     DEBUG = False
@@ -477,6 +476,16 @@ class MSATPCorrection:
                 self.model.remove_reactions([item[0]])
         # Restoring other compartment reactions but not the core because this would undo reaction filtering
         self.restore_noncore_reactions(noncore=False, othercompartment=True)
+        # Setting core model attribute in model
+        core_reactions = []
+        for reaction in self.model.reactions:
+            # check if reaction is in core template
+            template_reaction = self.find_reaction_in_template(
+                reaction, self.coretemplate, self.compartment[0:1]
+            )
+            if template_reaction is not None:
+                core_reactions.append(reaction.id)
+        self.modelutl.save_attributes(core_reactions, "core_reactions")
 
     def restore_noncore_reactions(self, noncore=True, othercompartment=True):
         """

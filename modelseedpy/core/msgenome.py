@@ -54,7 +54,7 @@ def parse_fasta_str(faa_str, split=DEFAULT_SPLIT, h_func=None):
 
 
 class MSFeature:
-    def __init__(self, feature_id, sequence, description=None, aliases=None):
+    def __init__(self, feature_id, sequence, description=None, aliases=[]):
         """
 
         @param feature_id: identifier for the protein coding feature

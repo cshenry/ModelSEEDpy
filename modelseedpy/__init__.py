@@ -73,6 +73,8 @@ from modelseedpy.fbapkg import (
     ObjConstPkg,
     ChangeOptPkg,
     ElementUptakePkg,
+    ReactionActivationPkg,
+    ExpressionActivationPkg
 )
 
 from modelseedpy.multiomics import MSExpression

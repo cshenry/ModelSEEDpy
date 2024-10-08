@@ -1,25 +1,18 @@
 # -*- coding: utf-8 -*-
 import logging
 
+import pandas as pd
 import re
 import copy
 from cobra.core.dictlist import DictList
-from cobra.core.gene import Gene, ast2str, eval_gpr, parse_gpr
+from cobra.core.gene import Gene, ast2str, eval_gpr, parse_gpr, GPR
 from ast import And, BitAnd, BitOr, BoolOp, Expression, Name, NodeTransformer, Or
 from modelseedpy.core.msgenome import MSGenome, MSFeature
 
-# Types of expression data
-GENOME = 10
-MODEL = 20
-
-# Types of normalization
-COLUMN_NORM = 10
-
 logger = logging.getLogger(__name__)
 
-
 def compute_gene_score(expr, values, default):
-    if isinstance(expr, Expression):
+    if isinstance(expr, (Expression, GPR)):
         return compute_gene_score(expr.body, values, default)
     elif isinstance(expr, Name):
         if expr.id in values:
@@ -29,16 +22,21 @@ def compute_gene_score(expr, values, default):
     elif isinstance(expr, BoolOp):
         op = expr.op
         if isinstance(op, Or):
-            total = 0
+            total = None
             for subexpr in expr.values:
-                total += compute_gene_score(subexpr, values, default)
+                value = compute_gene_score(subexpr, values, default)
+                if value != None:
+                    if total == None:
+                        total = 0
+                    total += value
             return total
         elif isinstance(op, And):
             least = None
             for subexpr in expr.values:
                 value = compute_gene_score(subexpr, values, default)
-                if least == None or value < least:
-                    least = value
+                if value != None:
+                    if least == None or value < least:
+                        least = value
             return least
         else:
             raise TypeError("unsupported operation " + op.__class__.__name__)
@@ -49,12 +47,22 @@ def compute_gene_score(expr, values, default):
 
 
 class MSCondition:
-    def __init__(self, id):
+    def __init__(self, id,parent):
         self.id = id
         self.column_sum = None
         self.feature_count = None
         self.lowest = None
-
+        self.parent = parent
+    
+    def value_at_zscore(self,zscore,normalization=None):
+        array = []
+        for feature in self.parent.features:
+            value  = feature.get_value(self,normalization)
+            if value != None:
+                array.append(value)
+        mean = sum(array) / len(array)
+        std_dev = (sum([(x - mean) ** 2 for x in array]) / len(array)) ** 0.5
+        return mean + (zscore * std_dev)
 
 class MSExpressionFeature:
     def __init__(self, feature, parent):
@@ -63,23 +71,32 @@ class MSExpressionFeature:
         self.values = {}
         self.parent = parent
 
-    def add_value(self, condition, value):
+    def add_value(self, condition, value,collision_policy="add"):#Could also choose overwrit
         if condition in self.values:
-            condition.feature_count += -1
-            condition.column_sum += -1 * value
+            if self.values[condition] != None:
+                condition.column_sum += -1 * self.values[condition]
+            if collision_policy == "add":
+                if self.values[condition] == None:
+                    if value != None:
+                        self.values[condition] = value
+                elif value != None:
+                    self.values[condition] += value
+            else:
+                self.values[condition] = self.values[condition]
             logger.warning(
-                "Overwriting value "
+                collision_policy+" value "
                 + str(self.values[condition])
-                + " with "
+                + " to "
                 + str(value)
                 + " in feature "
-                + self.feature.id
-            )
-        if condition.lowest is None or condition.lowest > value:
-            condition.lowest = value
-        condition.feature_count += 1
-        condition.column_sum += value
-        self.values[condition] = value
+                + self.feature.id) 
+        else:
+            condition.feature_count += 1
+            self.values[condition] = value
+        if self.values[condition] != None:
+            condition.column_sum += self.values[condition]
+            if condition.lowest is None or condition.lowest > self.values[condition]:
+                condition.lowest = self.values[condition]
 
     def get_value(self, condition, normalization=None):
         if isinstance(condition, str):
@@ -94,7 +111,7 @@ class MSExpressionFeature:
                 "Condition " + condition.id + " has no value in " + self.feature.id
             )
             return None
-        if normalization == COLUMN_NORM:
+        if normalization == "column_norm" and self.values[condition] != None:
             return self.values[condition] / condition.column_sum
         return self.values[condition]
 
@@ -108,7 +125,7 @@ class MSExpression:
 
     @staticmethod
     def from_gene_feature_file(filename, genome=None, create_missing_features=False):
-        expression = MSExpression(GENOME)
+        expression = MSExpression("genome")
         if genome == None:
             expression.object = MSGenome()
             create_missing_features = True
@@ -125,7 +142,7 @@ class MSExpression:
                 headers = line.split("\t")
                 for i in range(1, len(headers)):
                     if headers[i] not in expression.conditions:
-                        conditions.append(MSCondition(headers[i]))
+                        conditions.append(MSCondition(headers[i],expression))
                         expression.conditions.append(conditions[i - 1])
                     else:
                         conditions.append(self.conditions.get_by_id(headers[i]))
@@ -143,7 +160,7 @@ class MSExpression:
         if id in self.features:
             return self.features.get_by_id(id)
         feature = None
-        if self.type == GENOME:
+        if self.type == "genome":
             if self.object.search_for_gene(id) == None:
                 if create_gene_if_missing:
                     self.object.features.append(MSFeature(id, ""))
@@ -173,21 +190,21 @@ class MSExpression:
         return feature.get_value(condition, normalization)
 
     def build_reaction_expression(self, model, default):
-        if self.type == MODEL:
+        if self.type == "model":
             logger.critical(
                 "Cannot build a reaction expression from a model-based expression object!"
             )
         # Creating the expression and features
-        rxnexpression = MSExpression(MODEL)
+        rxnexpression = MSExpression("model")
         rxnexpression.object = model
         for rxn in model.reactions:
             if len(rxn.genes) > 0:
                 rxnexpression.add_feature(rxn.id)
         for condition in self.conditions:
+            newcondition = MSCondition(condition.id,rxnexpression)
             rxnexpression.conditions.append(condition)
         # Pulling the gene values from the current expression
         values = {}
-        logger.warning("TESTING!")
         for gene in model.genes:
             feature = self.object.search_for_gene(gene.id)
             if feature == None:
@@ -208,8 +225,17 @@ class MSExpression:
         # Computing the reaction level values
         for condition in rxnexpression.conditions:
             for feature in rxnexpression.features:
-                tree = parse_gpr(feature.feature.gene_reaction_rule)[0]
+                tree = GPR().from_string(str(feature.feature.gene_reaction_rule))
                 feature.add_value(
                     condition, compute_gene_score(tree, values[condition.id], default)
                 )
         return rxnexpression
+    
+    def get_dataframe(self, normalization=None):
+        records = []
+        for feature in self.features:
+            record = {"ftr_id":feature.id}
+            for condition in self.conditions:
+                record[condition.id] = feature.get_value(condition, normalization)
+            records.append(record)
+        return pd.DataFrame.from_records(records)

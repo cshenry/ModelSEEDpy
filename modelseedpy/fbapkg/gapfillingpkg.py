@@ -745,7 +745,7 @@ class GapfillingPkg(BaseFBAPkg):
             if min_objective < 0:
                 self.pkgmgr.getpkg("ObjConstPkg").constraints["objc"]["1"].ub = min_objective
 
-    def filter_database_based_on_tests(self,test_conditions,growth_conditions=[],base_filter=None,base_target="rxn00062_c0",base_filter_only=False):
+    def filter_database_based_on_tests(self,test_conditions,growth_conditions=[],base_filter=None,base_target="rxn00062_c0",base_filter_only=False,all_noncore=True):
         #Saving the current media
         current_media = self.current_media()
         #Clearing element uptake constraints
@@ -777,6 +777,11 @@ class GapfillingPkg(BaseFBAPkg):
                         if "reverse" in self.gapfilling_penalties[reaction.id]:
                             rxnlist.append([reaction, "<"])
                         if "forward" in self.gapfilling_penalties[reaction.id]:
+                            rxnlist.append([reaction, ">"])
+                    elif all_noncore and not self.modelutl.is_core(reaction):
+                        if reaction.lower_bound < 0:
+                            rxnlist.append([reaction, "<"])
+                        if reaction.upper_bound > 0:
                             rxnlist.append([reaction, ">"])
                 filtered_list = self.modelutl.reaction_expansion_test(
                     rxnlist, test_conditions
