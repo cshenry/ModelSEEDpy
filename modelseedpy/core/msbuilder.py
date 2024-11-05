@@ -13,6 +13,7 @@ from modelseedpy.core.msmodel import (
 )
 from cobra.core import Gene, Metabolite, Model, Reaction, Group
 from modelseedpy.core import FBAHelper
+from modelseedpy.core.msmodel import MSModel
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.biochem.modelseed_biochem import ModelSEEDBiochem
 from modelseedpy.biochem.modelseed_to_cobra import modelseed_to_cobra_reaction
@@ -1078,7 +1079,8 @@ class MSBuilder:
                 bio.build_biomass(
                     model, index, classic=False, GC=0.5, add_to_model=True
                 )
-            model.objective = "bio1"
+            if "bio1" in model.reactions:
+                model.objective = "bio1"
 
         reactions_sinks = []
         for cpd_id in ["cpd02701_c0", "cpd11416_c0", "cpd15302_c0", "cpd03091_c0"]:

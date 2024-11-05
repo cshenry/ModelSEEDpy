@@ -182,6 +182,10 @@ class MSTemplateSpecies(Metabolite):
 
         cpd_id = f"{self.id}{index}"
         compartment = f"{self.compartment}{index}"
+        if self.compound == None:
+            logger.critical(
+                f"Compound objective associated with [{cpd_id}] is missing from template"
+            )
         name = f"{self.compound.name} [{compartment}]"
         metabolite = Metabolite(cpd_id, self.formula, name, self.charge, compartment)
         metabolite.notes["modelseed_template_id"] = self.id

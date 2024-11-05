@@ -1375,7 +1375,7 @@ class MSModelUtil:
         #    model.objective.direction = "min"
         pkgmgr.getpkg("KBaseMediaPkg").build_package(condition["media"])
 
-    def test_single_condition(self, condition, apply_condition=True, model=None,report_atp_loop_reactions=False,analyze_failures=True,rxn_list=[]):
+    def test_single_condition(self, condition, apply_condition=True, model=None,report_atp_loop_reactions=False,analyze_failures=False,rxn_list=[]):
         """Runs a single test condition to determine if objective value on set media exceeds threshold
 
         Parameters

@@ -610,13 +610,13 @@ class MSModelReport:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write('<meta charset="UTF-8">')
             f.write("<h1>Model Summary</h1>")
-            f.write(model_summary_df_styled.render(escape=False))
+            f.write(model_summary_df_styled.to_html(escape=False))
             f.write("<br><br>")
             f.write("<h1>Gapfillings Analysis</h1>")
 
             # Check for Gapfillings Analysis data
             if not gapfillings_analysis_df.empty:
-                f.write(gapfillings_analysis_df_styled.render(escape=False))
+                f.write(gapfillings_analysis_df_styled.to_html(escape=False))
                 f.write(f"<br><br><h3>Legend:</h3>{annotations_text_gapfillings}")
             else:
                 f.write(
@@ -627,7 +627,7 @@ class MSModelReport:
 
             # Check for ATP Analysis data
             if not atp_analysis_df.empty:
-                f.write(atp_analysis_df_styled.render(escape=False))
+                f.write(atp_analysis_df_styled.to_html(escape=False))
                 f.write(f"<br><br><h3>Legend:</h3>{annotations_text_atp_analysis}")
                 f.write(explanation_text_atp_analysis)
             else:
