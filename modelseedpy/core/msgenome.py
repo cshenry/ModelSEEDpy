@@ -8,18 +8,18 @@ logger = logging.getLogger(__name__)
 DEFAULT_SPLIT = " "
 
 
-def to_fasta(features, filename, l=80, fn_header=None):
+def to_fasta(features, filename, line_size=80, fn_header=None):
     with open(filename, "w") as fh:
         for feature in features:
-            h = f">{feature.id}\n"
-            if fn_header:
-                h = fn_header(feature)
-            fh.write(h)
-            lines = [
-                feature.seq[i : i + l] + "\n" for i in range(0, len(feature.seq), l)
-            ]
-            for line in lines:
-                fh.write(line)
+            if feature.seq:
+                h = f">{feature.id}\n"
+                if fn_header:
+                    h = fn_header(feature)
+                fh.write(h)
+                _seq = feature.seq
+                lines = [_seq[i: i + line_size] + "\n" for i in range(0, len(_seq), line_size)]
+                for line in lines:
+                    fh.write(line)
     return filename
 
 
@@ -188,3 +188,15 @@ class MSGenome:
             return self.features.get_by_id(query)
         aliases = self.alias_hash()
         return aliases[query] if query in aliases else None
+
+    def _repr_html_(self):
+        return f"""
+        <table>
+            <tr>
+                <td><strong>Memory address</strong></td>
+                <td>{f"{id(self):x}"}</td>
+            </tr><tr>
+                <td><strong>Features</strong></td>
+                <td>{len(self.features)}</td>
+            </tr>
+        </table>"""
