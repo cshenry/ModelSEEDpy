@@ -17,7 +17,10 @@ def to_fasta(features, filename, line_size=80, fn_header=None):
                     h = fn_header(feature)
                 fh.write(h)
                 _seq = feature.seq
-                lines = [_seq[i: i + line_size] + "\n" for i in range(0, len(_seq), line_size)]
+                lines = [
+                    _seq[i : i + line_size] + "\n"
+                    for i in range(0, len(_seq), line_size)
+                ]
                 for line in lines:
                     fh.write(line)
     return filename
