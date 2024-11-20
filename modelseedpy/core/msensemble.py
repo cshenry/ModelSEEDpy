@@ -200,7 +200,14 @@ class MSEnsemble:
                     self.data["reactions"][rxnid]["presence"] += "1"
                 else:
                     self.data["reactions"][rxnid]["presence"] += "0"
-        
+                #Updating reaction probabilities from presence data
+                count = 0
+                for item in self.data["reactions"][rxnid]["presence"]:
+                    if item == "1":
+                        count += 1
+                self.data["reactions"][rxnid]["probability"] = count/len(self.data["reactions"][rxnid]["presence"])
+        #Saving ensemble data in model attributes
+        return self.save_ensemble_model()
 
     def unpack_models(self,model_list=None):
         output_models = [None]*self.size

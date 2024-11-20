@@ -865,7 +865,7 @@ class MSModelUtil:
                         transported_charge += coef * met.charge
                 #Pulling ModelSEED Biochemistry related data
                 msid = MSModelUtil.reaction_msid(reaction)
-                if msid:
+                if msid and msid != "rxn00000":
                     #Penalizing for net transport of ions in the wrong direction
                     forwardscore = 0
                     reversescore = 0
@@ -1538,11 +1538,11 @@ class MSModelUtil:
         filtered_list = []
         # First run the full test
         if self.test_single_condition(condition,apply_condition=False,model=currmodel,rxn_list=reaction_list):
-            print("Reaction set passed"," ".join(map(str, reaction_list)))
+            #print("Reaction set passed"," ".join(map(str, reaction_list)))
             return []
         # Check if input list contains only one reaction:
         if len(reaction_list) == 1:
-            print("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
+            #print("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
             if reaction_list[0][1] == ">":
                 reaction_list[0].append(reaction_list[0][0].upper_bound)
                 reaction_list[0][0].upper_bound = 0

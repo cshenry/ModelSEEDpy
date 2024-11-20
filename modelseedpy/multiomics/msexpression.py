@@ -124,7 +124,7 @@ class MSExpression:
         self.conditions = DictList()
 
     @staticmethod
-    def from_gene_feature_file(filename, genome=None, create_missing_features=False):
+    def from_gene_feature_file(filename, genome=None, create_missing_features=False,ignore_columns=[],description_column=None,sep="\t"):
         expression = MSExpression("genome")
         if genome == None:
             expression.object = MSGenome()
@@ -136,27 +136,37 @@ class MSExpression:
             data = file.read()
         lines = data.split("\n")
         conditions = None
+        description_index = None
+        cond_indeces = []
         for line in lines:
             if conditions == None:
                 conditions = []
                 headers = line.split("\t")
                 for i in range(1, len(headers)):
-                    if headers[i] not in expression.conditions:
-                        conditions.append(MSCondition(headers[i],expression))
-                        expression.conditions.append(conditions[i - 1])
-                    else:
-                        conditions.append(self.conditions.get_by_id(headers[i]))
-                    conditions[i - 1].column_sum = 0
-                    conditions[i - 1].feature_count = 0
+                    if headers[i] == description_column:
+                        description_index = i
+                        print("Description column:",description_index)
+                    elif headers[i] not in ignore_columns:
+                        conditions.append(headers[i])
+                        cond_indeces.append(i)
+                        if headers[i] not in expression.conditions:
+                            expression.conditions.append(MSCondition(headers[i],expression))
+                        else:
+                            conditions.append(self.conditions.get_by_id(headers[i])) 
+                        expression.conditions.get_by_id(headers[i]).column_sum = 0
+                        expression.conditions.get_by_id(headers[i]).feature_count = 0 
             else:
                 array = line.split("\t")
-                protfeature = expression.add_feature(array[0], create_missing_features)
+                description = None
+                if description_index != None:
+                    description = array[description_index]
+                protfeature = expression.add_feature(array[0], create_missing_features,description=description)
                 if protfeature != None:
-                    for i in range(1, len(array)):
-                        protfeature.add_value(conditions[i - 1], float(array[i]))
+                    for cond_index in cond_indeces:
+                        protfeature.add_value(expression.conditions.get_by_id(headers[cond_index]), float(array[cond_index]))
         return expression
 
-    def add_feature(self, id, create_gene_if_missing=False):
+    def add_feature(self, id, create_gene_if_missing=False,description=None):
         if id in self.features:
             return self.features.get_by_id(id)
         feature = None
@@ -208,11 +218,11 @@ class MSExpression:
         for gene in model.genes:
             feature = self.object.search_for_gene(gene.id)
             if feature == None:
-                logger.warning(
-                    "Model gene " + gene.id + " not found in genome of expression"
+                logger.debug(
+                    "Model gene " + gene.id + " not found in genome or expression"
                 )
             elif feature.id not in self.features:
-                logger.warning(
+                logger.debug(
                     "Model gene " + gene.id + " in genome but not in expression"
                 )
             else:

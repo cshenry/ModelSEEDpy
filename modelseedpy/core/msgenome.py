@@ -161,7 +161,17 @@ class MSGenome:
         return genome
 
     def alias_hash(self):
-        return {alias: gene for gene in self.features for alias in gene.aliases}
+        output = {}
+        for gene in self.features:
+            for alias in gene.aliases:
+                #Check if alias is a list
+                if isinstance(alias,list):
+                    if alias[1] not in output:
+                        output[alias[1]] = gene
+                else:
+                    if alias not in output:
+                        output[alias] = gene
+        return output
 
     def search_for_gene(self, query):
         if query in self.features:

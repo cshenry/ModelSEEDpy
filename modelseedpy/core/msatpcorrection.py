@@ -113,6 +113,7 @@ class MSATPCorrection:
         for media_id in forced_media:
             for item in self.atp_medias:
                 if item[0].id == media_id:
+                    print("Forced media: " + media_id)
                     self.forced_media.append(item[0])
                     break
 
@@ -405,6 +406,10 @@ class MSATPCorrection:
             ):
                 self.selected_media.append(media)
                 atp_att["selected_media"][media.id] = 0
+            elif media in self.forced_media:
+                self.selected_media.append(media)
+                atp_att["selected_media"][media.id] = 0
+                
 
         self.modelutl.save_attributes(atp_att, "ATP_analysis")
 
