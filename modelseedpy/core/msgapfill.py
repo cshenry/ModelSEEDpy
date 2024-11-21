@@ -549,8 +549,8 @@ class MSGapfill:
             self.gfpkgmgr.getpkg("GapfillingPkg").compute_gapfilling_penalties(reaction_scores=self.reaction_scores)
             self.gfpkgmgr.getpkg("GapfillingPkg").build_gapfilling_objective_function()
         #Running sensitivity analysis once on the cumulative solution for all media
-        with open("datacache/solutions.json", 'w') as f:
-            json.dump(solution_dictionary,f,indent=4,skipkeys=True)
+        #with open("datacache/solutions.json", 'w') as f:
+            #json.dump(solution_dictionary,f,indent=4,skipkeys=True)
         if run_sensitivity_analysis:
             logger.info(
                 "Gapfilling sensitivity analysis running"
