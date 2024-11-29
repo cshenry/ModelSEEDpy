@@ -520,23 +520,23 @@ class MSTemplateBiomassComponent:
 class MSTemplateBiomass:
     def __init__(
         self,
-        bio_id,
-        name,
-        type,
-        dna,
-        rna,
-        protein,
-        lipid,
-        cellwall,
-        cofactor,
-        pigment,
-        carbohydrate,
-        energy,
-        other,
+        biomass_id: str,
+        name: str,
+        type: str,
+        dna: float,
+        rna: float,
+        protein: float,
+        lipid: float,
+        cellwall: float,
+        cofactor: float,
+        pigment: float,
+        carbohydrate: float,
+        energy: float,
+        other: float,
     ):
         """
 
-        :param bio_id:string
+        :param biomass_id:string
         :param name:string
         :param type:string
         :param dna:float
@@ -550,7 +550,7 @@ class MSTemplateBiomass:
         :param energy:float
         :param other:float
         """
-        self.id = bio_id
+        self.id = biomass_id
         self.name = name
         self.type = type
         self.dna = dna
