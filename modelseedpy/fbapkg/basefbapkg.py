@@ -61,6 +61,18 @@ class BaseFBAPkg:
         for type in constraint_types:
             self.constraints[type] = dict()
 
+        for constraint in self.model.solver.constraints:
+            obj_type = constraint.name.split("_")[-1]
+            if obj_type in self.constraints:
+                name = "_".join(constraint.name.split("_")[0:-1])
+                self.constraints[obj_type][name] = constraint
+        
+        for variable in self.model.solver.variables:
+            obj_type = variable.name.split("_")[-1]
+            if obj_type in self.variables:
+                name = "_".join(variable.name.split("_")[0:-1])
+                self.variables[obj_type][name] = variable
+
     def validate_parameters(self, params, required, defaults):
         for item in required:
             if item not in params:

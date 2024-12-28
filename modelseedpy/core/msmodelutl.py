@@ -407,9 +407,15 @@ class MSModelUtil:
         """
         cobra.io.save_json_model(self.model, filename)
     
-    def printlp(self, lpfilename="debug.lp"):
-        with open(lpfilename, "w") as out:
-            out.write(str(self.model.solver))
+    def printlp(self,model=None,path="",filename="debug",print=False):
+        if print:
+            if len(path) > 0:
+                path+"/"
+            lpfilename = path+filename+".lp"
+            if model == None:
+                model = self.model
+            with open(lpfilename, "w") as out:
+                out.write(str(model.solver))
 
     def print_solutions(self, solution_hash,filename="reaction_solutions.csv"):
         records = []

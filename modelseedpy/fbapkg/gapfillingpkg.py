@@ -24,7 +24,7 @@ logger.setLevel(
     logging.INFO
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
-base_blacklist = {}#{"rxn00062":"="}
+base_blacklist = {"rxn04656":"=","rxn07589":"=","rxn07588":"="}
 zero_threshold = 1e-8
 
 
@@ -242,6 +242,8 @@ class GapfillingPkg(BaseFBAPkg):
         for reaction in self.model.reactions:
             if reaction.id in self.gapfilling_penalties:
                 if "reverse" in self.gapfilling_penalties[reaction.id]:
+                    if reaction.id not in self.maxflux_variables:
+                        self.maxflux_variables[reaction.id] = {}
                     self.maxflux_variables[reaction.id][
                         "reverse"
                     ] = self.build_variable(
@@ -258,6 +260,8 @@ class GapfillingPkg(BaseFBAPkg):
                         reaction,
                     )
                 if "forward" in self.gapfilling_penalties[reaction.id]:
+                    if reaction.id not in self.maxflux_variables:
+                        self.maxflux_variables[reaction.id] = {}
                     self.maxflux_variables[reaction.id][
                         "forward"
                     ] = self.build_variable(

@@ -21,12 +21,13 @@ class ProblemReplicationPkg(BaseFBAPkg):
         # First loading shared variables into a hash
         shared_var_hash = {}
         for pkg in self.parameters["shared_variable_packages"]:
+            fbapkg = self.modelutl.pkgmgr.getpkg(pkg)
             for type in self.parameters["shared_variable_packages"][pkg]:
-                if type in pkg.variables:
-                    for objid in pkg.variables[type]:
+                if type in fbapkg.variables:
+                    for objid in fbapkg.variables[type]:
                         shared_var_hash[
-                            pkg.variables[type][objid].name
-                        ] = pkg.variables[type][objid]
+                            fbapkg.variables[type][objid].name
+                        ] = fbapkg.variables[type][objid]
         # Now copying over variables and constraints from other models and replacing shared variables
         count = 0
         for othermdl in self.parameters["models"]:
