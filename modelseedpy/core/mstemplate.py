@@ -637,16 +637,16 @@ class MSTemplateBiomass:
             d["id"],
             d["name"],
             d["type"],
-            d["dna"],
-            d["rna"],
-            d["protein"],
-            d["lipid"],
-            d["cellwall"],
-            d["cofactor"],
-            d["pigment"],
-            d["carbohydrate"],
-            d["energy"],
-            d["other"],
+            d.get("dna", 0),
+            d.get("rna", 0),
+            d.get("protein", 0),
+            d.get("lipid", 0),
+            d.get("cellwall", 0),
+            d.get("cofactor", 0),
+            d.get("pigment", 0),
+            d.get("carbohydrate", 0),
+            d.get("energy", 0),
+            d.get("other", 0)
         )
         for item in d["templateBiomassComponents"]:
             biocomp = MSTemplateBiomassComponent.from_dict(item, template)
