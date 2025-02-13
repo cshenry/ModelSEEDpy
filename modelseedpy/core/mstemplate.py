@@ -648,8 +648,8 @@ class MSTemplateBiomass:
             d["lipid"],
             d["cellwall"],
             d["cofactor"],
-            d["pigment"],
-            d["carbohydrate"],
+            d.get("pigment",0),
+            d.get("carbohydrate",0),
             d["energy"],
             d["other"],
         )
