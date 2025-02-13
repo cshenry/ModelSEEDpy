@@ -534,6 +534,8 @@ class MSTemplateBiomass:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -548,6 +550,8 @@ class MSTemplateBiomass:
         :param lipid:float
         :param cellwall:float
         :param cofactor:float
+        :param pigment:float
+        :param carbohydrate:float
         :param energy:float
         :param other:float
         """
@@ -560,6 +564,8 @@ class MSTemplateBiomass:
         self.lipid = lipid
         self.cellwall = cellwall
         self.cofactor = cofactor
+        self.pigment = pigment
+        self.carbohydrate = carbohydrate
         self.energy = energy
         self.other = other
         self.templateBiomassComponents = DictList()
@@ -578,6 +584,8 @@ class MSTemplateBiomass:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -591,6 +599,8 @@ class MSTemplateBiomass:
             lipid,
             cellwall,
             cofactor,
+            pigment,
+            carbohydrate,
             energy,
             other,
         )
@@ -638,6 +648,8 @@ class MSTemplateBiomass:
             d["lipid"],
             d["cellwall"],
             d["cofactor"],
+            d["pigment"],
+            d["carbohydrate"],
             d["energy"],
             d["other"],
         )
@@ -701,6 +713,8 @@ class MSTemplateBiomass:
             "rna",
             "energy",
             "other",
+            "pigment",
+            "carbohydrate"
         ]
         type_abundances = {
             "cofactor": self.cofactor,
@@ -710,6 +724,8 @@ class MSTemplateBiomass:
             "dna": self.dna,
             "rna": self.rna,
             "energy": self.energy,
+            "pigment": self.pigment,
+            "carbohydrate": self.carbohydrate,
         }
         # Creating biomass reaction object
         metabolites = {}
@@ -1127,6 +1143,8 @@ class MSTemplate:
         lipid,
         cellwall,
         cofactor,
+        pigment,
+        carbohydrate,
         energy,
         other,
     ):
@@ -1144,6 +1162,8 @@ class MSTemplate:
             lipid,
             cellwall,
             cofactor,
+            pigment,
+            carbohydrate,
             energy,
             other,
         )
