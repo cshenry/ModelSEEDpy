@@ -880,47 +880,42 @@ class MSModelUtil:
                     if transported_charge < 0:
                         reversescore += -50*transported_charge
                     basescore = 0
-                    msrxn = biochem.reactions[msid]
+                    msrxn = biochem.reactions.get_by_id(msid)
                     #Penalizing for mass imbalance
-                    if msrxn["status"][0:2] == "MI":
+                    if msrxn.status[0:2] == "MI":
                         basescore = 1000
                     #Penalizing for charge imbalance
-                    if msrxn["status"][0:2] == "CI":
+                    if msrxn.status[0:2] == "CI":
                         basescore = 800
-                    #Penalizing if no pathways
-                    if msrxn["pathways"] == None:
-                        basescore = 50
+                    #Penalizing if no pathways TODO - cannot use this with ModelSEEDDatabase instead of ModelSEEDBiochem
+                    #if msrxn["pathways"] == None:
+                    #    basescore = 50
                     #Penalizing if there is no deltaG
-                    if "deltag" not in msrxn or msrxn["deltag"] == 10000000:
+                    if msrxn.deltag == 10000000:
                         basescore = 200
                     else:
                         #Penalizing in the direction of infeasiblility
-                        if msrxn["deltag"] <= -5:
+                        if msrxn.deltag <= -5:
                             reversescore += 20
-                        if msrxn["deltag"] <= -10:
+                        if msrxn.deltag <= -10:
                             reversescore += 20
-                        if msrxn["deltag"] >= 5:
+                        if msrxn.deltag >= 5:
                             forwardscore += 20
-                        if msrxn["deltag"] >= 10:
+                        if msrxn.deltag >= 10:
                             forwardscore += 20
                     #Penalizing reactions in direction of production of ATP
-                    array = str(msrxn["stoichiometry"]).split(";")
-                    for item in array:
-                        subarray = item.split(":")
-                        if len(subarray) > 1:
-                            if subarray[1] == "cpd00002":
-                                if float(subarray[0]) < 0:
-                                    reversescore += 100
-                                elif float(subarray[0]) > 0:
-                                    forwardscore += 100
-                            #Penalizing if a compound structure is unkown
-                            if subarray[1] in biochem.compounds:
-                                if "inchikey" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["inchikey"] == None:
-                                    basescore += 40
-                                if "formula" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["formula"] == None:
-                                    basescore += 60
-                                if "deltag" not in biochem.compounds[subarray[1]] or biochem.compounds[subarray[1]]["deltag"] == 10000000:
-                                    basescore += 20
+                    for cpd in msrxn.metabolites:
+                        if cpd.id == "cpd00002":
+                            if msrxn.metabolites[cpd] < 0:
+                                reversescore += 100
+                            elif msrxn.metabolites[cpd] > 0:
+                                forwardscore += 100
+                        if cpd.inchikey() == None:
+                            basescore += 40
+                        if cpd.formula == None:
+                            basescore += 60
+                        if cpd.deltag == 10000000:
+                            basescore += 20
                     self.reliability_scores[reaction.id] = {}
                     self.reliability_scores[reaction.id][">"] = basescore+forwardscore
                     self.reliability_scores[reaction.id]["<"] = basescore+reversescore
