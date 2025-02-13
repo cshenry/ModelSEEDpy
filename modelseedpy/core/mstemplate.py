@@ -1515,7 +1515,16 @@ class MSTemplate:
                 associated_groups = self.get_associated_groups(reaction)
                 for group in associated_groups:
                     group.remove_members(reaction) """
-
+    
+    #*************************Curation Functions*************************
+    def auto_fix_protons(self):
+        for rxn in self.reactions:
+            mb = rxn.check_mass_balance()
+            if 'charge' in mb and mb.get('H') == mb.get('charge'):
+                print(f'auto fix charge for {rxn.id}')
+                rxn.add_metabolites({
+                    self.compcompounds.cpd00067_c: -1 * mb['charge']
+                })
 
 class MSTemplateBuilder:
     def __init__(

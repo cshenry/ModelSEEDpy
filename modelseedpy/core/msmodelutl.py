@@ -498,7 +498,7 @@ class MSModelUtil:
             return self.atp_tests
         #Attempting to pull ATP tests from attributes
         if not recompute:
-            print("Getting tests from attributes")
+            logger.debug("Getting tests from attributes")
             atp_analysis = self.get_attributes("ATP_analysis",None)
             if atp_analysis:
                 if "tests" in atp_analysis:
@@ -948,7 +948,7 @@ class MSModelUtil:
         if not isinstance(rxn, str):
             rxn = rxn.id
         if "core_reactions" in self.get_attributes():
-            print("Using core reactions attribute!")
+            logger.debug("Using core reactions attribute!")
             if rxn in self.get_attributes("core_reactions"):
                 return True
             return False
@@ -1291,7 +1291,7 @@ class MSModelUtil:
         return unneeded
 
     def add_gapfilling(self, solution):
-        print("Adding gapfilling",str(solution))
+        logger.debug("Adding gapfilling:"+str(solution))
         self.integrated_gapfillings.append(solution)
 
     def create_kb_gapfilling_data(self, kbmodel, atpmedia_ws="94026"):
@@ -1439,7 +1439,7 @@ class MSModelUtil:
                 self.model.reactions.get_by_id(condition["objective"]).lower_bound = 0
             return False
         elif value <= condition["threshold"] and not condition["is_max_threshold"]:
-            print("Failed low:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
+            logger.debug("Failed low:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
             return False
         self.test_objective = new_objective
         logger.debug("Passed:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
@@ -1544,11 +1544,11 @@ class MSModelUtil:
         filtered_list = []
         # First run the full test
         if self.test_single_condition(condition,apply_condition=False,model=currmodel,rxn_list=reaction_list):
-            #print("Reaction set passed"," ".join(map(str, reaction_list)))
+            #logger.debug("Reaction set passed"," ".join(map(str, reaction_list)))
             return []
         # Check if input list contains only one reaction:
         if len(reaction_list) == 1:
-            #print("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
+            #logger.debug("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
             if reaction_list[0][1] == ">":
                 reaction_list[0].append(reaction_list[0][0].upper_bound)
                 reaction_list[0][0].upper_bound = 0
@@ -1561,7 +1561,7 @@ class MSModelUtil:
                 #Testing positive growth conditions
                 for pos_condition in positive_growth:
                     if not self.test_single_condition(pos_condition,apply_condition=True,model=currmodel):
-                        print("Does not pass positive growth tests:"+reaction_list[0][1]+reaction_list[0][0].id)
+                        logger.debug("Does not pass positive growth tests:"+reaction_list[0][1]+reaction_list[0][0].id)
                         success = False
                         break
                 #Restoring current test condition
@@ -1601,7 +1601,7 @@ class MSModelUtil:
         for item in new_filter:
             filtered_list.append(item)
         if self.breaking_reaction != None:
-            print("Ending early due to breaking reaction:"+self.breaking_reaction.id)
+            logger.debug("Ending early due to breaking reaction:"+self.breaking_reaction.id)
             return filtered_list
         # Submitting second half of reactions for testing - now only breaking reactions are removed from the first list
         for i, item in enumerate(reaction_list):
@@ -1667,14 +1667,14 @@ class MSModelUtil:
             scores = self.assign_reliability_scores_to_reactions()
             reaction_list = sorted(reaction_list, key=lambda x: scores[x[0].id][x[1]])
             for item in reaction_list:
-                print(item[0].id+":"+item[1]+":"+str(scores[item[0].id][item[1]]))
+                logger.debug(item[0].id+":"+item[1]+":"+str(scores[item[0].id][item[1]]))
         for condition in condition_list:
             logger.debug(f"testing condition {condition}")
             currmodel = self.model
             tic = time.perf_counter()
             new_filtered = []
             if not self.check_if_solution_exists(reaction_list, condition, currmodel):
-                print("No solution exists that passes tests for condition "+condition["media"].id)
+                logger.debug("No solution exists that passes tests for condition "+condition["media"].id)
                 return None
             with currmodel:
                 self.apply_test_condition(condition)
@@ -1691,13 +1691,13 @@ class MSModelUtil:
                             done = True
                         else:
                             #Remove breaking reaction from reaction_list
-                            print("Keeping breaking reaction:"+self.breaking_reaction.id)
+                            logger.debug("Keeping breaking reaction:"+self.breaking_reaction.id)
                             for i in range(len(reaction_list)):
                                 if reaction_list[i][0] == self.breaking_reaction:
                                     del reaction_list[i]
                                     break
                             if not self.check_if_solution_exists(reaction_list, condition, currmodel):
-                                print("No solution exists after retaining breaking reaction:"+self.breaking_reaction.id)
+                                logger.debug("No solution exists after retaining breaking reaction:"+self.breaking_reaction.id)
                                 return None
                             self.breaking_reaction = None
                 else:

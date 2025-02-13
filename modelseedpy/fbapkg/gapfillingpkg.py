@@ -24,7 +24,7 @@ logger.setLevel(
     logging.INFO
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
-base_blacklist = {"rxn04656":"=","rxn07589":"=","rxn07588":"="}
+base_blacklist = {"rxn04656":"=","rxn07589":"<","rxn07588":"<"}
 zero_threshold = 1e-8
 
 
