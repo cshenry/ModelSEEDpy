@@ -891,17 +891,17 @@ class MSModelUtil:
                     #if msrxn["pathways"] == None:
                     #    basescore = 50
                     #Penalizing if there is no deltaG
-                    if msrxn.deltag == 10000000:
+                    if msrxn.delta_g == 10000000 or msrxn.delta_g == None:
                         basescore = 200
                     else:
                         #Penalizing in the direction of infeasiblility
-                        if msrxn.deltag <= -5:
+                        if msrxn.delta_g <= -5:
                             reversescore += 20
-                        if msrxn.deltag <= -10:
+                        if msrxn.delta_g <= -10:
                             reversescore += 20
-                        if msrxn.deltag >= 5:
+                        if msrxn.delta_g >= 5:
                             forwardscore += 20
-                        if msrxn.deltag >= 10:
+                        if msrxn.delta_g >= 10:
                             forwardscore += 20
                     #Penalizing reactions in direction of production of ATP
                     for cpd in msrxn.metabolites:
@@ -914,7 +914,7 @@ class MSModelUtil:
                             basescore += 40
                         if cpd.formula == None:
                             basescore += 60
-                        if cpd.deltag == 10000000:
+                        if cpd.delta_g == 10000000 or cpd.delta_g == None:
                             basescore += 20
                     self.reliability_scores[reaction.id] = {}
                     self.reliability_scores[reaction.id][">"] = basescore+forwardscore
