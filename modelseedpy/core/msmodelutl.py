@@ -910,7 +910,7 @@ class MSModelUtil:
                                 reversescore += 100
                             elif msrxn.metabolites[cpd] > 0:
                                 forwardscore += 100
-                        if cpd.inchikey() == None:
+                        if cpd.inchi_key() == None:
                             basescore += 40
                         if cpd.formula == None:
                             basescore += 60
