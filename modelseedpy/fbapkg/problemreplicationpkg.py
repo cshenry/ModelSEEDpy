@@ -35,9 +35,12 @@ class ProblemReplicationPkg(BaseFBAPkg):
             self.variables[str(count)] = {}
             newobj = []
             new_var_hash = {}
+            othermdl.solver = "gurobi"
             for var in othermdl.variables:
                 if var.name not in shared_var_hash:
+                    print("Original variable: " + str(Variable))
                     newvar = Variable.clone(var)
+                    print("Copy variable: " + str(newvar))
                     newvar.name = var.name + "." + str(count)
                     self.variables[str(count)][var.name] = newvar
                     new_var_hash[var.name] = newvar
