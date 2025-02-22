@@ -281,11 +281,15 @@ class MSGrowthPhenotype:
 
         return gfresults
 
-
 class MSGrowthPhenotypes:
     def __init__(
-        self, base_media=None, base_uptake=0, base_excretion=1000, global_atom_limits={}
+        self, base_media=None, base_uptake=0, base_excretion=1000, global_atom_limits={}, id=None, name=None, source=None, source_id=None, type=None
     ):
+        self.id = id
+        self.name = name
+        self.source = source
+        self.source_id = source_id
+        self.type = type
         self.base_media = base_media
         self.phenotypes = DictList()
         self.base_uptake = base_uptake
@@ -304,7 +308,7 @@ class MSGrowthPhenotypes:
         type="growth"
     ):
         growthpheno = MSGrowthPhenotypes(
-            base_media, base_uptake, base_excretion, global_atom_limits
+            base_media=base_media, base_uptake=base_uptake, base_excretion=base_excretion, global_atom_limits=global_atom_limits, id=None, name=None, source=None, source_id=None, type=None
         )
         new_phenos = []
         for cpd in compounds:
@@ -323,7 +327,7 @@ class MSGrowthPhenotypes:
         global_atom_limits={},
     ):
         growthpheno = MSGrowthPhenotypes(
-            base_media, base_uptake, base_excretion, global_atom_limits
+            base_media=base_media, base_uptake=base_uptake, base_excretion=base_excretion, global_atom_limits=global_atom_limits, id=data["id"], name=data["name"], source=data["source"], source_id=data["source_id"], type=data["type"]
         )
         new_phenos = []
         for pheno in data["phenotypes"]:
@@ -413,6 +417,27 @@ class MSGrowthPhenotypes:
             new_phenos.append(newpheno)
         growthpheno.add_phenotypes(new_phenos)
         return growthpheno
+
+    def to_kbase_json(self,genome_ref):
+        pheno_data = {
+            "id": self.id,
+            "name": self.name,
+            "source": self.source,
+            "source_id": self.source_id,
+            "type": self.type,
+            "phenotypes": [],
+            "genome_ref": genome_ref
+        }
+        for pheno in self.phenotypes:
+            pheno_data["phenotypes"].append({
+                "id": pheno.id,
+                "name": pheno.name,
+                "media_ref": pheno.media.info.ref,
+                "normalizedGrowth": pheno.experimental_value,
+                "geneko_refs": pheno.gene_ko,
+                "additionalcompound_refs": pheno.additional_compounds
+            })
+        return pheno_data
 
     def build_super_media(self):
         super_media = None

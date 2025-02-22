@@ -116,7 +116,7 @@ class MSGapfill:
             }
         )
 
-    def test_gapfill_database(self, media, target=None, before_filtering=True):
+    def test_gapfill_database(self, media, target=None, before_filtering=True,active_reactions=[]):
         # Testing if gapfilling can work before filtering
         if target:
             self.gfpkgmgr.getpkg("GapfillingPkg").set_base_objective(target,None)
@@ -126,7 +126,7 @@ class MSGapfill:
             target = target[13:]
         #Setting media
         self.gfpkgmgr.getpkg("KBaseMediaPkg").build_package(media)
-        if self.gfpkgmgr.getpkg("GapfillingPkg").test_gapfill_database():
+        if self.gfpkgmgr.getpkg("GapfillingPkg").test_gapfill_database(active_reactions):
             return True
         if self.gfpkgmgr.getpkg("GapfillingPkg").test_solution.status == 'infeasible':
             return False
@@ -162,14 +162,17 @@ class MSGapfill:
             "medias":[],
             "targets":[],
             "thresholds":[],
-            "conditions":[]
+            "conditions":[],
+            "active_reactions":[]
         }
         logger.debug("Testing unfiltered database")
         for i,media in enumerate(medias):
-            if self.test_gapfill_database(media,targets[i],before_filtering=True):
+            active_reactions = []
+            if self.test_gapfill_database(media,targets[i],before_filtering=True,active_reactions=active_reactions):
                 output["medias"].append(media)
                 output["targets"].append(targets[i])
                 output["thresholds"].append(thresholds[i])
+                output["active_reactions"].append(active_reactions)
                 output["conditions"].append({
                     "media": media,
                     "is_max_threshold": False,
@@ -179,25 +182,29 @@ class MSGapfill:
         # Filtering
         if prefilter:
             logger.debug("Filtering database")
-            self.prefilter(growth_conditions=output["conditions"])
+            self.prefilter(growth_conditions=output["conditions"],active_reaction_sets=output["active_reactions"])
             medias = []
             targets = []
             thresholds = []
             conditions = []
+            active_reaction_sets = []
             logger.debug("Testing filtered database")
             for i,media in enumerate(output["medias"]):
-                if self.test_gapfill_database(media,output["targets"][i],before_filtering=False):
+                active_reactions = []
+                if self.test_gapfill_database(media,output["targets"][i],before_filtering=False,active_reactions=active_reactions):
                     medias.append(media)
                     targets.append(output["targets"][i])
                     thresholds.append(output["thresholds"][i])
                     conditions.append(output["conditions"][i])
+                    active_reaction_sets.append(active_reactions)
             output["medias"] = medias
             output["targets"] = targets
             output["thresholds"] = thresholds
             output["conditions"] = conditions
+            output["active_reactions"] = active_reaction_sets
         return output
 
-    def prefilter(self,test_conditions=None,growth_conditions=[],use_prior_filtering=False,base_filter_only=False):
+    def prefilter(self,test_conditions=None,growth_conditions=[],use_prior_filtering=False,base_filter_only=False,active_reaction_sets=[]):
         """Prefilters the database by removing any reactions that break specified ATP tests
         Parameters
         ----------
@@ -215,7 +222,8 @@ class MSGapfill:
                 self.test_conditions,
                 growth_conditions=growth_conditions,
                 base_filter=base_filter,
-                base_filter_only=base_filter_only
+                base_filter_only=base_filter_only,
+                active_reaction_sets=active_reaction_sets
             )
             gf_filter = self.gfpkgmgr.getpkg("GapfillingPkg").modelutl.get_attributes(
                 "gf_filter", {}
@@ -355,6 +363,7 @@ class MSGapfill:
             self.gfpkgmgr.getpkg("GapfillingPkg").set_media(media)
             #Copying model and either making it the base model or adding to the model list
             model_cpy = self.gfmodel.copy()
+            
             if i == 0:
                 merged_model = model_cpy
             else:
@@ -400,7 +409,9 @@ class MSGapfill:
         self.mdlutl.printlp(model=merged_model,filename="GlobalGapfill",print=True)
 
         # Running gapfilling and checking solution
+        print("Runninng global optimization")
         sol = merged_model.optimize()
+        print("Global optimization complete")
         logger.info(
             f"gapfill solution objective value {sol.objective_value} ({sol.status}) for media {media}"
         )

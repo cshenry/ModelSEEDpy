@@ -852,13 +852,21 @@ class MSModelUtil:
     #################################################################################
     # Functions related to utility functions
     #################################################################################
-    def assign_reliability_scores_to_reactions(self):
+    def assign_reliability_scores_to_reactions(self,active_reaction_sets=[]):
         """Assigns a reliability score to every model reaction which indicates how likely the reaction is to be accurate and to take place
 
         Returns
         -------
         { reaction ID<string> : { reaction direction<string> : score<float> }  }
         """
+        active_rxn_dictionary={}
+        for item in active_reaction_sets:
+            for array in item:
+                if array[0] not in active_rxn_dictionary:
+                    active_rxn_dictionary[array[0]] = {}
+                if array[1] not in active_rxn_dictionary[array[0]]:
+                    active_rxn_dictionary[array[0]][array[1]] = 0
+                active_rxn_dictionary[array[0]][array[1]]+=1
         if self.reliability_scores == None:
             self.reliability_scores = {}
             biochem = ModelSEEDBiochem.get()
@@ -927,6 +935,15 @@ class MSModelUtil:
                     self.reliability_scores[reaction.id] = {}
                     self.reliability_scores[reaction.id][">"] = 1000
                     self.reliability_scores[reaction.id]["<"] = 1000
+                for_multiplier = 1
+                rev_multiplier = 1
+                if reaction.id in active_rxn_dictionary:
+                    if ">" in active_rxn_dictionary[reaction.id]:
+                        for_multiplier += 0.1*active_rxn_dictionary[reaction.id][">"]
+                    if "<" in active_rxn_dictionary[reaction.id]:
+                        rev_multiplier += 0.1*active_rxn_dictionary[reaction.id]["<"]
+                self.reliability_scores[reaction.id][">"] = self.reliability_scores[reaction.id][">"]*for_multiplier
+                self.reliability_scores[reaction.id]["<"] = self.reliability_scores[reaction.id]["<"]*rev_multiplier
         return self.reliability_scores     
     
     def is_core(self,rxn):
@@ -1636,7 +1653,8 @@ class MSModelUtil:
         binary_search=True,
         attribute_label="gf_filter",
         positive_growth=[],
-        resort_by_score=True
+        resort_by_score=True,
+        active_reaction_sets=[]
     ):
         """Adds reactions in reaction list one by one and appplies tests, filtering reactions that fail
 
@@ -1659,7 +1677,7 @@ class MSModelUtil:
         self.breaking_reaction = None
         filtered_list = []
         if resort_by_score:
-            scores = self.assign_reliability_scores_to_reactions()
+            scores = self.assign_reliability_scores_to_reactions(active_reaction_sets=active_reaction_sets)
             reaction_list = sorted(reaction_list, key=lambda x: scores[x[0].id][x[1]])
             for item in reaction_list:
                 logger.debug(item[0].id+":"+item[1]+":"+str(scores[item[0].id][item[1]]))

@@ -37,6 +37,7 @@ allowable_score_types = [
     "tmscore",
     "rmsd",
     "hmmscore",
+    "score"
 ]
 
 def convert_to_search_role(role):
@@ -60,9 +61,9 @@ class AnnotationOntologyEvidence:
         self.ref_entity = ref_entity
         self.entity_type = entity_type
         self.scores = scores
-        for item in self.scores:
-            if item not in allowable_score_types:
-                logger.warning(item + " not an allowable score type!")
+        #for item in self.scores:
+            #if item not in allowable_score_types:
+                #logger.warning(item + " not an allowable score type!")
 
     def to_data(self):
         output = {
@@ -485,6 +486,8 @@ class AnnotationOntology:
                 elif item == "Merge":
                     if len(event.method) > 5 and event.method[0:5] == "Merge" and event.id not in event_list:
                         selected_merge = event.id
+                elif item in event.description or item in event.id:
+                    event_list.append(event.id)
             if selected_merge:
                 event_list.append(selected_merge)
         return event_list
