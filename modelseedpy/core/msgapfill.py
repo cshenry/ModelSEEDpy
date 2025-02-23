@@ -685,7 +685,7 @@ class MSGapfill:
                 #Setting genes from reaction scores in we have them
                 coreid = re.sub(r"_[a-z]\d+$", "", item[0])
                 if coreid in self.reaction_scores:
-                    logger.debug(f"Found reaction scores for coreid: {coreid}")
+                    logger.info(f"Found reaction scores for coreid: {coreid}")
                     bestgene = None
                     bestscore = None
                     for gene in self.reaction_scores[coreid]:
@@ -702,7 +702,7 @@ class MSGapfill:
                             bestgene = gene
                             bestscore = score
                     rxn = self.model.reactions.get_by_id(item[0])
-                    logger.debug(f"Assigning gene to reaction: {item[0]} {bestgene}")
+                    logger.info(f"Assigning gene to reaction: {item[0]} {bestgene}")
                     rxn.gene_reaction_rule = bestgene
                     rxn.notes["new_genes"] = bestgene
                     print("Assigning gene to reaction: "+item[0]+" "+bestgene)
