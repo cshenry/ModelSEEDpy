@@ -542,7 +542,6 @@ class MSGapfill:
         if gapfilling_mode == "Global":
             #Now we run simultaneous gapfilling on a combination of all our various gapfilled models
             print("Running global gapfilling!")
-            print("Reaction scores:",self.reaction_scores)
             full_solution = self.run_global_gapfilling(
                 medias=test_output["medias"],
                 targets=test_output["targets"],

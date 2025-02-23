@@ -536,7 +536,7 @@ class MSGrowthPhenotypes:
         # Running simulations
         gapfilling_solutions = {}
         totalcount = 0
-        datahash = {}
+        datahash = {"summary": {}}
         for pheno in self.phenotypes:
             result = pheno.simulate(
                 modelutl,
@@ -599,6 +599,13 @@ class MSGrowthPhenotypes:
             summary["Count"][0] = None
         else:
             summary["Count"][0] = summary["Count"][0] / totalcount
+        datahash["summary"]["accuracy"] = summary["Count"][0]
+        datahash["summary"]["CP"] = summary["Count"][1]
+        datahash["summary"]["CN"] = summary["Count"][2]
+        datahash["summary"]["FP"] = summary["Count"][3]
+        datahash["summary"]["FN"] = summary["Count"][4]
+        datahash["summary"]["P"] = summary["Count"][5]
+        datahash["summary"]["N"] = summary["Count"][6]
         sdf = pd.DataFrame(summary)
         df = pd.DataFrame(data)
         self.adjust_phenotype_calls(df)
