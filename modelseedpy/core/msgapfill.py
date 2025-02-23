@@ -542,6 +542,7 @@ class MSGapfill:
         if gapfilling_mode == "Global":
             #Now we run simultaneous gapfilling on a combination of all our various gapfilled models
             print("Running global gapfilling!")
+            print("Reaction scores:",self.reaction_scores)
             full_solution = self.run_global_gapfilling(
                 medias=test_output["medias"],
                 targets=test_output["targets"],
@@ -551,13 +552,14 @@ class MSGapfill:
             )
             #Now we integrate the full solution into the model for every media which effectively determines which reactions are needed for each media
             for i,item in enumerate(test_output["medias"]):
-                full_solution["media"] = item
-                full_solution["target"] = test_output["targets"][i]
-                full_solution["minobjective"] = test_output["thresholds"][i]
-                full_solution["binary_check"] = binary_check
+                copy_solution = full_solution.copy()
+                copy_solution["media"] = item
+                copy_solution["target"] = test_output["targets"][i]
+                copy_solution["minobjective"] = test_output["thresholds"][i]
+                copy_solution["binary_check"] = binary_check
                 #In this case we donot remove unnneeded reactions from the model because they may be needed for other media
                 solution_dictionary[item] = self.integrate_gapfill_solution(
-                    full_solution,
+                    copy_solution,
                     cumulative_solution=cumulative_solution,
                     remove_unneeded_reactions=False,
                     check_for_growth=check_for_growth,
@@ -573,6 +575,7 @@ class MSGapfill:
                 remove_unneeded_reactions=True,
                 do_not_remove_list=[]
             )#Returns reactions in cumulative solution that are not needed for growth
+            print("Unneeded in global gapfill:",unneeded)
         elif gapfilling_mode == "Sequential":
             #Restoring the gapfilling objective function
             self.gfpkgmgr.getpkg("GapfillingPkg").compute_gapfilling_penalties(reaction_scores=self.reaction_scores)
@@ -732,7 +735,6 @@ class MSGapfill:
                 #    cumulative_solution.append(item)
             logger.info(f"Cumulative media target solution: {str(current_media_target_solution)}")
         else:
-            print("Test solution:",solution["media"].id)
             unneeded = self.mdlutl.test_solution(full_solution,[solution["target"]],[solution["media"]],[solution["minobjective"]],remove_unneeded_reactions,do_not_remove_list=cumulative_solution)#Returns reactions in input solution that are not needed for growth
             for item in cumulative_solution:
                 if not self.mdlutl.find_item_in_solution(unneeded,item):
@@ -751,8 +753,7 @@ class MSGapfill:
             current_media_target_solution["growth"] = self.mdlutl.model.slim_optimize()
             logger.info(f"Growth: {str(current_media_target_solution['growth'])} {solution['media'].id}")
         # Adding the gapfilling solution data to the model, which is needed for saving the model in KBase
-        print("adding gapfilling:",solution["media"].id)
-        self.mdlutl.add_gapfilling(solution)
+        self.mdlutl.add_gapfilling(current_media_target_solution)
         # Testing which gapfilled reactions are needed to produce each reactant in the objective function
         self.cumulative_gapfilling.extend(cumulative_solution)
         return current_media_target_solution
