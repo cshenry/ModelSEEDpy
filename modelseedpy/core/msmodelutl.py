@@ -1303,7 +1303,7 @@ class MSModelUtil:
         return unneeded
 
     def add_gapfilling(self, solution):
-        logger.debug("Adding gapfilling:"+str(solution))
+        logger.info("Adding gapfilling:"+str(solution))
         self.integrated_gapfillings.append(solution)
 
     def create_kb_gapfilling_data(self, kbmodel, atpmedia_ws="94026"):

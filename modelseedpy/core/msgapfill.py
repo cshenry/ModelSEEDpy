@@ -345,6 +345,7 @@ class MSGapfill:
         check_for_growth : bool
             Indicates if the model should be checked to ensure that the resulting gapfilling solution produces a nonzero objective
         """
+        start_time = time.time()
         # Testing if gapfilling can work before filtering
         test_output = self.test_and_adjust_gapfilling_conditions(medias,targets,thresholds,prefilter=prefilter)
         #If none of the media conditions can be gapfilled, then return None
@@ -409,9 +410,9 @@ class MSGapfill:
         self.mdlutl.printlp(model=merged_model,filename="GlobalGapfill",print=True)
 
         # Running gapfilling and checking solution
-        print("Runninng global optimization")
+        print("Starting global optimization-",time.time()-start_time)
         sol = merged_model.optimize()
-        print("Global optimization complete")
+        print("Global optimization complete-",time.time()-start_time)
         logger.info(
             f"gapfill solution objective value {sol.objective_value} ({sol.status}) for media {media}"
         )
@@ -445,6 +446,7 @@ class MSGapfill:
                 flux_values[rxnid]["forward"] = gfrxnidhash[rxnid]["forward"].primal
         global_solution = origgfpkg.compute_gapfilled_solution(flux_values)
         logger.info(f"Gloabl solution: {global_solution}")
+        print("Global gapfilling done -",time.time()-start_time)
         return global_solution
 
     def run_multi_gapfill(
@@ -729,6 +731,7 @@ class MSGapfill:
                 #    cumulative_solution.append(item)
             logger.info(f"Cumulative media target solution: {str(current_media_target_solution)}")
         else:
+            print("Test solution:",solution["media"].id)
             unneeded = self.mdlutl.test_solution(full_solution,[solution["target"]],[solution["media"]],[solution["minobjective"]],remove_unneeded_reactions,do_not_remove_list=cumulative_solution)#Returns reactions in input solution that are not needed for growth
             for item in cumulative_solution:
                 if not self.mdlutl.find_item_in_solution(unneeded,item):
@@ -747,6 +750,7 @@ class MSGapfill:
             current_media_target_solution["growth"] = self.mdlutl.model.slim_optimize()
             logger.info(f"Growth: {str(current_media_target_solution['growth'])} {solution['media'].id}")
         # Adding the gapfilling solution data to the model, which is needed for saving the model in KBase
+        print("adding gapfilling:",solution["media"].id)
         self.mdlutl.add_gapfilling(solution)
         # Testing which gapfilled reactions are needed to produce each reactant in the objective function
         self.cumulative_gapfilling.extend(cumulative_solution)
