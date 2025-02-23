@@ -6,6 +6,7 @@ import re
 import json
 import numpy as np
 import pandas as pd
+import time
 from optlang.symbolics import Zero, add
 from modelseedpy.core import FBAHelper  # !!! the import is never used
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
