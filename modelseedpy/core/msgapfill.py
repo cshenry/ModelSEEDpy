@@ -566,6 +566,12 @@ class MSGapfill:
                 )
             #Now we remove reactions uneeded for any of the specified media conditions
             #These is a danger here that the integration step will put a reaction into a solution that subsequently gets removed at this step. This is something to look out for
+            print("Bounds before final testing")
+            for item in model.integrated_gapfillings:
+                for rxn in item["new"]:
+                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                for rxn in item["reversed"]:
+                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
             unneeded = self.mdlutl.test_solution(
                 cumulative_solution,
                 test_output["targets"],
@@ -574,6 +580,12 @@ class MSGapfill:
                 remove_unneeded_reactions=True,
                 do_not_remove_list=[]
             )#Returns reactions in cumulative solution that are not needed for growth
+            print("Bounds after final testing")
+            for item in model.integrated_gapfillings:
+                for rxn in item["new"]:
+                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                for rxn in item["reversed"]:
+                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
             print("Unneeded in global gapfill:",unneeded)
         elif gapfilling_mode == "Sequential":
             #Restoring the gapfilling objective function
@@ -656,7 +668,7 @@ class MSGapfill:
         gapfilling_mode : Cumulative, Independent, Simultaneous
             Specify what the gapfilling mode is because this determines how integration is performed
         """
-        logger.info(f"Initial solution: {str(solution)}")
+        logger.debug(f"Initial solution: {str(solution)}")
         original_objective = self.mdlutl.model.objective
         self.mdlutl.model.objective = solution["target"]
         self.mdlutl.model.objective.direction = "max"
@@ -719,7 +731,7 @@ class MSGapfill:
                 new_cumulative_reactions.append([item[0], item[1],item[2]])
         #Testing the full cumulative solution to see which reactions are needed for current media/target
         full_solution = cumulative_solution + new_cumulative_reactions
-        logger.info(f"Full solution: {str(full_solution)}")
+        logger.debug(f"Full solution: {str(full_solution)}")
         #Setting up structure to store the finalized solution for this media/target
         current_media_target_solution = {"growth":0,"media":solution["media"],"target":solution["target"],"minobjective":solution["minobjective"],"binary_check":solution["binary_check"] ,"new":{},"reversed":{}}
         #If gapfilling is independent, we only check the specific solution
@@ -744,8 +756,8 @@ class MSGapfill:
                     cumulative_solution.append(item)
                 #elif not remove_unneeded_reactions:
                 #    cumulative_solution.append(item)
-        logger.info(f"Unneeded: {str(unneeded)}")
-        logger.info(f"Cumulative: {str(self.cumulative_gapfilling)}")
+        logger.debug(f"Unneeded: {str(unneeded)}")
+        logger.debug(f"Cumulative: {str(self.cumulative_gapfilling)}")
         #Checking that the final integrated model grows
         if check_for_growth:
             self.mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(solution["media"])
