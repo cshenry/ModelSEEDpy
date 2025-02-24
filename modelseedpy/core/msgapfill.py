@@ -569,9 +569,9 @@ class MSGapfill:
             print("Bounds before final testing")
             for item in model.integrated_gapfillings:
                 for rxn in item["new"]:
-                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                    print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
                 for rxn in item["reversed"]:
-                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                    print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
             unneeded = self.mdlutl.test_solution(
                 cumulative_solution,
                 test_output["targets"],
@@ -583,9 +583,9 @@ class MSGapfill:
             print("Bounds after final testing")
             for item in model.integrated_gapfillings:
                 for rxn in item["new"]:
-                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                    print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
                 for rxn in item["reversed"]:
-                    print(rxn.id,item["new"][rxn],model.reactions.get_by_id(rxn.id).lower_bound,model.reactions.get_by_id(rxn.id).upper_bound)
+                    print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
             print("Unneeded in global gapfill:",unneeded)
         elif gapfilling_mode == "Sequential":
             #Restoring the gapfilling objective function
