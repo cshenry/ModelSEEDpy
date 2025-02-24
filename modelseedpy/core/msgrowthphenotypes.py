@@ -197,7 +197,7 @@ class MSGrowthPhenotype:
         # Determining phenotype class
         if output["objective_value"] != None and output["objective_value"] >= output["baseline_objective"] * multiplier:
             output["postive"] = True
-            if not self.experimental_value or ignore_experimental_data:
+            if self.experimental_value == None or ignore_experimental_data:
                 output["class"] = "P"
             elif self.experimental_value > 0:
                 output["class"] = "CP"
@@ -555,17 +555,21 @@ class MSGrowthPhenotypes:
             data["Transports missing"].append(";".join(result["missing_transports"]))
             if result["class"] == "CP":
                 summary["Count"][1] += 1
+                summary["Count"][5] += 1
                 summary["Count"][0] += 1
                 totalcount += 1
             elif result["class"] == "CN":
                 summary["Count"][2] += 1
                 summary["Count"][0] += 1
+                summary["Count"][6] += 1
                 totalcount += 1
             elif result["class"] == "FP":
                 summary["Count"][3] += 1
+                summary["Count"][5] += 1
                 totalcount += 1
             elif result["class"] == "FN":
                 summary["Count"][4] += 1
+                summary["Count"][6] += 1
                 totalcount += 1
             elif result["class"] == "P":
                 summary["Count"][5] += 1
