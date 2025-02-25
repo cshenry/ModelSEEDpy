@@ -1210,6 +1210,14 @@ class MSModelUtil:
             rxn_id = item[0]
             other_original_bound = None
             rxnobj = self.model.reactions.get_by_id(rxn_id)
+            if item[1] == ">":
+                original_bound = rxnobj.upper_bound
+                if rxnobj.lower_bound > 0:
+                    other_original_bound = rxnobj.lower_bound
+            else:
+                original_bound = rxnobj.lower_bound
+                if rxnobj.upper_bound < 0:
+                    other_original_bound = rxnobj.upper_bound
             #Testing all media and target and threshold combinations to see if the reaction is needed
             needed = False
             for (i,target) in enumerate(targets):
@@ -1221,15 +1229,11 @@ class MSModelUtil:
                 #Knocking out the reaction to test for the impact on the objective
                 #This has to happen after media is applied in case the reaction is an exchange
                 if item[1] == ">":
-                    original_bound = rxnobj.upper_bound
                     if rxnobj.lower_bound > 0:
-                        other_original_bound = rxnobj.lower_bound
                         rxnobj.lower_bound = 0
                     rxnobj.upper_bound = 0
                 else:
-                    original_bound = rxnobj.lower_bound
                     if rxnobj.upper_bound < 0:
-                        other_original_bound = rxnobj.upper_bound
                         rxnobj.upper_bound = 0
                     rxnobj.lower_bound = 0
                 #Computing the objective value
