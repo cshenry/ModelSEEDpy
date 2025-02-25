@@ -57,16 +57,19 @@ class MSEnsemble:
                 "reactions": {}
             }
             for rxn in self.model.reactions:
+                probability = 0
+                if rxn.id[0:3] == "bio" or rxn.id[0:3] == "EX_" or rxn.id[0:3] == "DM_"  or rxn.id[0:3] == "SK_" or len(rxn.genes) == 0: 
+                    probability = 1
                 self.data["reactions"][rxn.id] = {
                     "presence": "",
                     "gapfilling":"",
                     "genes": {},
-                    "probability": 0
+                    "probability": probability
                 }
                 for gene in rxn.genes:
                     self.data["reactions"][rxn.id]["genes"][gene.id] = {
                         "presence": "",
-                        "probability": 0
+                        "probability": 0.2
                     }
             if reaction_probabilities:
                 self.reset_reaction_probabilities(reaction_probabilities)
@@ -210,8 +213,8 @@ class MSEnsemble:
         return self.save_ensemble_model()
 
     def unpack_models(self,model_list=None):
-        output_models = [None]*self.size
-        for i in range(self.size):
+        output_models = [None]*self.data["size"]
+        for i in range(self.data["size"]):
             if not model_list or i in model_list:
                 clone_mdl = cobra.io.json.from_json(cobra.io.json.to_json(self.model))
                 clone_mdl_utl = MSModelUtil.get(clone_mdl)

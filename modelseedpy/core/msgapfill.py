@@ -566,12 +566,6 @@ class MSGapfill:
                 )
             #Now we remove reactions uneeded for any of the specified media conditions
             #These is a danger here that the integration step will put a reaction into a solution that subsequently gets removed at this step. This is something to look out for
-            print("Bounds before final testing")
-            for item in self.mdlutl.integrated_gapfillings:
-                for rxn in item["new"]:
-                    print(rxn,item["new"][rxn],self.model.reactions.get_by_id(rxn).lower_bound,self.model.reactions.get_by_id(rxn).upper_bound)
-                for rxn in item["reversed"]:
-                    print(rxn,item["new"][rxn],self.model.reactions.get_by_id(rxn).lower_bound,self.model.reactions.get_by_id(rxn).upper_bound)
             unneeded = self.mdlutl.test_solution(
                 cumulative_solution,
                 test_output["targets"],
@@ -580,12 +574,6 @@ class MSGapfill:
                 remove_unneeded_reactions=True,
                 do_not_remove_list=[]
             )#Returns reactions in cumulative solution that are not needed for growth
-            print("Bounds after final testing")
-            for item in self.mdlutl.integrated_gapfillings:
-                for rxn in item["new"]:
-                    print(rxn,item["new"][rxn],self.model.reactions.get_by_id(rxn).lower_bound,self.model.reactions.get_by_id(rxn).upper_bound)
-                for rxn in item["reversed"]:
-                    print(rxn,item["new"][rxn],self.model.reactions.get_by_id(rxn).lower_bound,self.model.reactions.get_by_id(rxn).upper_bound)
             print("Unneeded in global gapfill:",unneeded)
         elif gapfilling_mode == "Sequential":
             #Restoring the gapfilling objective function
@@ -644,7 +632,7 @@ class MSGapfill:
                             gf_sensitivity[media.id][target]["success"][rxn_id][solution_dictionary[media][rxn_type][rxn_id]] = rxn_sensitivity_hash[rxn_id][solution_dictionary[media][rxn_type][rxn_id]]
                 else:
                     gf_sensitivity[media.id][target]["failure"] = {}
-            self.mdlutl.save_attributes(gf_sensitivity, "gf_sensitivity") 
+            self.mdlutl.save_attributes(gf_sensitivity, "gf_sensitivity")
         #Restoring backedup model
         self.mdlutl = oldmdlutl
         self.model = oldmdlutl.model
