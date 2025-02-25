@@ -567,7 +567,7 @@ class MSGapfill:
             #Now we remove reactions uneeded for any of the specified media conditions
             #These is a danger here that the integration step will put a reaction into a solution that subsequently gets removed at this step. This is something to look out for
             print("Bounds before final testing")
-            for item in self.model.integrated_gapfillings:
+            for item in self.mdlutl.integrated_gapfillings:
                 for rxn in item["new"]:
                     print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
                 for rxn in item["reversed"]:
@@ -581,7 +581,7 @@ class MSGapfill:
                 do_not_remove_list=[]
             )#Returns reactions in cumulative solution that are not needed for growth
             print("Bounds after final testing")
-            for item in self.model.integrated_gapfillings:
+            for item in self.mdlutl.integrated_gapfillings:
                 for rxn in item["new"]:
                     print(rxn.id,item["new"][rxn],self.model.reactions.get_by_id(rxn.id).lower_bound,self.model.reactions.get_by_id(rxn.id).upper_bound)
                 for rxn in item["reversed"]:

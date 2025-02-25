@@ -60,11 +60,13 @@ class MSEnsemble:
                 self.data["reactions"][rxn.id] = {
                     "presence": "",
                     "gapfilling":"",
-                    "genes": {}
+                    "genes": {},
+                    "probability": 0
                 }
                 for gene in rxn.genes:
                     self.data["reactions"][rxn.id]["genes"][gene.id] = {
-                        "presence": ""
+                        "presence": "",
+                        "probability": 0
                     }
             if reaction_probabilities:
                 self.reset_reaction_probabilities(reaction_probabilities)
@@ -82,14 +84,12 @@ class MSEnsemble:
         #Overwriting reaction probabilities from input hash
         for rxnid in reaction_probability_hash:
             if rxnid in self.model.reactions:
-                rxnobj = self.model.reactions.get_by_id(rxnid)
                 if rxnid not in self.data["reactions"]:
-                    self.data["reactions"][rxnid] = {"presence":"","genes":{}}
+                    self.data["reactions"][rxnid] = {"probability":0,"presence":"","genes":{}}
                 if "probability" in reaction_probability_hash[rxnid]:
                     self.data["reactions"][rxnid]["probability"] = reaction_probability_hash[rxnid]["probability"]
                 if "genes" in reaction_probability_hash[rxnid]:
                     for geneid in reaction_probability_hash[rxnid]["genes"]:
-                        #if geneid in rxnobj.genes:
                         self.data["reactions"][rxnid]["genes"][geneid] = {"presence":"","probability":reaction_probability_hash[rxnid]["genes"][geneid]}
     
     def rebuild_from_models(self,models):#DONE
