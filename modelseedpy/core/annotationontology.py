@@ -486,7 +486,7 @@ class AnnotationOntology:
                 elif item == "Merge":
                     if len(event.method) > 5 and event.method[0:5] == "Merge" and event.id not in event_list:
                         selected_merge = event.id
-                elif item in event.description or item in event.id:
+                elif item.lower() in event.description.lower() or item.lower() in event.id.lower():
                     event_list.append(event.id)
             if selected_merge:
                 event_list.append(selected_merge)

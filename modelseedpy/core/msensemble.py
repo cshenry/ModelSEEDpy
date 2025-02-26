@@ -221,13 +221,13 @@ class MSEnsemble:
                 remove_reactions = []
                 for rxn in clone_mdl_utl.model.reactions:
                     if rxn.id in self.data["reactions"]:
-                        if self.data["reactions"][rxn.id][i] == "0":
+                        if self.data["reactions"][rxn.id]["presence"][i] == "0":
                             remove_reactions.append(rxn)
                         else:
                             new_genes = []
                             for gene in rxn.genes:
                                 if gene.id in self.data["reactions"][rxn.id]["genes"]:
-                                    if self.data["reactions"][rxn.id]["genes"][gene.id][i] == "1":
+                                    if self.data["reactions"][rxn.id]["genes"][gene.id]["presence"][i] == "1":
                                         new_genes.append(gene)
                             rxn.gene_reaction_rule = " or ".join([gene.id for gene in new_genes])
                     else:
