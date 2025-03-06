@@ -646,7 +646,7 @@ class MSTemplateBiomass:
             d.get("pigment", 0),
             d.get("carbohydrate", 0),
             d.get("energy", 0),
-            d.get("other", 0)
+            d.get("other", 0),
         )
         for item in d["templateBiomassComponents"]:
             biocomp = MSTemplateBiomassComponent.from_dict(item, template)
