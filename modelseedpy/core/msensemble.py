@@ -214,7 +214,7 @@ class MSEnsemble:
 
     def unpack_models(self,model_list=None):
         output_models = [None]*self.data["size"]
-        for i in range(self.data["size"]):
+        for i in range(10):#self.data["size"]):
             if not model_list or i in model_list:
                 clone_mdl = cobra.io.json.from_json(cobra.io.json.to_json(self.model))
                 clone_mdl_utl = MSModelUtil.get(clone_mdl)

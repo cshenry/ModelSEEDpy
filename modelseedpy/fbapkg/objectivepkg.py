@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import logging
+from optlang.symbolics import Zero, add
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 
 logger = logging.getLogger(__name__)
@@ -15,16 +16,17 @@ class ObjectivePkg(BaseFBAPkg):
     def __init__(self, model):
         BaseFBAPkg.__init__(self, model, "objective builder", {}, {})
         self.objective_cache = {}
+        self.objective_string_cache = {}
 
-    def build_package(self,objective_string,objective_name=None,cache_objective_name=None):
+    def build_package(self,objective_string,objective_name=None,cache_current_objective_name=None):
         #Saving unmodified objective string
         if objective_name == None:
             objective_name = objective_string
         #Caching objective and objective string
         self.objective_string_cache[objective_name] = objective_string
         #Caching the current objective if a name was specified
-        if cache_objective_name != None:
-            self.objective_cache[cache_objective_name] = self.model.objective
+        if cache_current_objective_name != None:
+            self.objective_cache[cache_current_objective_name] = self.model.objective
         #Creating empty objective - always max
         self.objective_cache[objective_name] = self.model.problem.Objective(Zero, direction="max")
         #Parsing objective string of form: MAX{(1)bio1|(1)rxn00001_c0}
@@ -32,10 +34,10 @@ class ObjectivePkg(BaseFBAPkg):
         #Checking if there is a directionality in the objective
         sign = 1
         if objective_string[0:3] == "MAX":
-            objective_string = [4,-1]#Clearing out the directionality MAX{}
+            objective_string = objective_string[4:-1]#Clearing out the directionality MAX{}
         elif objective_string[0:3] == "MIN":
             sign = -1
-            objective_string = [4,-1]#Clearing out the directionality MIN{}
+            objective_string = objective_string[4:-1]#Clearing out the directionality MIN{}
         #Building dictionary of variable names
         varnames = {}
         for variable in self.model.solver.variables:
@@ -57,20 +59,21 @@ class ObjectivePkg(BaseFBAPkg):
                 if rxnid not in self.model.reactions:
                     logger.warning(rxnid+" in objective strin not found in model.")
                 else:
-                    rxnobj = self.model.reactions
+                    rxnobj = self.model.reactions.get_by_id(rxnid)
                     if term[0:1] == "+":
                         obj_coef[rxnobj.forward_variable] = coef
                     elif term[0:1] == "-":
                         obj_coef[rxnobj.reverse_variable] = coef
             #Checking if the term is just a reaction ID
             elif term in self.model.reactions:
-                rxnobj = self.model.reactions
+                rxnobj = self.model.reactions.get_by_id(term)
                 obj_coef[rxnobj.forward_variable] = coef
                 obj_coef[rxnobj.reverse_variable] = -1*coef
             elif term in varnames:
                 obj_coef[varnames[term]] = coef
         self.model.objective = self.objective_cache[objective_name]
         self.model.objective.set_linear_coefficients(obj_coef)
+        print(self.model.objective)
     
     def restore_objective(self,name):
         if name in self.objective_cache:
