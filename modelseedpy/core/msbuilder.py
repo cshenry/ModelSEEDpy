@@ -1060,6 +1060,8 @@ class MSBuilder:
         :param index: index for the metabolites
         :return:
         """
+        from modelseedpy.core.msmodel import MSModel
+
         model = MSModel(model_id if model_id else template.id, template=template)
         all_reactions = []
         for rxn in template.reactions:

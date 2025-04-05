@@ -1,20 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
-import cobra
-import copy
 import json
-import time
 import pandas as pd
-from os.path import abspath as _abspath
-from os.path import dirname as _dirname
-from optlang.symbolics import Zero, add
-from modelseedpy.core.rast_client import RastClient
-from modelseedpy.core.msgenome import normalize_role
-from modelseedpy.core.msmodel import (
-    get_gpr_string,
-    get_reaction_constraints_from_direction,
-)
-from cobra.core import Gene, Metabolite, Model, Reaction
 from modelseedpy.core.msmodelutl import MSModelUtil
 from modelseedpy.core.mstemplate import MSTemplateBuilder
 from modelseedpy.core import FBAHelper, MSGapfill, MSMedia
@@ -22,11 +9,6 @@ from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.helpers import get_template
 
 logger = logging.getLogger(__name__)
-logger.setLevel(
-    logging.INFO
-)  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
-
-_path = _dirname(_abspath(__file__))
 
 min_gap = {
     "Glc.O2": 5,
@@ -106,8 +88,9 @@ class MSATPCorrection:
 
         self.media_hash = {}
         self.atp_medias = []
+
         if load_default_medias:
-            self.load_default_medias()
+            self.load_default_medias(default_media_path)
 
         self.forced_media = []
         for media_id in forced_media:
@@ -151,8 +134,13 @@ class MSATPCorrection:
             get_template("template_core"), None
         ).build()
 
-    def load_default_medias(self):
-        filename = self.default_media_path
+    def load_default_medias(self, default_media_path=None):
+        if default_media_path is None:
+            import os.path as _path
+
+            current_file_path = _path.dirname(_path.abspath(__file__))
+            default_media_path = f"{current_file_path}/../data/atp_medias.tsv"
+        filename = default_media_path
         medias = pd.read_csv(filename, sep="\t", index_col=0).to_dict()
         for media_id in medias:
             media_d = {}

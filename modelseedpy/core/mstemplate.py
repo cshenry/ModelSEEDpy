@@ -525,23 +525,23 @@ class MSTemplateBiomassComponent:
 class MSTemplateBiomass:
     def __init__(
         self,
-        bio_id,
-        name,
-        type,
-        dna,
-        rna,
-        protein,
-        lipid,
-        cellwall,
-        cofactor,
-        pigment,
-        carbohydrate,
-        energy,
-        other,
+        biomass_id: str,
+        name: str,
+        type: str,
+        dna: float = 0,
+        rna: float = 0,
+        protein: float = 0,
+        lipid: float = 0,
+        cellwall: float = 0,
+        cofactor: float = 0,
+        pigment: float = 0,
+        carbohydrate: float = 0,
+        energy: float = 0,
+        other: float = 0
     ):
         """
 
-        :param bio_id:string
+        :param biomass_id:string
         :param name:string
         :param type:string
         :param dna:float
@@ -555,7 +555,7 @@ class MSTemplateBiomass:
         :param energy:float
         :param other:float
         """
-        self.id = bio_id
+        self.id = biomass_id
         self.name = name
         self.type = type
         self.dna = dna
@@ -642,16 +642,16 @@ class MSTemplateBiomass:
             d["id"],
             d["name"],
             d["type"],
-            d["dna"],
-            d["rna"],
-            d["protein"],
-            d["lipid"],
-            d["cellwall"],
-            d["cofactor"],
-            d.get("pigment",0),
-            d.get("carbohydrate",0),
-            d["energy"],
-            d["other"],
+            d.get("dna", 0),
+            d.get("rna", 0),
+            d.get("protein", 0),
+            d.get("lipid", 0),
+            d.get("cellwall", 0),
+            d.get("cofactor", 0),
+            d.get("pigment", 0),
+            d.get("carbohydrate", 0),
+            d.get("energy", 0),
+            d.get("other", 0)
         )
         for item in d["templateBiomassComponents"]:
             biocomp = MSTemplateBiomassComponent.from_dict(item, template)
@@ -706,6 +706,8 @@ class MSTemplateBiomass:
     def build_biomass(self, model, index="0", classic=False, GC=0.5, add_to_model=True):
         types = [
             "cofactor",
+            "pigment",
+            "carbohydrate",
             "lipid",
             "cellwall",
             "protein",
@@ -718,6 +720,8 @@ class MSTemplateBiomass:
         ]
         type_abundances = {
             "cofactor": self.cofactor,
+            "pigment": self.pigment,
+            "carbohydrate": self.carbohydrate,
             "lipid": self.lipid,
             "cellwall": self.cellwall,
             "protein": self.protein,
@@ -897,6 +901,8 @@ class MSTemplateBiomass:
             "lipid": self.lipid,
             "cellwall": self.cellwall,
             "cofactor": self.cofactor,
+            "pigment": self.pigment,
+            "carbohydrate": self.carbohydrate,
             "energy": self.energy,
             "other": self.other,
             "templateBiomassComponents": [],
