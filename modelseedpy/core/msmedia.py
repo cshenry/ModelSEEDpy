@@ -40,6 +40,7 @@ class MSMedia:
     def __init__(self, media_id, name=""):
         self.id = media_id
         self.name = name
+        self.media_ref = None  # Reference to the media object in the model
         self.mediacompounds = DictList()
 
     @staticmethod
@@ -59,6 +60,41 @@ class MSMedia:
                 media_compounds.append(MediaCompound(cpd_id, -v, 1000))
         media.mediacompounds += media_compounds
         return media
+
+    @staticmethod
+    def from_kbase_object(media_object):
+        """
+        Create MSMedia from KBase media object.
+        :param media_object: KBase media object
+        :return: MSMedia instance
+        """
+        media_id = media_object.id
+        media_ref = None
+        media_name = media_object.name if media_object.name else media_id
+        if media_object.info is not None:
+            media_id = media_object.info.id
+            media_name = media_object.info.id
+            media_ref = media_object.info.reference
+        output = MSMedia(media_id, name=media_name)
+        output.media_ref = media_ref
+        media_compounds = []
+        for mediacpd in media_object.mediacompounds:
+            newmediacpd = MediaCompound(mediacpd.id, -1*mediacpd.maxFlux, -1*mediacpd.minFlux, concentration=mediacpd.concentration)
+            media_compounds.append(newmediacpd)
+        output.mediacompounds += media_compounds
+        return output
+
+    def to_dict(self):
+        """
+        Parameters:
+            cmp (str): compound suffix (model compartment)
+        Returns:
+            dict(str) -> (float,float): compound_ids mapped to lower/upper bound
+        """
+        output = {}
+        for compound in self.mediacompounds:
+            output[compound.id] = compound.upper_bound
+        return output
 
     def get_media_constraints(self, cmp="e0"):
         """

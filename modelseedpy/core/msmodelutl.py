@@ -393,11 +393,29 @@ class MSModelUtil:
 
     ########I/O functions
     @staticmethod
-    def from_cobrapy_json(filename):
-        model = cobra.io.load_json_model(filename)
+    def from_cobrapy(filename):
+        """
+        Loads a cobrapy model from a file.
+
+        Parameters
+        ----------
+        filename: str
+            The name of the file to load the model from.
+
+        Returns
+        -------
+        MSModelUtil
+            An MSModelUtil object containing the loaded model.
+        """
+        if filename[-5:].lower() == ".json":
+            model = cobra.io.load_json_model(filename)
+        elif filename[-4:].lower() == ".xml":
+            #Resetting the logging level in cobrapy to avoid excess output
+            logging.getLogger("cobra.io.sbml").setLevel(logging.ERROR)
+            model = cobra.io.read_sbml_model(filename)
         return MSModelUtil(model)
-    
-    def save_model(self, filename):
+
+    def save_model(self, filename, format="json"):
         """
         Saves the associated cobrapy model to a json file
 
@@ -405,8 +423,11 @@ class MSModelUtil:
         ----------
         filename: name of the file the model should be saved to
         """
-        cobra.io.save_json_model(self.model, filename)
-    
+        if format == "json":
+            cobra.io.save_json_model(self.model, filename)
+        elif format == "xml":
+            cobra.io.write_sbml_model(self.model, filename)
+
     def printlp(self,model=None,path="",filename="debug",print=False):
         if print:
             if len(path) > 0:
@@ -539,8 +560,8 @@ class MSModelUtil:
             self.add_name_to_metabolite_hash(met.id, met)
             self.add_name_to_metabolite_hash(met.name, met)
             for anno in met.annotation:
-                if isinstance(met.annotation[anno], list):
-                    for item in met.annotation[anno]:
+                if isinstance(met.annotation[anno], list) or isinstance(met.annotation[anno], set):
+                    for item in list(met.annotation[anno]):
                         self.add_name_to_metabolite_hash(item, met)
                 else:
                     self.add_name_to_metabolite_hash(met.annotation[anno], met)
@@ -608,7 +629,7 @@ class MSModelUtil:
     def exchange_list(self):
         exchange_reactions = []
         for reaction in self.model.reactions:
-            if reaction.id[:3] == "EX_":
+            if reaction.id[:3] in ["EX_","EXF"]:
                 exchange_reactions.append(reaction)
         return exchange_reactions
 

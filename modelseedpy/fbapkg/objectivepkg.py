@@ -11,72 +11,122 @@ logger.setLevel(
     logging.WARNING#INFO
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
-# Base class for FBA packages
-class ObjectivePkg(BaseFBAPkg):
-    def __init__(self, model):
-        BaseFBAPkg.__init__(self, model, "objective builder", {}, {})
-        self.objective_cache = {}
-        self.objective_string_cache = {}
+class ObjectiveTerm:
+    def __init__(self, variable, coefficient,direction=""):
+        self.coefficient = coefficient
+        self.variable = variable
+        self.direction = direction
 
-    def build_package(self,objective_string,objective_name=None,cache_current_objective_name=None):
-        #Saving unmodified objective string
-        if objective_name == None:
-            objective_name = objective_string
-        #Caching objective and objective string
-        self.objective_string_cache[objective_name] = objective_string
-        #Caching the current objective if a name was specified
-        if cache_current_objective_name != None:
-            self.objective_cache[cache_current_objective_name] = self.model.objective
-        #Creating empty objective - always max
-        self.objective_cache[objective_name] = self.model.problem.Objective(Zero, direction="max")
-        #Parsing objective string of form: MAX{(1)bio1|(1)rxn00001_c0}
-        obj_coef = dict()
-        #Checking if there is a directionality in the objective
+    @staticmethod
+    def from_string(term_string):
+        coefficient = 1
+        variable = None
+        direction = ""
+        #Checking for coefficient
+        if term_string[0:1] == "(":
+            array = term_string.split(")")
+            coefficient = float(array[0][1])
+            term_string = array[1]
+        #Checking for a +/- on term
+        if term_string[0:1] == "+" or term_string[0:1] == "-":
+            variable = term_string[1:]
+            direction = term_string[0:1]
+        else:
+            variable = term_string
+            direction = ""
+        return ObjectiveTerm(variable, coefficient, direction)
+           
+    def to_string(self):
+        return "("+str(self.coefficient)+")"+self.direction+self.variable
+
+
+#Class for defining an objective function in a modelseedpy model.
+class ObjectiveData:
+    def __init__(self, terms, sign=1):
+        self.sign = sign
+        self.terms = terms
+
+    @staticmethod
+    def from_string(objective_string):
         sign = 1
+        terms = []
         if objective_string[0:3] == "MAX":
             objective_string = objective_string[4:-1]#Clearing out the directionality MAX{}
         elif objective_string[0:3] == "MIN":
             sign = -1
             objective_string = objective_string[4:-1]#Clearing out the directionality MIN{}
-        #Building dictionary of variable names
-        varnames = {}
-        for variable in self.model.solver.variables:
-            varnames[variable.name] = variable
-        #Parsing the main body of the objective string
-        terms = objective_string.split("|")
-        for term in terms:
-            coef = 1
-            #Checking for coefficient
-            if term[0:1] == "(":
-                array = term.split(")")
-                coef = float(array[0][1])
-                term = array[1]
-            #Applying the directionality sign
-            coef = coef*sign
-            #Checking for a +/- on term
-            if term[0:1] == "+" or term[0:1] == "-":
-                rxnid = term[1:]
-                if rxnid not in self.model.reactions:
-                    logger.warning(rxnid+" in objective strin not found in model.")
-                else:
-                    rxnobj = self.model.reactions.get_by_id(rxnid)
-                    if term[0:1] == "+":
-                        obj_coef[rxnobj.forward_variable] = coef
-                    elif term[0:1] == "-":
-                        obj_coef[rxnobj.reverse_variable] = coef
-            #Checking if the term is just a reaction ID
-            elif term in self.model.reactions:
-                rxnobj = self.model.reactions.get_by_id(term)
-                obj_coef[rxnobj.forward_variable] = coef
-                obj_coef[rxnobj.reverse_variable] = -1*coef
-            elif term in varnames:
-                obj_coef[varnames[term]] = coef
-        self.model.objective = self.objective_cache[objective_name]
-        self.model.objective.set_linear_coefficients(obj_coef)
-        print(self.model.objective)
+        term_strings = objective_string.split("|")
+        for term_string in term_strings:
+            term = ObjectiveTerm.from_string(term_string)
+            terms.append(term)
+        return ObjectiveData(terms, sign)
+        
+    def to_string(self):
+        objective_string = ""
+        if self.sign == 1:
+            objective_string += "MAX{"
+        else:
+            objective_string += "MIN{"
+        for term in self.terms:
+            objective_string += term.to_string()+"|"
+        objective_string = objective_string[:-1] + "}"
+        return objective_string
     
+    def to_cobrapy_objective(self, model):
+        #Creating empty objective
+        objective = model.problem.Objective(Zero, direction="max")
+        #Parsing the terms
+        coefficients = {}
+        for term in self.terms:
+            if term.variable in model.reactions:
+                coef = term.coefficient * self.sign
+                rxnobj = model.reactions.get_by_id(term.variable)
+                if term.direction == "+":
+                    coefficients[rxnobj.forward_variable] = coef
+                elif term.direction == "-":
+                    coefficients[rxnobj.reverse_variable] = coef
+                else:
+                    coefficients[rxnobj.forward_variable] = coef
+                    coefficients[rxnobj.reverse_variable] = -1*coef
+            else:
+                logger.warning("Reaction "+term.variable+" not found in model")
+        model.objective = objective
+        objective.set_linear_coefficients(coefficients)
+        return objective
+
+# Base class for FBA packages
+class ObjectivePkg(BaseFBAPkg):
+    def __init__(self, model):
+        BaseFBAPkg.__init__(self, model, "objective builder", {}, {})
+        self.original_model_objective = None
+        self.objective_name = None
+        self.objective_data = None
+        self.objective_data_cache = {}
+
+    def build_package(self,objective_or_string,objective_name=None,set_objective=True):
+        #Caching the current objective
+        self.original_model_objective = self.model.objective
+        #check if input is a string or an ObjectiveData object
+        if isinstance(objective_or_string, str):
+            self.objective_data = ObjectiveData.from_string(objective_or_string)
+        elif isinstance(objective_or_string, ObjectiveData):
+            self.objective_data = objective_or_string
+        else:
+            raise TypeError("Input must be a string or an ObjectiveData object")
+        #Setting default objective name if not provided
+        self.objective_name = objective_name
+        if objective_name == None:
+            self.objective_name = self.objective_data.to_string()
+        #Caching objective with name
+        self.objective_data_cache[self.objective_name] = self.objective_data
+        #Creating the objective in the model
+        if set_objective:
+            self.objective_data_cache[self.objective_name].to_cobrapy_objective(self.model)
+        return objective_name
+
     def restore_objective(self,name):
-        if name in self.objective_cache:
-            self.model.objective = self.objective_cache[name]
+        self.original_model_objective = self.model.objective
+        if name in self.objective_data_cache:
+            self.model.objective = self.objective_data_cache[name].to_cobrapy_objective(self.model)
         else:
             logger.warning("Objective "+name+" not found in cache")

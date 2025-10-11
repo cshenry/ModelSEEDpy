@@ -9,6 +9,9 @@ from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.helpers import get_template
 
 logger = logging.getLogger(__name__)
+logger.setLevel(
+    logging.INFO
+)  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
 min_gap = {
     "Glc.O2": 5,
@@ -73,11 +76,6 @@ class MSATPCorrection:
         # Setting atpcorrection attribute in model utl so link is bidirectional
         self.modelutl.atputl = self
         
-        if default_media_path:
-            self.default_media_path = default_media_path
-        else:
-            self.default_media_path = _path + "/../data/atp_medias.tsv"
-
         self.compartment = compartment
 
         if atp_hydrolysis_id and atp_hydrolysis_id in self.model.reactions:

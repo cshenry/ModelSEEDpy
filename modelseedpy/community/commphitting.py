@@ -27,7 +27,7 @@ from optlang.symbolics import Zero
 from scipy.optimize import newton
 from matplotlib import pyplot
 from math import inf, isclose
-from deepdiff import DeepDiff
+#from deepdiff import DeepDiff
 from pandas import DataFrame
 from itertools import chain
 from pprint import pprint

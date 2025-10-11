@@ -45,24 +45,56 @@ def compute_gene_score(expr, values, default):
     else:
         raise TypeError("unsupported operation  " + repr(expr))
 
-
 class MSCondition:
     def __init__(self, id,parent):
         self.id = id
-        self.column_sum = None
-        self.feature_count = None
-        self.lowest = None
         self.parent = parent
     
-    def value_at_zscore(self,zscore,normalization=None):
+    def value_at_zscore(self,zscore):
         array = []
         for feature in self.parent.features:
-            value  = feature.get_value(self,normalization)
+            value  = feature.get_value(self)
             if value != None:
                 array.append(value)
         mean = sum(array) / len(array)
         std_dev = (sum([(x - mean) ** 2 for x in array]) / len(array)) ** 0.5
         return mean + (zscore * std_dev)
+    
+    def lowest_value(self):
+        lowest = None
+        for feature in self.parent.features:
+            value  = feature.get_value(self)
+            if value != None:
+                if lowest == None or value < lowest:
+                    lowest = value
+        return lowest
+
+    def highest_value(self):
+        highest = None
+        for feature in self.parent.features:
+            value  = feature.get_value(self)
+            if value != None:
+                if highest == None or value > highest:
+                    highest = value
+        return highest
+    
+    def average_value(self):
+        array = []
+        for feature in self.parent.features:
+            value  = feature.get_value(self)
+            if value != None:
+                array.append(value)
+        if len(array) == 0:
+            return None
+        return sum(array) / len(array)
+    
+    def sum_value(self):
+        total = 0
+        for feature in self.parent.features:
+            value  = feature.get_value(self)
+            if value != None:
+                total += value
+        return total
 
 class MSExpressionFeature:
     def __init__(self, feature, parent):
@@ -71,34 +103,10 @@ class MSExpressionFeature:
         self.values = {}
         self.parent = parent
 
-    def add_value(self, condition, value,collision_policy="add"):#Could also choose overwrit
-        if condition in self.values:
-            if self.values[condition] != None:
-                condition.column_sum += -1 * self.values[condition]
-            if collision_policy == "add":
-                if self.values[condition] == None:
-                    if value != None:
-                        self.values[condition] = value
-                elif value != None:
-                    self.values[condition] += value
-            else:
-                self.values[condition] = self.values[condition]
-            logger.warning(
-                collision_policy+" value "
-                + str(self.values[condition])
-                + " to "
-                + str(value)
-                + " in feature "
-                + self.feature.id) 
-        else:
-            condition.feature_count += 1
-            self.values[condition] = value
-        if self.values[condition] != None:
-            condition.column_sum += self.values[condition]
-            if condition.lowest is None or condition.lowest > self.values[condition]:
-                condition.lowest = self.values[condition]
+    def add_value(self, condition, value):
+        self.values[condition] = value
 
-    def get_value(self, condition, normalization=None):
+    def get_value(self, condition, convert_to_relative_abundance=False):
         if isinstance(condition, str):
             if condition not in self.parent.conditions:
                 logger.warning(
@@ -111,60 +119,64 @@ class MSExpressionFeature:
                 "Condition " + condition.id + " has no value in " + self.feature.id
             )
             return None
-        if normalization == "column_norm" and self.values[condition] != None:
-            return self.values[condition] / condition.column_sum
+        value = self.values[condition]
+        if convert_to_relative_abundance:
+            if self.parent.type == "AbsoluteAbundance":
+                value = value / condition.column_sum
+            elif self.parent.type == "FPKM":
+                value = value / condition.column_sum
+            elif self.parent.type == "TPM":
+                value = value / condition.column_sum
+            elif self.parent.type == "Log2":
+                value = 2 ** (value - condition.lowest_value()) / 2 ** (condition.column_sum - self.parent.features.len() * condition.lowest_value())
         return self.values[condition]
-
 
 class MSExpression:
     def __init__(self, type):
-        self.type = type
+        self.type = type#RelativeAbundance,AbsoluteAbundance,FPKM,TPM,Log2
         self.object = None
         self.features = DictList()
         self.conditions = DictList()
 
     @staticmethod
-    def from_gene_feature_file(filename, genome=None, create_missing_features=False,ignore_columns=[],description_column=None,sep="\t"):
-        expression = MSExpression("genome")
+    def from_dataframe(df, genome=None, create_missing_features=False,ignore_columns=[],description_column=None,id_column=None,type="RelativeAbundance"):
+        expression = MSExpression(type)
         if genome == None:
             expression.object = MSGenome()
             create_missing_features = True
         else:
             expression.object = genome
-        data = ""
-        with open(filename, "r") as file:
-            data = file.read()
-        lines = data.split("\n")
-        conditions = None
-        description_index = None
-        cond_indeces = []
-        for line in lines:
-            if conditions == None:
-                conditions = []
-                headers = line.split("\t")
-                for i in range(1, len(headers)):
-                    if headers[i] == description_column:
-                        description_index = i
-                        print("Description column:",description_index)
-                    elif headers[i] not in ignore_columns:
-                        conditions.append(headers[i])
-                        cond_indeces.append(i)
-                        if headers[i] not in expression.conditions:
-                            expression.conditions.append(MSCondition(headers[i],expression))
-                        else:
-                            conditions.append(self.conditions.get_by_id(headers[i])) 
-                        expression.conditions.get_by_id(headers[i]).column_sum = 0
-                        expression.conditions.get_by_id(headers[i]).feature_count = 0 
-            else:
-                array = line.split("\t")
-                description = None
-                if description_index != None:
-                    description = array[description_index]
-                protfeature = expression.add_feature(array[0], create_missing_features,description=description)
-                if protfeature != None:
-                    for cond_index in cond_indeces:
-                        protfeature.add_value(expression.conditions.get_by_id(headers[cond_index]), float(array[cond_index]))
+        conditions = []
+        description_present = False
+        headers = list(df.columns)
+        if id_column is None:
+            id_column = headers[0]
+        for i in range(1, len(headers)):
+            if headers[i] == description_column:
+                description_present = True
+            elif headers[i] not in ignore_columns:
+                conditions.append(headers[i])
+                if headers[i] not in expression.conditions:
+                    expression.conditions.append(MSCondition(headers[i],expression))
+                expression.conditions.get_by_id(headers[i]).column_sum = 0
+                expression.conditions.get_by_id(headers[i]).feature_count = 0 
+        for index, row in df.iterrows():
+            description = None
+            if description_present:
+                description = row[description_column]
+            protfeature = expression.add_feature(row[id_column], create_missing_features,description=description)
+            if protfeature != None:
+                for condition in conditions:
+                    protfeature.add_value(expression.conditions.get_by_id(condition), float(row[condition]))
         return expression
+    
+    def from_spreadsheet(filename, sheet_name=0, skiprows=0, genome=None, create_missing_features=False,ignore_columns=[],description_column=None,id_column=None,type="RelativeAbundance"):
+        df = pd.read_excel(filename, sheet_name=sheet_name, skiprows=skiprows)
+        return MSExpression.from_dataframe(df, genome=genome, create_missing_features=create_missing_features, ignore_columns=ignore_columns, description_column=description_column, id_column=id_column)
+
+    def from_gene_feature_file(filename, genome=None, create_missing_features=False,ignore_columns=[],description_column=None,sep="\t",id_column=None,type="RelativeAbundance"):
+        df = pd.read_csv(filename, sep=sep)
+        return MSExpression.from_dataframe(df, genome=genome, create_missing_features=create_missing_features, ignore_columns=ignore_columns, description_column=description_column, id_column=id_column)
 
     def add_feature(self, id, create_gene_if_missing=False,description=None):
         if id in self.features:
@@ -189,7 +201,7 @@ class MSExpression:
         self.features.append(protfeature)
         return protfeature
 
-    def get_value(self, feature, condition, normalization=None):
+    def get_value(self, feature, condition):
         if isinstance(feature, str):
             if feature not in self.features:
                 logger.warning(
@@ -197,15 +209,11 @@ class MSExpression:
                 )
                 return None
             feature = self.features.get_by_id(feature)
-        return feature.get_value(condition, normalization)
+        return feature.get_value(condition)
 
     def build_reaction_expression(self, model, default):
-        if self.type == "model":
-            logger.critical(
-                "Cannot build a reaction expression from a model-based expression object!"
-            )
         # Creating the expression and features
-        rxnexpression = MSExpression("model")
+        rxnexpression = MSExpression(self.type)
         rxnexpression.object = model
         for rxn in model.reactions:
             if len(rxn.genes) > 0:
@@ -241,11 +249,11 @@ class MSExpression:
                 )
         return rxnexpression
     
-    def get_dataframe(self, normalization=None):
+    def get_dataframe(self):
         records = []
         for feature in self.features:
             record = {"ftr_id":feature.id}
             for condition in self.conditions:
-                record[condition.id] = feature.get_value(condition, normalization)
+                record[condition.id] = feature.get_value(condition)
             records.append(record)
         return pd.DataFrame.from_records(records)

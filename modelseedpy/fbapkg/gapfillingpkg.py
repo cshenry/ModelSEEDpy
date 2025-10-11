@@ -870,12 +870,13 @@ class GapfillingPkg(BaseFBAPkg):
             filtered_list = self.modelutl.reaction_expansion_test(
                 self.parameters["original_reactions"], test_conditions,positive_growth=growth_conditions
             )
-            for item in filtered_list:
-                logger.debug("Filtering:" + item[0].id + item[1])
-                if item[1] == ">":
-                    self.model.reactions.get_by_id(item[0].id).upper_bound = 0
-                else:
-                    self.model.reactions.get_by_id(item[0].id).lower_bound = 0
+            if filtered_list:
+                for item in filtered_list:
+                    logger.debug("Filtering:" + item[0].id + item[1])
+                    if item[1] == ">":
+                        self.model.reactions.get_by_id(item[0].id).upper_bound = 0
+                    else:
+                        self.model.reactions.get_by_id(item[0].id).lower_bound = 0
         # Restoring gapfilling objective function and minimal objective constraint
         self.reset_objective_minimum(self.parameters["minimum_obj"])
         self.model.objective = self.parameters["gfobj"]

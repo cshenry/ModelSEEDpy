@@ -570,11 +570,9 @@ class ModelSEEDBiochem:
     default_biochemistry = None
 
     @staticmethod
-    def get(create_if_missing=True):
+    def get(create_if_missing=True,path=config.get("biochem", "path")):
         if not ModelSEEDBiochem.default_biochemistry:
-            ModelSEEDBiochem.default_biochemistry = from_local(
-                config.get("biochem", "path")
-            )
+            ModelSEEDBiochem.default_biochemistry = from_local(path)
         return ModelSEEDBiochem.default_biochemistry
 
     def __init__(
