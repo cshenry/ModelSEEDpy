@@ -736,10 +736,10 @@ class MSExpression:
                         elif rxn_expression.type == "TPM":
                             transformed_value = value / cond.sum_value()
                         elif rxn_expression.type == "Log2":
-                            min_val = cond.lowest_value()
+                            ave_val = cond.average_value()
                             col_sum = cond.sum_value()
                             n_features = len(rxn_expression.features)
-                            transformed_value = (2 ** (value - min_val)) / (2 ** (col_sum - n_features * min_val))
+                            transformed_value = (2 ** (value - ave_val)) / (2 ** (col_sum - n_features * ave_val))
                         else:
                             transformed_value = value
 
