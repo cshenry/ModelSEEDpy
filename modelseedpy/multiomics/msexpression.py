@@ -781,6 +781,9 @@ class MSExpression:
                     else:
                         off_hash[rxn.id] = expr_value+1
 
+        print("On:", on_hash)
+        print("Off:", off_hash)
+
         # Task 3.8-3.9: Log dictionary sizes
         logger.info(f"Identified {len(on_hash)} reactions for activation (above threshold {activation_threshold})")
         logger.info(f"Identified {len(off_hash)} reactions for deactivation (below threshold {deactivation_threshold})")
