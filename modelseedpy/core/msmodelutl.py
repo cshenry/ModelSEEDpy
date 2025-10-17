@@ -413,6 +413,8 @@ class MSModelUtil:
             #Resetting the logging level in cobrapy to avoid excess output
             logging.getLogger("cobra.io.sbml").setLevel(logging.ERROR)
             model = cobra.io.read_sbml_model(filename)
+        else:
+            model = cobra.io.from_json(filename)
         return MSModelUtil(model)
 
     def save_model(self, filename, format="json"):

@@ -11,9 +11,7 @@ from cobra.core.gene import Gene, ast2str, eval_gpr, parse_gpr, GPR
 from cobra import Solution
 from ast import And, BitAnd, BitOr, BoolOp, Expression, Name, NodeTransformer, Or
 from modelseedpy.core.msgenome import MSGenome, MSFeature
-
-if TYPE_CHECKING:
-    from modelseedpy.core.msmodelutl import MSModelUtil
+from modelseedpy.core.msmodelutl import MSModelUtil
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +222,7 @@ class MSExpressionFeature:
 
 class MSExpression:
     def __init__(self, type):
-        self.type = type#RelativeAbundance,AbsoluteAbundance,FPKM,TPM,Log2
+        self.type = type  # RelativeAbundance, AbsoluteAbundance, FPKM, TPM, Log2, NormalizedRatios
         self.object = None
         self.features = DictList()
         self.conditions = DictList()
@@ -232,6 +230,27 @@ class MSExpression:
         self._data.index.name = 'feature_id'
 
     @staticmethod
+    def from_msexpression(msexpression: 'MSExpression') -> 'MSExpression':
+        """Create a copy of an existing MSExpression object.
+
+        Args:
+            msexpression: The MSExpression object to copy
+
+        Returns:
+            A new MSExpression object with the same data
+        """
+        new_expression = MSExpression(msexpression.type)
+        new_expression.object = msexpression.object
+        # Copy features
+        for feature in msexpression.features:
+            new_expression.features.append(MSExpressionFeature(feature.feature, new_expression))
+        # Copy conditions
+        for condition in msexpression.conditions:
+            new_expression.conditions.append(MSCondition(condition.id, new_expression))
+        # Copy data DataFrame
+        new_expression._data = msexpression._data.copy()
+        return new_expression
+    
     def from_dataframe(
         df: pd.DataFrame,
         genome: Optional['MSGenome'] = None,
@@ -521,13 +540,49 @@ class MSExpression:
             return self._data.reset_index()
         else:
             return self._data.copy()
+    
+    def translate_data(self, target_type: str) -> 'MSExpression':
+        """Translate expression data to a different type.
 
+        Args:
+            target_type: Target expression type (RelativeAbundance, AbsoluteAbundance, FPKM, TPM, Log2)
+
+        Returns:
+            New MSExpression object with translated data
+        """
+        # Create a copy of the current expression object
+        new_expression = MSExpression.from_msexpression(self)
+        new_expression.type = target_type
+        # Perform translation based on source and target types
+        for condition in self.conditions:
+            for feature in self.features:
+                value = feature.get_value(condition)
+                if value is not None:
+                    if self.type == "AbsoluteAbundance":
+                        if target_type == "RelativeAbundance":
+                            value = value / condition.sum_value()
+                        elif target_type == "NormalizedRatios":
+                            value = value / condition.highest_value()
+                        else:
+                            raise ValueError(
+                                f"Translation from {self.type} to {target_type} not supported"
+                            )
+                    else:
+                        raise ValueError(
+                            f"Translation from {self.type} to {target_type} not supported"
+                        )
+                    new_expression._data.loc[feature.id, condition.id] = value
+        return new_expression
+    
     def fit_model_flux_to_data(
         self,
         model: 'MSModelUtil',
         condition: str,
-        activation_threshold: float = 0.002,
-        deactivation_threshold: float = 0.000001
+        default_coef: float = 0.00001,
+        activation_threshold: float = None,  # cshenry 10/16/2026: Changed default for activation to None so activation will be off by default
+        deactivation_threshold: float = 0.000001,
+        on_coef_override: float = None,
+        off_coef_override: float = None
     ) -> Solution:
         """Fit metabolic model fluxes to expression data using threshold-based constraints.
 
@@ -585,52 +640,8 @@ class MSExpression:
         -----
         - This function does NOT modify the original expression data or model
         - All model modifications occur within a context manager and are reverted
-        - Reactions without expression data are neither activated nor deactivated
+        - Reactions without expression data or reactions between the specified thresholds are deactivated base on the default_coef argument
         - The function uses ExpressionActivationPkg internally for constraint building
-
-        Examples
-        --------
-        Basic usage with gene expression data:
-
-        >>> # Load gene expression data
-        >>> expression = MSExpression.from_dataframe(
-        ...     gene_expr_df,
-        ...     id_column='gene_id',
-        ...     type='FPKM',
-        ...     genome=my_genome
-        ... )
-        >>>
-        >>> # Load metabolic model
-        >>> model = MSModelUtil.from_cobrapy('ecoli_core.json')
-        >>>
-        >>> # Fit model to expression data for a specific condition
-        >>> solution = expression.fit_model_flux_to_data(
-        ...     model=model,
-        ...     condition='glucose_aerobic'
-        ... )
-        >>>
-        >>> # Examine results
-        >>> print(f"Growth rate: {solution.objective_value}")
-        >>> print(f"Top fluxes:\\n{solution.fluxes.nlargest(10)}")
-
-        Using custom thresholds:
-
-        >>> solution = expression.fit_model_flux_to_data(
-        ...     model=model,
-        ...     condition='stress_response',
-        ...     activation_threshold=0.005,  # Higher threshold = stricter activation
-        ...     deactivation_threshold=0.0001
-        ... )
-
-        Comparing multiple conditions:
-
-        >>> conditions = ['glucose', 'xylose', 'glycerol']
-        >>> solutions = {}
-        >>> for cond in conditions:
-        ...     solutions[cond] = expression.fit_model_flux_to_data(model, cond)
-        >>>
-        >>> # Compare growth rates
-        >>> growth_rates = {cond: sol.objective_value for cond, sol in solutions.items()}
 
         See Also
         --------
@@ -643,11 +654,15 @@ class MSExpression:
         .. [1] Becker, S. A., & Palsson, B. O. (2008). Context-specific metabolic networks
            are consistent with experiments. PLoS computational biology, 4(5), e1000082.
         """
+        # cshenry 10/16/2026: Checking that model is MSModelUtil and converting if not
+        if not isinstance(model, MSModelUtil):
+            model = MSModelUtil(model)
+        
         # Task 1.6: Initial logging
         logger.info(f"Fitting model flux to expression data for condition: {condition}")
 
         # Task 1.4: Threshold validation
-        if activation_threshold <= deactivation_threshold:
+        if activation_threshold is not None and activation_threshold <= deactivation_threshold:
             raise ValueError(
                 f"activation_threshold ({activation_threshold}) must be greater than "
                 f"deactivation_threshold ({deactivation_threshold})"
@@ -685,7 +700,7 @@ class MSExpression:
             rxn_expression = self
 
         # Task 2.5-2.13: Expression type transformation
-        if rxn_expression.type != "RelativeAbundance":
+        if rxn_expression.type != "RelativeAbundance" and rxn_expression.type != "NormalizedRatios":
             # Task 2.10: Log transformation
             logger.info(f"Transforming expression data from {rxn_expression.type} to RelativeAbundance")
 
@@ -747,19 +762,24 @@ class MSExpression:
                 continue
 
             # Task 3.5: Check for activation
-            if expr_value > activation_threshold:
-                on_hash[rxn.id] = expr_value - activation_threshold
+            if rxn_expression.type != "NormalizedRatios":
+                if activation_threshold is not None and 1 - expr_value > activation_threshold:
+                    on_hash[rxn.id] = 10 * (1 - expr_value)
+                elif 1-expr_value < deactivation_threshold:
+                    off_hash[rxn.id] = 10*(1 - expr_value)
+            else:
+                if activation_threshold is not None and expr_value > activation_threshold:
+                    if activation_threshold != 0:
+                        on_hash[rxn.id] = (expr_value - activation_threshold)/activation_threshold
+                    else:
+                        on_hash[rxn.id] = expr_value+1
 
-            # Task 3.6: Check for deactivation
-            if expr_value < deactivation_threshold:
-                off_hash[rxn.id] = deactivation_threshold - expr_value
-
-        # Task 3.7: Validate on_hash is not empty
-        if len(on_hash) == 0:
-            raise ValueError(
-                f"No reactions have expression values above activation threshold ({activation_threshold}). "
-                f"Consider lowering the threshold or checking your expression data."
-            )
+                # Task 3.6: Check for deactivation
+                if expr_value < deactivation_threshold:
+                    if activation_threshold != 0:
+                        off_hash[rxn.id] = (deactivation_threshold - expr_value)/deactivation_threshold
+                    else:
+                        off_hash[rxn.id] = expr_value+1
 
         # Task 3.8-3.9: Log dictionary sizes
         logger.info(f"Identified {len(on_hash)} reactions for activation (above threshold {activation_threshold})")
@@ -772,22 +792,34 @@ class MSExpression:
         expr_pkg = pkgmgr.getpkg("ExpressionActivationPkg")
 
         # Task 4.3: Use context manager for transient modifications
+        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"solution":None}
         with model.model:
             # Task 4.4: Build package with dictionaries
-            expr_pkg.build_package(on_hash, off_hash)
-
+            expr_pkg.build_package(on_hash, off_hash, other_coef=default_coef, on_coeff=on_coef_override, off_coeff=off_coef_override)
             # Task 4.5: Execute optimization
-            solution = model.model.optimize()
+            output["objective"] = model.model.objective
+            output["solution"] = model.model.optimize()
+            for rxn in model.model.reactions:
+                if rxn.id in on_hash:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["on_on"].append(rxn.id)
+                    else:
+                        output["on_off"].append(rxn.id)
+                if rxn.id in off_hash:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["off_on"].append(rxn.id)
+                    else:
+                        output["off_off"].append(rxn.id)
 
             # Task 4.6: Validate solution status
-            if solution.status != "optimal":
+            if output["solution"].status != "optimal":
                 raise RuntimeError(
-                    f"Optimization failed with status: {solution.status}. "
+                    f"Optimization failed with status: {output['solution'].status}. "
                     f"The model may be infeasible with the given expression constraints."
                 )
 
             # Task 4.7: Log optimization result
-            logger.info(f"Optimization completed with objective value: {solution.objective_value}")
+            logger.info(f"Optimization completed with objective value: {output['solution'].objective_value}")
 
-            # Task 4.8: Return solution
-            return solution
+        # Task 4.8: Return solution
+        return output
