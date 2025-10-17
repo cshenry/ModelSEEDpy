@@ -44,6 +44,8 @@ class ExpressionActivationPkg(BaseFBAPkg):
             else:
                 obj_coef[rxn.forward_variable] = other_coef
                 obj_coef[rxn.reverse_variable] = other_coef
+        for var in obj_coef:
+            print(var.name, obj_coef[var])
         self.model.objective = expression_objective
         expression_objective.set_linear_coefficients(obj_coef)
         self.parameters["gfobj"] = self.model.objective
