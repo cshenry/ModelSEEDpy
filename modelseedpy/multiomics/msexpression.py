@@ -497,25 +497,34 @@ class MSExpression:
         # Pulling the gene values from the current expression using DataFrame
         values = {}
         for gene in model.genes:
-            feature = self.object.search_for_gene(gene.id)
-            if feature is None:
-                logger.debug(
-                    "Model gene " + gene.id + " not found in genome or expression"
-                )
-            elif feature.id not in self.features:
-                logger.debug(
-                    "Model gene " + gene.id + " in genome but not in expression"
-                )
+            # First, try to find the gene directly in expression features
+            # This handles cases where expression was loaded without a genome
+            if gene.id in self.features:
+                feature = self.features.get_by_id(gene.id)
             else:
+                # Fallback: search through the genome object (supports aliases)
+                feature = self.object.search_for_gene(gene.id)
+                if feature is None:
+                    logger.debug(
+                        "Model gene " + gene.id + " not found in genome or expression"
+                    )
+                    continue
+                if feature.id not in self.features:
+                    logger.debug(
+                        "Model gene " + gene.id + " in genome but not in expression"
+                    )
+                    continue
                 feature = self.features.get_by_id(feature.id)
-                for condition in self.conditions:
-                    if condition.id not in values:
-                        values[condition.id] = {}
-                    # Get value from DataFrame instead of feature.values dictionary
-                    if feature.id in self._data.index and condition.id in self._data.columns:
-                        value = self._data.loc[feature.id, condition.id]
-                        if not pd.isna(value):
-                            values[condition.id][gene.id] = value
+
+            # Extract expression values for this feature
+            for condition in self.conditions:
+                if condition.id not in values:
+                    values[condition.id] = {}
+                # Get value from DataFrame instead of feature.values dictionary
+                if feature.id in self._data.index and condition.id in self._data.columns:
+                    value = self._data.loc[feature.id, condition.id]
+                    if not pd.isna(value):
+                        values[condition.id][gene.id] = value
 
         # Computing the reaction level values
         for condition in rxnexpression.conditions:
