@@ -567,22 +567,37 @@ class MSExpression:
             for feature in self.features:
                 value = feature.get_value(condition)
                 if value is not None:
-                    if self.type == "AbsoluteAbundance":
+                    if self.type == "AbsoluteAbundance" or self.type == "FPKM" or self.type == "TPM":
                         if target_type == "RelativeAbundance":
-                            value = value / condition.sum_value()
+                            if condition.sum_value() > 0.01:
+                                value = value / condition.sum_value()
+                            else:
+                                value = 0
                         elif target_type == "NormalizedRatios":
-                            value = value / condition.highest_value()
+                            if condition.highest_value() > 0.01:
+                                value = value / condition.highest_value()
+                            else:
+                                value = 0
                         else:
                             raise ValueError(
                                 f"Translation from {self.type} to {target_type} not supported"
                             )
+                    elif self.type == "Log2":
+                        ave_val = condition.average_value()
+                        col_sum = condition.sum_value()
+                        n_features = len(self.features)
+                        denominator = (2 ** (col_sum - n_features * ave_val))
+                        if denominator > 0.01:
+                            transformed_value = (2 ** (value - ave_val)) / denominator
+                        else:
+                            transformed_value = 0
                     else:
                         raise ValueError(
                             f"Translation from {self.type} to {target_type} not supported"
                         )
                     new_expression._data.loc[feature.id, condition.id] = value
         return new_expression
-    
+
     def fit_model_flux_to_data(
         self,
         model: 'MSModelUtil',
@@ -707,7 +722,9 @@ class MSExpression:
                 )
 
             rxn_expression = self
-
+        
+        model.util.save("reaction_expression_data", rxn_expression._data.to_dict())
+  
         # Task 2.5-2.13: Expression type transformation
         if rxn_expression.type != "RelativeAbundance" and rxn_expression.type != "NormalizedRatios":
             # Task 2.10: Log transformation
@@ -738,17 +755,20 @@ class MSExpression:
                     value = rxn_expression.get_value(feat.id, cond.id)
                     if value is not None:
                         # Task 2.6-2.9: Apply transformation formulas
-                        if rxn_expression.type == "AbsoluteAbundance":
-                            transformed_value = value / cond.sum_value()
-                        elif rxn_expression.type == "FPKM":
-                            transformed_value = value / cond.sum_value()
-                        elif rxn_expression.type == "TPM":
-                            transformed_value = value / cond.sum_value()
+                        if rxn_expression.type == "AbsoluteAbundance" or rxn_expression.type == "FPKM" or rxn_expression.type == "TPM":
+                            if cond.sum_value() > 0.01:
+                                transformed_value = value / cond.sum_value()
+                            else:
+                                transformed_value = 0
                         elif rxn_expression.type == "Log2":
                             ave_val = cond.average_value()
                             col_sum = cond.sum_value()
                             n_features = len(rxn_expression.features)
-                            transformed_value = (2 ** (value - ave_val)) / (2 ** (col_sum - n_features * ave_val))
+                            denominator = (2 ** (col_sum - n_features * ave_val))
+                            if denominator > 0.01:
+                                transformed_value = (2 ** (value - ave_val)) / denominator
+                            else:
+                                transformed_value = 0
                         else:
                             transformed_value = value
 

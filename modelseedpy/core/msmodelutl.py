@@ -381,6 +381,7 @@ class MSModelUtil:
         self.attributes = {}
         self.atp_tests = None
         self.reliability_scores = None
+        self.util=None
         if hasattr(self.model, "computed_attributes"):
             if self.model.computed_attributes:
                 self.attributes = self.model.computed_attributes
