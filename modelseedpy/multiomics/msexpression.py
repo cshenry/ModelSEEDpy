@@ -598,6 +598,74 @@ class MSExpression:
                     new_expression._data.loc[feature.id, condition.id] = value
         return new_expression
 
+    def average_expression_replicates(self, strain_list: list) -> 'MSExpression':
+        """Average expression replicates for each strain.
+
+        Takes an MSExpression object with replicate columns (e.g., ACN2586_1, ACN2586_2, ...)
+        and averages them to create single columns per strain (e.g., ACN2586).
+
+        Args:
+            strain_list: List of strain names (e.g., ["ACN2586", "ACN2821", ...])
+
+        Returns:
+            New MSExpression object with averaged data per strain
+
+        Raises:
+            ValueError: If no data found for any strain in the list
+        """
+        try:
+            # Access the underlying DataFrame
+            expression_df = self._data.copy()
+
+            # Create new DataFrame for averaged data
+            averaged_data = {}
+
+            # Keep the index (gene/protein IDs)
+            averaged_data['index'] = expression_df.index
+
+            # For each strain, find and average its replicates
+            for strain in strain_list:
+                # Find columns that match this strain pattern (e.g., ACN2586_1, ACN2586_2, ...)
+                replicate_cols = [col for col in expression_df.columns if col.startswith(f"{strain}_")]
+
+                if replicate_cols:
+                    # Average the replicates
+                    averaged_data[strain] = expression_df[replicate_cols].mean(axis=1)
+                    logger.info(f"Averaged {len(replicate_cols)} replicates for strain {strain}")
+                else:
+                    # No replicates found - check if strain column exists as-is
+                    if strain in expression_df.columns:
+                        averaged_data[strain] = expression_df[strain]
+                        logger.info(f"No replicates found for {strain}, using existing column")
+                    else:
+                        logger.warning(f"No data found for strain {strain}")
+
+            # Create new DataFrame from averaged data
+            averaged_df = pd.DataFrame(averaged_data)
+            averaged_df.set_index('index', inplace=True)
+
+            # Create a deep copy of the expression object
+            averaged_expression = copy.deepcopy(self)
+
+            # Replace the data with averaged data
+            averaged_expression._data = averaged_df
+
+            # Update conditions list to match new columns
+            # Clear and rebuild conditions using proper MSCondition class
+            averaged_expression.conditions = DictList()
+            for strain in strain_list:
+                if strain in averaged_df.columns:
+                    condition = MSCondition(strain, averaged_expression)
+                    averaged_expression.conditions.append(condition)
+
+            logger.info(f"Created averaged expression data with {len(averaged_expression.conditions)} conditions")
+
+            return averaged_expression
+
+        except Exception as e:
+            logger.error(f"Error averaging expression replicates: {str(e)}")
+            raise
+
     def fit_model_flux_to_data(
         self,
         model: 'MSModelUtil',
