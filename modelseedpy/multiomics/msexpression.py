@@ -411,6 +411,96 @@ class MSExpression:
             type=type
         )
 
+    @staticmethod
+    def load_from_dict(
+        data_dict: dict,
+        genome_or_model: Union['MSGenome', 'Model'],
+        value_type: str,
+        create_missing_features: bool = False
+    ) -> 'MSExpression':
+        """Create an MSExpression object from a dictionary.
+
+        The dictionary should have feature IDs as keys and nested dictionaries
+        mapping condition IDs to expression values as values.
+
+        Example:
+            data = {
+                "gene1": {
+                    "condition1": 10.5,
+                    "condition2": 20.3
+                },
+                "gene2": {
+                    "condition1": 8.2,
+                    "condition2": 15.7
+                }
+            }
+            expr = MSExpression.load_from_dict(
+                data,
+                genome_or_model=genome,
+                value_type="Log2"
+            )
+
+        Args:
+            data_dict: Dictionary with feature IDs as keys and condition-value
+                dictionaries as values
+            genome_or_model: MSGenome object (for gene expression) or Model
+                object (for reaction expression). Required.
+            value_type: Expression data type (RelativeAbundance, AbsoluteAbundance,
+                FPKM, TPM, Log2, NormalizedRatios). Required.
+            create_missing_features: If True, create features not in genome/model
+
+        Returns:
+            MSExpression object with data loaded from dictionary
+        """
+        # Create expression object
+        expression = MSExpression(value_type)
+        expression.object = genome_or_model
+
+        # Convert dictionary to DataFrame
+        # The dictionary format is: {feature_id: {condition_id: value, ...}, ...}
+        if not data_dict:
+            return expression
+
+        # Convert to DataFrame with feature IDs as index and conditions as columns
+        data_df = pd.DataFrame.from_dict(data_dict, orient='index')
+        data_df.index.name = 'feature_id'
+
+        # Get all condition IDs from the dictionary
+        all_conditions = set()
+        for feature_data in data_dict.values():
+            if isinstance(feature_data, dict):
+                all_conditions.update(feature_data.keys())
+
+        # Create condition objects
+        for condition_id in sorted(all_conditions):
+            if condition_id not in expression.conditions:
+                expression.conditions.append(MSCondition(condition_id, expression))
+                # Initialize metadata attributes
+                expression.conditions.get_by_id(condition_id).column_sum = 0
+                expression.conditions.get_by_id(condition_id).feature_count = 0
+
+        # Add features and populate data
+        valid_feature_ids = []
+        for feature_id in data_df.index:
+            feature = expression.add_feature(
+                feature_id,
+                create_missing_features
+            )
+            if feature is not None:
+                valid_feature_ids.append(feature.id)
+
+        # Filter DataFrame to only include valid features
+        if len(valid_feature_ids) > 0:
+            data_df = data_df[data_df.index.isin(valid_feature_ids)]
+            # Convert to numeric, coercing errors to NaN
+            for col in data_df.columns:
+                data_df[col] = pd.to_numeric(data_df[col], errors='coerce')
+            # Assign to expression._data
+            expression._data = data_df
+            expression._data.index.name = 'feature_id'
+
+        return expression
+
     def add_feature(
         self,
         id: str,
@@ -564,38 +654,47 @@ class MSExpression:
         new_expression.type = target_type
         # Perform translation based on source and target types
         for condition in self.conditions:
+            denominator = None
             for feature in self.features:
                 value = feature.get_value(condition)
                 if value is not None:
                     if self.type == "AbsoluteAbundance" or self.type == "FPKM" or self.type == "TPM":
                         if target_type == "RelativeAbundance":
                             if condition.sum_value() > 0.01:
-                                value = value / condition.sum_value()
+                                transformed_value = value / condition.sum_value()
                             else:
-                                value = 0
+                                transformed_value = 0
                         elif target_type == "NormalizedRatios":
                             if condition.highest_value() > 0.01:
-                                value = value / condition.highest_value()
+                                transformed_value = value / condition.highest_value()
                             else:
-                                value = 0
+                                transformed_value = 0
                         else:
                             raise ValueError(
                                 f"Translation from {self.type} to {target_type} not supported"
                             )
+                        new_expression._data.loc[feature.id, condition.id] = transformed_value
                     elif self.type == "Log2":
-                        ave_val = condition.average_value()
-                        col_sum = condition.sum_value()
-                        n_features = len(self.features)
-                        denominator = (2 ** (col_sum - n_features * ave_val))
-                        if denominator > 0.01:
-                            transformed_value = (2 ** (value - ave_val)) / denominator
+                        if target_type == "RelativeAbundance":
+                            if denominator is None:
+                                denominator = 0
+                                for ftr in self.features:
+                                    denominator += 2 ** ftr.get_value(condition)
+                            numerator = 2 ** value
+                            if denominator > 0.01:
+                                transformed_value = numerator / denominator
+                            else:
+                                transformed_value = 0
                         else:
-                            transformed_value = 0
+                            raise ValueError(
+                                f"Translation from {self.type} to {target_type} not supported"
+                            )                            
+                        new_expression._data.loc[feature.id, condition.id] = transformed_value
                     else:
                         raise ValueError(
                             f"Translation from {self.type} to {target_type} not supported"
                         )
-                    new_expression._data.loc[feature.id, condition.id] = value
+                    
         return new_expression
 
     def average_expression_replicates(self, strain_list: list) -> 'MSExpression':
@@ -791,75 +890,24 @@ class MSExpression:
 
             rxn_expression = self
         
-        model.util.save("reaction_expression_data", rxn_expression._data.to_dict())
+        model.util.save("reaction_expression_data_2", rxn_expression._data.to_dict())
   
         # Task 2.5-2.13: Expression type transformation
         if rxn_expression.type != "RelativeAbundance" and rxn_expression.type != "NormalizedRatios":
-            # Task 2.10: Log transformation
-            logger.info(f"Transforming expression data from {rxn_expression.type} to RelativeAbundance")
+            raise ValueError(
+                f"Reaction expression must be in terms of relative abundance or normalized ratios"
+            )
 
-            # Task 2.11: Warning for Log2
-            if rxn_expression.type == "Log2":
-                logger.warning("Converting from Log2 scale - ensure this is scientifically appropriate for your analysis")
-
-            # Task 2.12: Create new MSExpression with RelativeAbundance type
-            transformed_expr = MSExpression("RelativeAbundance")
-            transformed_expr.object = rxn_expression.object
-
-            # Copy conditions
-            for cond in rxn_expression.conditions:
-                new_cond = MSCondition(cond.id, transformed_expr)
-                transformed_expr.conditions.append(new_cond)
-
-            # Copy features
-            for feat in rxn_expression.features:
-                transformed_expr.add_feature(feat.id)
-
-            # Transform values based on type
-            cond_obj = rxn_expression.conditions.get_by_id(condition)
-
-            for feat in rxn_expression.features:
-                for cond in rxn_expression.conditions:
-                    value = rxn_expression.get_value(feat.id, cond.id)
-                    if value is not None:
-                        # Task 2.6-2.9: Apply transformation formulas
-                        if rxn_expression.type == "AbsoluteAbundance" or rxn_expression.type == "FPKM" or rxn_expression.type == "TPM":
-                            if cond.sum_value() > 0.01:
-                                transformed_value = value / cond.sum_value()
-                            else:
-                                transformed_value = 0
-                        elif rxn_expression.type == "Log2":
-                            ave_val = cond.average_value()
-                            col_sum = cond.sum_value()
-                            n_features = len(rxn_expression.features)
-                            denominator = (2 ** (col_sum - n_features * ave_val))
-                            if denominator > 0.01:
-                                transformed_value = (2 ** (value - ave_val)) / denominator
-                            else:
-                                transformed_value = 0
-                        else:
-                            transformed_value = value
-
-                        transformed_expr.features.get_by_id(feat.id).add_value(cond.id, transformed_value)
-
-            # Task 2.13: Use transformed expression
-            rxn_expression = transformed_expr
-
-        # Task 3.1: Initialize empty dictionaries
+        # Initialize empty dictionaries
         on_hash = {}
         off_hash = {}
 
-        # Task 3.2-3.6: Iterate through reactions and build dictionaries
+        # Iterate through reactions and build dictionaries
         for rxn in model.model.reactions:
-            # Task 3.3: Get expression value
             expr_value = rxn_expression.get_value(rxn.id, condition)
-
-            # Task 3.4: Handle None values
             if expr_value is None:
                 continue
-
-            # Task 3.5: Check for activation
-            if rxn_expression.type != "NormalizedRatios":
+            if rxn_expression.type == "NormalizedRatios":
                 if activation_threshold is not None and 1 - expr_value > activation_threshold:
                     on_hash[rxn.id] = 10 * (1 - expr_value)
                 elif 1-expr_value < deactivation_threshold:
@@ -870,10 +918,8 @@ class MSExpression:
                         on_hash[rxn.id] = (expr_value - activation_threshold)/activation_threshold
                     else:
                         on_hash[rxn.id] = expr_value+1
-
-                # Task 3.6: Check for deactivation
-                if expr_value < deactivation_threshold:
-                    if activation_threshold != 0:
+                elif expr_value < deactivation_threshold:
+                    if deactivation_threshold != 0:
                         off_hash[rxn.id] = (deactivation_threshold - expr_value)/deactivation_threshold
                     else:
                         off_hash[rxn.id] = expr_value+1
@@ -881,17 +927,17 @@ class MSExpression:
         print("On:", on_hash)
         print("Off:", off_hash)
 
-        # Task 3.8-3.9: Log dictionary sizes
+        # Log dictionary sizes
         logger.info(f"Identified {len(on_hash)} reactions for activation (above threshold {activation_threshold})")
         logger.info(f"Identified {len(off_hash)} reactions for deactivation (below threshold {deactivation_threshold})")
 
-        # Task 4.1: Access package manager
+        # Access package manager
         pkgmgr = model.pkgmgr
 
-        # Task 4.2: Get ExpressionActivationPkg
+        # Get ExpressionActivationPkg
         expr_pkg = pkgmgr.getpkg("ExpressionActivationPkg")
 
-        # Task 4.3: Use context manager for transient modifications
+        # Use context manager for transient modifications
         output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"solution":None}
         with model.model:
             # Task 4.4: Build package with dictionaries
