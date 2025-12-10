@@ -13,7 +13,6 @@ You are running in headless mode to execute structured commands. You will receiv
    - Contain a complete new feature description that should be saved as a PRD
 3. **PRD Reference Handling**: When a PRD name is referenced:
    - Look for `agent-io/prds/<prd-name>/humanprompt.md`
-   - Look for `agent-io/prds/<prd-name>/aiprompt.md`
    - Look for `agent-io/prds/<prd-name>/fullprompt.md` if present
    - These files provide the detailed context for the work
 4. **PRD Storage**: When a user prompt is provided without a PRD name:
@@ -49,7 +48,7 @@ Follow this process for all headless executions:
   - Whether a PRD name is referenced
 - **If a PRD name is referenced**:
   - Read the PRD files from `agent-io/prds/<prd-name>/`
-  - Use humanprompt.md, aiprompt.md, and fullprompt.md (if available) as context
+  - Use humanprompt.md and fullprompt.md (if available) as context
 - **If user prompt provided without PRD name**:
   - Create a descriptive PRD name based on the prompt content (use kebab-case)
   - Create directory `agent-io/prds/<prd-name>/`
@@ -119,11 +118,10 @@ Follow this process for all headless executions:
 **Execution Process:**
 1. Parse input - PRD name "user-profile-editing" identified
 2. Read `agent-io/prds/user-profile-editing/humanprompt.md`
-3. Read `agent-io/prds/user-profile-editing/aiprompt.md` (if exists)
-4. Read `agent-io/prds/user-profile-editing/fullprompt.md` (if exists)
-5. Use PRD context to generate detailed task list
-6. Save tasks to `agent-io/prds/user-profile-editing/data.json`
-7. Create comprehensive JSON output with task list and references
+3. Read `agent-io/prds/user-profile-editing/fullprompt.md` (if exists)
+4. Use PRD context to generate detailed task list
+5. Save tasks to `agent-io/prds/user-profile-editing/data.json`
+6. Create comprehensive JSON output with task list and references
 
 ### The user workflow:
 - User reads `claude-output.json` to understand everything you did

@@ -13,7 +13,6 @@ Analyze an email document to extract key information, classify its importance, a
 You will receive a request file containing:
 - Email content (body, subject, sender, recipients)
 - Email metadata (date, time, headers)
-- RAG database connection details (for project assignment)
 - User preferences (optional)
 
 ## Process
@@ -50,39 +49,11 @@ You will receive a request file containing:
 
    - Provide classification confidence score (0.0-1.0)
    - Document classification reasoning in comments
+   - Emails classified as unimportant should not proceed to further processing
 
-### Phase 3: Project Assignment
+### Phase 3: Task Extraction
 
-4. **Query RAG Database**
-   - Extract keywords and phrases from email content
-   - Generate embedding or search query based on:
-     - Email subject and body content
-     - Mentioned project names or codes
-     - Referenced documents or systems
-     - Stakeholder names
-     - Technical terms or domain-specific language
-
-5. **Match to Project**
-   - Query RAG database with extracted features
-   - Retrieve top 3-5 project matches with similarity scores
-   - Select best matching project based on:
-     - Similarity score threshold (>0.7 recommended)
-     - Content relevance
-     - Stakeholder overlap
-     - Recent project activity
-
-   - If no good match found (all scores <0.5):
-     - Set project_assignment.status to "unassigned"
-     - Suggest creating new project or manual review
-   - If multiple strong matches (scores >0.8):
-     - Set status to "multiple_matches"
-     - List all strong candidates for user review
-
-   - Document matching process in comments
-
-### Phase 4: Task Extraction
-
-6. **Identify Action Items**
+4. **Identify Action Items**
    - Scan email for explicit tasks:
      - Action verbs (review, approve, send, create, update, etc.)
      - Questions requiring responses
@@ -95,7 +66,7 @@ You will receive a request file containing:
      - Identify task owner (you, sender, other party)
      - Extract related context and requirements
 
-7. **Determine Urgency and Deadlines**
+5. **Determine Urgency and Deadlines**
    - Analyze for urgency indicators:
      - **Critical**: Explicit urgent markers, imminent deadlines (<24 hours), blocking issues
      - **High**: Near-term deadlines (1-3 days), important stakeholders, escalations
@@ -110,16 +81,16 @@ You will receive a request file containing:
    - Convert to standardized format (ISO 8601)
    - If no deadline specified, suggest reasonable deadline based on urgency
 
-### Phase 5: Draft Response
+### Phase 4: Draft Response
 
-8. **Analyze Response Requirements**
+6. **Analyze Response Requirements**
    - Determine if response is needed
    - Identify key points to address
    - Note any questions to answer
    - Consider required tone (formal, casual, apologetic, etc.)
    - Identify if response requires attachments or follow-up actions
 
-9. **Generate Draft Response**
+7. **Generate Draft Response**
    - Create draft email response including:
      - Appropriate greeting based on sender relationship
      - Address all questions and requests
@@ -134,15 +105,15 @@ You will receive a request file containing:
 
    - If no response needed, set draft_response to null and explain why
 
-### Phase 6: Save Structured Output
+### Phase 5: Save Structured Output
 
-10. **Prepare JSON Output File**
+8. **Prepare JSON Output File**
     - Determine sequence number for email analysis
     - Check `orchestrator/email-analysis/` directory for existing analyses
     - Use next sequential number (0001, 0002, 0003, etc.)
     - If directory doesn't exist, create it and start at 0001
 
-11. **Save Analysis File**
+9. **Save Analysis File**
     - Filename format: `orchestrator/email-analysis/[NNNN]-[YYYY-MM-DD]-[sender-name].json`
     - Example: `orchestrator/email-analysis/0042-2025-11-09-john-smith.json`
     - Use kebab-case for sender name
@@ -178,26 +149,6 @@ The analysis JSON file must follow this structure:
     "urgency_level": "critical | high | medium | low",
     "is_actionable": true,
     "sentiment": "positive | neutral | negative | mixed"
-  },
-
-  "project_assignment": {
-    "status": "assigned | unassigned | multiple_matches | needs_review",
-    "primary_project": {
-      "project_id": "string or null",
-      "project_name": "string or null",
-      "similarity_score": 0.87,
-      "match_reasoning": "Explanation of why this project was selected"
-    },
-    "alternative_projects": [
-      {
-        "project_id": "string",
-        "project_name": "string",
-        "similarity_score": 0.75,
-        "match_reasoning": "string"
-      }
-    ],
-    "rag_query_used": "string - the query sent to RAG database",
-    "keywords_extracted": ["keyword1", "keyword2", "keyword3"]
   },
 
   "tasks": [
@@ -278,15 +229,14 @@ Your command execution JSON output must include:
 - `comments`: Array of notes about the analysis process
 
 **For user_query status:**
-- `queries_for_user`: Questions needing clarification (e.g., RAG credentials, project preferences)
+- `queries_for_user`: Questions needing clarification
 - `context`: Save partial analysis and email content
 
 **Example Comments:**
 - "Email classified as professional with high confidence (0.95)"
-- "Assigned to 'Website Redesign' project with 87% similarity"
 - "Identified 3 action items with deadlines ranging from 2-5 days"
 - "Draft response prepared; requires user input for meeting availability"
-- "RAG database returned no strong matches; manual project assignment recommended"
+- "No explicit deadlines found; suggested deadlines based on urgency level"
 
 ## Tasks to Track
 
@@ -295,73 +245,34 @@ Create tasks in the internal todo list:
 ```
 1.0 Parse and extract email content
 2.0 Classify email importance and urgency
-3.0 Query RAG database for project assignment
-4.0 Extract tasks and deadlines
-5.0 Generate draft response
-6.0 Save structured JSON file
+3.0 Extract tasks and deadlines
+4.0 Generate draft response
+5.0 Save structured JSON file
 ```
 
 Mark tasks as completed as you progress.
-
-## RAG Database Integration
-
-### Expected RAG Query Format
-
-The RAG database query should include:
-- Email subject weighted highly
-- Key phrases from body (2-3 most relevant)
-- Entity names (people, projects, systems)
-- Technical terms or domain keywords
-
-### Expected RAG Response Format
-
-```json
-{
-  "results": [
-    {
-      "project_id": "proj-123",
-      "project_name": "Website Redesign",
-      "similarity_score": 0.87,
-      "matched_content": "snippet of matching project description",
-      "metadata": {
-        "last_updated": "datetime",
-        "stakeholders": ["person1", "person2"]
-      }
-    }
-  ]
-}
-```
-
-### RAG Connection Handling
-
-- If RAG database is unavailable: Set project_assignment.status to "rag_unavailable"
-- If RAG credentials missing: Return status "user_query" requesting credentials
-- If RAG query fails: Document error and set status to "unassigned"
-- Include fallback to keyword matching if RAG fails
 
 ## Quality Checklist
 
 Before marking complete, verify:
 - ✅ Email metadata completely extracted and validated
 - ✅ Classification includes confidence score and reasoning
-- ✅ RAG database queried (or unavailability documented)
 - ✅ All action items extracted with urgency and deadlines
 - ✅ Deadlines converted to ISO 8601 format
 - ✅ Draft response addresses all key points (if response needed)
 - ✅ JSON file saved with correct naming and structure
 - ✅ All required JSON schema fields populated
-- ✅ Comments include insights about classification and matching
-- ✅ Edge cases handled (no deadline, no project match, etc.)
+- ✅ Comments include insights about classification and task extraction
+- ✅ Edge cases handled (no deadline, no clear tasks, etc.)
 
 ## Error Handling
 
 Handle these scenarios gracefully:
 
 1. **Malformed Email**: Return error status with details
-2. **RAG Unavailable**: Continue with limited project assignment
-3. **No Clear Tasks**: Set tasks array to empty, note in comments
-4. **Ambiguous Classification**: Use most likely category, lower confidence score
-5. **No Response Needed**: Set draft_response.should_respond to false with explanation
+2. **No Clear Tasks**: Set tasks array to empty, note in comments
+3. **Ambiguous Classification**: Use most likely category, lower confidence score
+4. **No Response Needed**: Set draft_response.should_respond to false with explanation
 
 ## Privacy and Security Considerations
 

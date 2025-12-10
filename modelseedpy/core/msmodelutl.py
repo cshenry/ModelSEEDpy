@@ -903,7 +903,7 @@ class MSModelUtil:
                         transported_charge += coef * met.charge
                 #Pulling ModelSEED Biochemistry related data
                 msid = MSModelUtil.reaction_msid(reaction)
-                if msid and msid != "rxn00000":
+                if msid and msid != "rxn00000" and msid in biochem.reactions:
                     #Penalizing for net transport of ions in the wrong direction
                     forwardscore = 0
                     reversescore = 0

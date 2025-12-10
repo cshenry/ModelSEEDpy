@@ -52,7 +52,6 @@ You will receive a request file containing:
 5. **Save PRD Files**
    - Create directory: `agent-io/prds/<prd-name>/`
    - Save user's original request to: `agent-io/prds/<prd-name>/humanprompt.md`
-   - Save AI-enhanced description to: `agent-io/prds/<prd-name>/aiprompt.md` (if applicable)
    - Save complete PRD to: `agent-io/prds/<prd-name>/fullprompt.md`
    - Create JSON tracking file: `agent-io/prds/<prd-name>/<prd-name>.json`
    - Document the filename in JSON output's `artifacts.prd_filename`

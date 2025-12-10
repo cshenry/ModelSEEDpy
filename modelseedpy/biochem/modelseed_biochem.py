@@ -572,6 +572,7 @@ class ModelSEEDBiochem:
     @staticmethod
     def get(create_if_missing=True,path=config.get("biochem", "path")):
         if not ModelSEEDBiochem.default_biochemistry:
+            print("loading biochemistry database from", path)
             ModelSEEDBiochem.default_biochemistry = from_local(path)
         return ModelSEEDBiochem.default_biochemistry
 
@@ -948,7 +949,6 @@ def from_local(database_path: str):
     database = ModelSEEDDatabase(
         metabolites.values(), reactions.values(), metabolite_tokens.values()
     )
-
     return database
 
 

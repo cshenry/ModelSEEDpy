@@ -2,6 +2,7 @@
 import logging
 from typing import Optional, Union, TYPE_CHECKING
 
+#from numpy._core.numeric import True_
 import pandas as pd
 import numpy as np
 import re
@@ -15,13 +16,13 @@ from modelseedpy.core.msmodelutl import MSModelUtil
 
 logger = logging.getLogger(__name__)
 
-def compute_gene_score(expr, values, default):
+def compute_gene_score(expr, values, default, datatype):
     # Handle tuple return from parse_gpr() in newer COBRApy versions
     if isinstance(expr, tuple) and len(expr) == 2:
         expr = expr[0]  # Extract GPR object from (GPR, frozenset) tuple
 
     if isinstance(expr, (Expression, GPR)):
-        return compute_gene_score(expr.body, values, default)
+        return compute_gene_score(expr.body, values, default, datatype)
     elif isinstance(expr, Name):
         if expr.id in values:
             return values[expr.id]
@@ -30,22 +31,37 @@ def compute_gene_score(expr, values, default):
     elif isinstance(expr, BoolOp):
         op = expr.op
         if isinstance(op, Or):
+            best = None
             total = None
             for subexpr in expr.values:
-                value = compute_gene_score(subexpr, values, default)
+                value = compute_gene_score(subexpr, values, default, datatype)
                 if value != None:
-                    if total == None:
-                        total = 0
-                    total += value
+                    if datatype == "NormalizedRatios":
+                        diff = abs(value - 1)
+                        if best == None or diff > best:
+                            best = diff
+                            total = value
+                    elif datatype == "RelativeAbundance" or datatype == "FPKM" or datatype == "TPM" or datatype == "AbsoluteAbundance":
+                        if total == None:
+                            total = 0
+                        total += value
             return total
         elif isinstance(op, And):
-            least = None
+            best = None
+            best_value = None
             for subexpr in expr.values:
-                value = compute_gene_score(subexpr, values, default)
+                value = compute_gene_score(subexpr, values, default, datatype)
                 if value != None:
-                    if least == None or value < least:
-                        least = value
-            return least
+                    if datatype == "NormalizedRatios":
+                        diff = abs(value - 1)
+                        if best == None or diff > best:
+                            best = diff
+                            best_value = value
+                    elif datatype == "RelativeAbundance" or datatype == "FPKM" or datatype == "TPM" or datatype == "AbsoluteAbundance":
+                        if best == None or value < best:
+                            best = value
+                            best_value = value
+            return best_value
         else:
             raise TypeError("unsupported operation " + op.__class__.__name__)
     elif expr is None:
@@ -253,11 +269,12 @@ class MSExpression:
     
     def from_dataframe(
         df: pd.DataFrame,
-        genome: Optional['MSGenome'] = None,
+        genome_or_model: Union['MSGenome', 'Model'],
         create_missing_features: bool = False,
         ignore_columns: list = None,
         description_column: Optional[str] = None,
         id_column: Optional[str] = None,
+        id_translation: Optional[dict] = None,
         type: str = "RelativeAbundance"
     ) -> 'MSExpression':
         """Create an MSExpression object from a pandas DataFrame.
@@ -278,16 +295,18 @@ class MSExpression:
             ignore_columns = []
 
         expression = MSExpression(type)
-        if genome is None:
+        if genome_or_model is None:
             expression.object = MSGenome()
             create_missing_features = True
         else:
-            expression.object = genome
+            expression.object = genome_or_model
 
         # Identify columns
         headers = list(df.columns)
         if id_column is None:
             id_column = headers[0]
+        print(id_column)
+        print(headers)
 
         # Identify condition columns
         conditions = []
@@ -309,20 +328,35 @@ class MSExpression:
         # Add features to the expression object
         valid_feature_ids = []
         for index, row in df.iterrows():
+            gene_id = row[id_column]
+            if id_translation is not None and gene_id in id_translation:
+                gene_id = id_translation[gene_id]
             description = None
             if description_present:
                 description = row[description_column]
             protfeature = expression.add_feature(
-                row[id_column], create_missing_features, description=description
+                gene_id, create_missing_features, description=description
             )
             if protfeature is not None:
                 valid_feature_ids.append(protfeature.id)
 
         # Bulk load data into DataFrame
         if len(valid_feature_ids) > 0 and len(conditions) > 0:
-            # Extract numeric data columns
-            data_df = df[df[id_column].isin(valid_feature_ids)].copy()
-            data_df = data_df.set_index(id_column)
+            # Apply ID translation to the dataframe's ID column if provided
+            if id_translation is not None:
+                # Create a translated version of the ID column for filtering and indexing
+                df_translated = df.copy()
+                df_translated['_translated_id'] = df_translated[id_column].map(
+                    lambda x: id_translation.get(x, x)
+                )
+                # Filter using translated IDs
+                data_df = df_translated[df_translated['_translated_id'].isin(valid_feature_ids)].copy()
+                # Set index using translated IDs
+                data_df = data_df.set_index('_translated_id')
+            else:
+                # Extract numeric data columns without translation
+                data_df = df[df[id_column].isin(valid_feature_ids)].copy()
+                data_df = data_df.set_index(id_column)
             data_df = data_df[conditions]
 
             # Convert to numeric, coercing errors to NaN
@@ -340,8 +374,9 @@ class MSExpression:
         filename: str,
         sheet_name: Union[str, int] = 0,
         skiprows: int = 0,
-        genome: Optional['MSGenome'] = None,
-        create_missing_features: bool = False,
+        genome_or_model: Union['MSGenome', 'Model'] = None,
+        create_missing_features: bool = True,
+        id_translation: Optional[dict] = None,
         ignore_columns: list = None,
         description_column: Optional[str] = None,
         id_column: Optional[str] = None,
@@ -366,11 +401,12 @@ class MSExpression:
         df = pd.read_excel(filename, sheet_name=sheet_name, skiprows=skiprows)
         return MSExpression.from_dataframe(
             df,
-            genome=genome,
+            genome_or_model=genome_or_model,
             create_missing_features=create_missing_features,
             ignore_columns=ignore_columns,
             description_column=description_column,
             id_column=id_column,
+            id_translation=id_translation,
             type=type
         )
 
@@ -462,44 +498,21 @@ class MSExpression:
             return expression
 
         # Convert to DataFrame with feature IDs as index and conditions as columns
-        data_df = pd.DataFrame.from_dict(data_dict, orient='index')
-        data_df.index.name = 'feature_id'
+        data_df = pd.DataFrame.from_dict(data_dict, orient='index').T
 
-        # Get all condition IDs from the dictionary
-        all_conditions = set()
-        for feature_data in data_dict.values():
-            if isinstance(feature_data, dict):
-                all_conditions.update(feature_data.keys())
+        if 'Feature ID' not in data_df.columns:
+            # If 'Feature ID' is the index, reset it
+            data_df = data_df.reset_index()
+            if 'index' in data_df.columns:
+                data_df = data_df.rename(columns={'index': 'Feature ID'})
 
-        # Create condition objects
-        for condition_id in sorted(all_conditions):
-            if condition_id not in expression.conditions:
-                expression.conditions.append(MSCondition(condition_id, expression))
-                # Initialize metadata attributes
-                expression.conditions.get_by_id(condition_id).column_sum = 0
-                expression.conditions.get_by_id(condition_id).feature_count = 0
-
-        # Add features and populate data
-        valid_feature_ids = []
-        for feature_id in data_df.index:
-            feature = expression.add_feature(
-                feature_id,
-                create_missing_features
-            )
-            if feature is not None:
-                valid_feature_ids.append(feature.id)
-
-        # Filter DataFrame to only include valid features
-        if len(valid_feature_ids) > 0:
-            data_df = data_df[data_df.index.isin(valid_feature_ids)]
-            # Convert to numeric, coercing errors to NaN
-            for col in data_df.columns:
-                data_df[col] = pd.to_numeric(data_df[col], errors='coerce')
-            # Assign to expression._data
-            expression._data = data_df
-            expression._data.index.name = 'feature_id'
-
-        return expression
+        return MSExpression.from_dataframe(
+            df=data_df,
+            genome_or_model=genome_or_model,
+            create_missing_features=create_missing_features,
+            type=value_type,
+            id_column='Feature ID'
+        )
 
     def add_feature(
         self,
@@ -530,6 +543,8 @@ class MSExpression:
             # Assume it's a COBRApy Model with reactions
             if hasattr(self.object, 'reactions') and id in self.object.reactions:
                 feature = self.object.reactions.get_by_id(id)
+            elif hasattr(self.object.model, 'reactions') and id in self.object.model.reactions:
+                feature = self.object.model.reactions.get_by_id(id)
         if feature is None:
             logger.warning(
                 "Feature referred by expression " + id + " not found in genome object!"
@@ -621,7 +636,7 @@ class MSExpression:
             for feature in rxnexpression.features:
                 tree = GPR().from_string(str(feature.feature.gene_reaction_rule))
                 feature.add_value(
-                    condition, compute_gene_score(tree, values[condition.id], default)
+                    condition, compute_gene_score(tree, values[condition.id], default, self.type)
                 )
         return rxnexpression
     
@@ -765,7 +780,7 @@ class MSExpression:
             logger.error(f"Error averaging expression replicates: {str(e)}")
             raise
 
-    def fit_model_flux_to_data(
+    def fit_model_expression_to_data(
         self,
         model: 'MSModelUtil',
         condition: str,
@@ -773,7 +788,8 @@ class MSExpression:
         activation_threshold: float = None,  # cshenry 10/16/2026: Changed default for activation to None so activation will be off by default
         deactivation_threshold: float = 0.000001,
         on_coef_override: float = None,
-        off_coef_override: float = None
+        off_coef_override: float = None,
+        analyze_solution_essentiality: bool = False
     ) -> Solution:
         """Fit metabolic model fluxes to expression data using threshold-based constraints.
 
@@ -850,7 +866,7 @@ class MSExpression:
             model = MSModelUtil(model)
         
         # Task 1.6: Initial logging
-        logger.info(f"Fitting model flux to expression data for condition: {condition}")
+        logger.info(f"Fitting model flux to expression or fitness data for condition: {condition}")
 
         # Task 1.4: Threshold validation
         if activation_threshold is not None and activation_threshold <= deactivation_threshold:
@@ -873,7 +889,7 @@ class MSExpression:
             rxn_expression = self.build_reaction_expression(model.model)
         else:
             # Task 2.3: Model-level expression - validate model match
-            expr_rxns = set(self.object.reactions.list_attr('id'))
+            expr_rxns = set(self.object.model.reactions.list_attr('id'))
             model_rxns = set(model.model.reactions.list_attr('id'))
 
             if expr_rxns != model_rxns:
@@ -890,8 +906,6 @@ class MSExpression:
 
             rxn_expression = self
         
-        model.util.save("reaction_expression_data_2", rxn_expression._data.to_dict())
-  
         # Task 2.5-2.13: Expression type transformation
         if rxn_expression.type != "RelativeAbundance" and rxn_expression.type != "NormalizedRatios":
             raise ValueError(
@@ -908,9 +922,9 @@ class MSExpression:
             if expr_value is None:
                 continue
             if rxn_expression.type == "NormalizedRatios":
-                if activation_threshold is not None and 1 - expr_value > activation_threshold:
+                if activation_threshold is not None and abs(1 - expr_value) >= activation_threshold:
                     on_hash[rxn.id] = 10 * (1 - expr_value)
-                elif 1-expr_value < deactivation_threshold:
+                elif abs(1-expr_value) <= deactivation_threshold:
                     off_hash[rxn.id] = 10*(1 - expr_value)
             else:
                 if activation_threshold is not None and expr_value > activation_threshold:
@@ -938,7 +952,8 @@ class MSExpression:
         expr_pkg = pkgmgr.getpkg("ExpressionActivationPkg")
 
         # Use context manager for transient modifications
-        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"solution":None}
+        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"none_on":[],"none_off":[],"on_on_reduced":[],"off_on_reduced":[],"none_on_reduced":[],"solution":None}
+        original_objective = model.model.objective
         with model.model:
             # Task 4.4: Build package with dictionaries
             expr_pkg.build_package(on_hash, off_hash, other_coef=default_coef, on_coeff=on_coef_override, off_coeff=off_coef_override)
@@ -951,11 +966,16 @@ class MSExpression:
                         output["on_on"].append(rxn.id)
                     else:
                         output["on_off"].append(rxn.id)
-                if rxn.id in off_hash:
+                elif rxn.id in off_hash:
                     if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
                         output["off_on"].append(rxn.id)
                     else:
                         output["off_off"].append(rxn.id)
+                else:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["none_on"].append(rxn.id)
+                    else:
+                        output["none_off"].append(rxn.id)
 
             # Task 4.6: Validate solution status
             if output["solution"].status != "optimal":
@@ -966,6 +986,307 @@ class MSExpression:
 
             # Task 4.7: Log optimization result
             logger.info(f"Optimization completed with objective value: {output['solution'].objective_value}")
+
+        # Categorize reactions by flux
+        zero_flux_rxns = []
+        active_rxns = []
+        
+        for rxn_id, flux in output["solution"].fluxes.items():
+            if rxn_id not in [r.id for r in model.model.reactions]:
+                continue
+            if abs(flux) <= 1e-9:
+                zero_flux_rxns.append(rxn_id)
+            else:
+                active_rxns.append((rxn_id, flux))
+        
+        print(f"  Zero-flux reactions: {len(zero_flux_rxns)}")
+        print(f"  Active reactions: {len(active_rxns)}")
+        
+        with model.model:
+            #model.model.objective = original_objective
+            # Set zero-flux reactions to have zero bounds
+            for rxn_id in zero_flux_rxns:
+                rxn = model.model.reactions.get_by_id(rxn_id)
+                rxn.lower_bound = 0
+                rxn.upper_bound = 0
+            
+            # Get baseline growth with constrained model
+            output["baseline_growth"] = model.model.optimize().objective_value
+            
+            # Test each active reaction knockout
+            essentiality_results = {}
+            essential_count = 0
+            reduced_count = 0
+            
+            for rxn_id, original_flux in active_rxns:
+                rxn = model.model.reactions.get_by_id(rxn_id)
+                
+                # Save original bounds
+                orig_lb = rxn.lower_bound
+                orig_ub = rxn.upper_bound
+                
+                # Knock out the reaction
+                rxn.lower_bound = 0
+                rxn.upper_bound = 0
+                
+                # Optimize
+                ko_solution = model.model.optimize()
+                
+                if ko_solution.status == 'optimal':
+                    ko_growth = ko_solution.objective_value
+                    growth_ratio = ko_growth / baseline_growth if baseline_growth > 0 else 0
+                else:
+                    ko_growth = 0
+                    growth_ratio = 0
+                
+                # Categorize impact
+                if growth_ratio < 0.01:
+                    impact = "essential"
+                    essential_count += 1
+                elif growth_ratio < 0.95:
+                    impact = "reduced"
+                    reduced_count += 1
+                else:
+                    impact = "dispensable"
+                
+                essentiality_results[rxn_id] = {
+                    "expression_data_status":"none",
+                    "original_flux": original_flux,
+                    "ko_growth": ko_growth,
+                    "growth_ratio": growth_ratio,
+                    "impact": impact
+                }
+                if rxn_id in on_hash:
+                    essentiality_results[rxn_id]["expression_data_status"] = "on"
+                    if growth_ratio < 0.95:
+                        output["on_on_reduced"].append(rxn_id)
+                elif rxn_id in off_hash:
+                    essentiality_results[rxn_id]["expression_data_status"] = "off"
+                    if growth_ratio < 0.95:
+                        output["off_on_reduced"].append(rxn_id)
+                else:
+                    essentiality_results[rxn_id]["expression_data_status"] = "none"
+                    if growth_ratio < 0.95:
+                        output["none_on_reduced"].append(rxn_id)
+
+                # Restore original bounds
+                rxn.lower_bound = orig_lb
+                rxn.upper_bound = orig_ub
+        
+        print(f"  Essential reactions: {essential_count}")
+        print(f"  Reduced growth reactions: {reduced_count}")
+        print(f"  Dispensable reactions: {len(active_rxns) - essential_count - reduced_count}")
+        
+        output["baseline_growth"] = baseline_growth
+        output["zero_flux_count"] = len(zero_flux_rxns)
+        output["active_count"] = len(active_rxns)
+        output["essential_count"] = essential_count
+        output["reduced_count"] = reduced_count
+        output["reactions"] = essentiality_results
+
+        # Task 4.8: Return solution
+        return output
+
+
+    def fit_flux_to_mutant_growth_rate_data(
+        self,
+        model: 'MSModelUtil',
+        condition: str,
+        default_coef: float = 0.00001,
+        activation_threshold: float = 0.90,
+        deactivation_threshold: float = 0.95,
+        on_coef_override: float = None,
+        off_coef_override: float = None
+    ) -> Solution:
+        """Fit metabolic model fluxes to mutant growth rate data using threshold-based constraints
+        """
+        if not isinstance(model, MSModelUtil):
+            model = MSModelUtil(model)
+        
+        logger.info(f"Fitting model flux to mutant growth rate data for condition: {condition}")
+
+        if activation_threshold >= deactivation_threshold:
+            raise ValueError(
+                f"activation_threshold ({activation_threshold}) must be less than "
+                f"deactivation_threshold ({deactivation_threshold})"
+            )
+
+        if condition not in self.conditions:
+            available_conditions = [c.id for c in self.conditions]
+            raise ValueError(
+                f"Condition '{condition}' not found in expression data. "
+                f"Available conditions: {available_conditions}"
+            )
+
+        if self.type != "NormalizedRatios":
+            raise ValueError(
+                f"Expression must be in terms of normalized ratios"
+            )
+
+        # Initialize empty dictionaries
+        on_hash = {}
+        off_hash = {}
+
+        # Iterate through reactions and build dictionaries
+        for rxn in model.model.reactions:
+            # Check if the reaction ID is in the expression data
+            if rxn.id in self.features:
+                expr_value = self.get_value(rxn.id, condition)
+            else:
+                lowest_value = None
+                for gene_id in rxn.genes:
+                    if gene_id in self.features:
+                        expr_value = self.get_value(gene_id, condition)
+                        if lowest_value is None or expr_value < lowest_value:
+                            lowest_value = expr_value
+                if lowest_value is None:
+                    expr_value = None
+                else:
+                    expr_value = lowest_value
+            if expr_value is None:
+                continue
+            if expr_value <= activation_threshold:
+                on_hash[rxn.id] = 1 + 10 * (activation_threshold - expr_value)
+            elif expr_value >= deactivation_threshold:
+                off_hash[rxn.id] = 1 + 10 * (expr_value-deactivation_threshold)
+            
+        print("On:", on_hash)
+        print("Off:", off_hash)
+
+        # Log dictionary sizes
+        logger.info(f"Identified {len(on_hash)} reactions for activation (above threshold {activation_threshold})")
+        logger.info(f"Identified {len(off_hash)} reactions for deactivation (below threshold {deactivation_threshold})")
+
+        # Get ExpressionActivationPkg
+        expr_pkg = model.pkgmgr.getpkg("ExpressionActivationPkg")
+
+        # Use context manager for transient modifications
+        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"none_on":[],"none_off":[],"on_on_reduced":[],"off_on_reduced":[],"none_on_reduced":[],"solution":None}
+        original_objective = model.model.objective
+        with model.model:
+            expr_pkg.build_package(on_hash, off_hash, other_coef=default_coef, on_coeff=on_coef_override, off_coeff=off_coef_override)
+            output["solution"] = model.model.optimize()
+            for rxn in model.model.reactions:
+                if rxn.id in on_hash:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["on_on"].append(rxn.id)
+                    else:
+                        output["on_off"].append(rxn.id)
+                elif rxn.id in off_hash:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["off_on"].append(rxn.id)
+                    else:
+                        output["off_off"].append(rxn.id)
+                else:
+                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                        output["none_on"].append(rxn.id)
+                    else:
+                        output["none_off"].append(rxn.id)
+
+            if output["solution"].status != "optimal":
+                raise RuntimeError(
+                    f"Optimization failed with status: {output['solution'].status}. "
+                    f"The model may be infeasible with the given expression constraints."
+                )
+
+            logger.info(f"Optimization completed with objective value: {output['solution'].objective_value}")
+
+        # Categorize reactions by flux
+        zero_flux_rxns = []
+        active_rxns = []
+        
+        for rxn_id, flux in output["solution"].fluxes.items():
+            if rxn_id not in [r.id for r in model.model.reactions]:
+                continue
+            if abs(flux) <= 1e-9:
+                zero_flux_rxns.append(rxn_id)
+            else:
+                active_rxns.append((rxn_id, flux))
+        
+        print(f"  Zero-flux reactions: {len(zero_flux_rxns)}")
+        print(f"  Active reactions: {len(active_rxns)}")
+        
+        with model.model:
+            #model.model.objective = original_objective
+            # Set zero-flux reactions to have zero bounds
+            for rxn_id in zero_flux_rxns:
+                rxn = model.model.reactions.get_by_id(rxn_id)
+                rxn.lower_bound = 0
+                rxn.upper_bound = 0
+            
+            # Get baseline growth with constrained model
+            output["baseline_growth"] = model.model.optimize().objective_value
+            
+            # Test each active reaction knockout
+            essentiality_results = {}
+            essential_count = 0
+            reduced_count = 0
+            
+            for rxn_id, original_flux in active_rxns:
+                rxn = model.model.reactions.get_by_id(rxn_id)
+                
+                # Save original bounds
+                orig_lb = rxn.lower_bound
+                orig_ub = rxn.upper_bound
+                
+                # Knock out the reaction
+                rxn.lower_bound = 0
+                rxn.upper_bound = 0
+                
+                # Optimize
+                ko_solution = model.model.optimize()
+                
+                if ko_solution.status == 'optimal':
+                    ko_growth = ko_solution.objective_value
+                    growth_ratio = ko_growth / baseline_growth if baseline_growth > 0 else 0
+                else:
+                    ko_growth = 0
+                    growth_ratio = 0
+                
+                # Categorize impact
+                if growth_ratio < 0.01:
+                    impact = "essential"
+                    essential_count += 1
+                elif growth_ratio < 0.95:
+                    impact = "reduced"
+                    reduced_count += 1
+                else:
+                    impact = "dispensable"
+                
+                essentiality_results[rxn_id] = {
+                    "expression_data_status":"none",
+                    "original_flux": original_flux,
+                    "ko_growth": ko_growth,
+                    "growth_ratio": growth_ratio,
+                    "impact": impact
+                }
+                if rxn_id in on_hash:
+                    essentiality_results[rxn_id]["expression_data_status"] = "on"
+                    if growth_ratio < 0.95:
+                        output["on_on_reduced"].append(rxn_id)
+                elif rxn_id in off_hash:
+                    essentiality_results[rxn_id]["expression_data_status"] = "off"
+                    if growth_ratio < 0.95:
+                        output["off_on_reduced"].append(rxn_id)
+                else:
+                    essentiality_results[rxn_id]["expression_data_status"] = "none"
+                    if growth_ratio < 0.95:
+                        output["none_on_reduced"].append(rxn_id)
+
+                # Restore original bounds
+                rxn.lower_bound = orig_lb
+                rxn.upper_bound = orig_ub
+        
+        print(f"  Essential reactions: {essential_count}")
+        print(f"  Reduced growth reactions: {reduced_count}")
+        print(f"  Dispensable reactions: {len(active_rxns) - essential_count - reduced_count}")
+        
+        output["baseline_growth"] = baseline_growth
+        output["zero_flux_count"] = len(zero_flux_rxns)
+        output["active_count"] = len(active_rxns)
+        output["essential_count"] = essential_count
+        output["reduced_count"] = reduced_count
+        output["reactions"] = essentiality_results
 
         # Task 4.8: Return solution
         return output

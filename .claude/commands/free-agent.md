@@ -364,9 +364,7 @@ Before marking complete, verify:
     "modified": [],
     "deleted": []
   },
-  "artifacts": {
-    "git_commit": "abc123..."
-  },
+  "artifacts": {},
   "comments": [
     "Cloned from: https://github.com/example/project-templates.git",
     "Repository size: 1.2 MB",

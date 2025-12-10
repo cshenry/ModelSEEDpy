@@ -58,7 +58,6 @@ agent-io/
 ├── prds/
 │   └── <prd-name>/
 │       ├── humanprompt.md      # Original user description of PRD
-│       ├── aiprompt.md         # AI-enhanced PRD description
 │       ├── fullprompt.md       # Fully fleshed PRD after completion
 │       └── data.json           # JSON file documenting queries, responses, tasks, etc.
 └── docs/
@@ -69,7 +68,7 @@ agent-io/
 - **PRD Files**: Save to `agent-io/prds/<prd-name>/` directory
   - Each PRD gets its own directory named after the PRD
   - Use kebab-case for PRD names (e.g., "user-profile-editing", "payment-integration")
-  - Directory contains: humanprompt.md, aiprompt.md, fullprompt.md, and data.json
+  - Directory contains: humanprompt.md, fullprompt.md, and data.json
   - The data.json file tracks all queries, responses, tasks, errors, and progress
 
 - **PRD Storage and Reference**:
@@ -84,8 +83,7 @@ agent-io/
     - Look for the PRD directory: `agent-io/prds/<prd-name>/`
     - Read available PRD files in order of preference:
       1. `fullprompt.md` - the complete, finalized PRD (if available)
-      2. `aiprompt.md` - the AI-enhanced version (if available)
-      3. `humanprompt.md` - the original user description
+      2. `humanprompt.md` - the original user description
     - Use these files as context for the requested work
     - Update or create additional files as needed
 
@@ -161,8 +159,7 @@ Use this schema for all JSON output files:
 
   "artifacts": {
     "prd_filename": "string (for create-prd command)",
-    "documentation_filename": "string (for doc-code commands)",
-    "git_commit": "string | null (commit hash if committed)"
+    "documentation_filename": "string (for doc-code commands)"
   },
 
   "queries_for_user": [
@@ -283,9 +280,8 @@ When errors occur:
 
 ### PRD Workflow
 1. User provides initial feature description → saved as `humanprompt.md`
-2. AI enhances and clarifies → saved as `aiprompt.md`
-3. Complete PRD after workflow → saved as `fullprompt.md`
-4. All progress tracked in `<prd-name>.json`
+2. Complete PRD after workflow → saved as `fullprompt.md`
+3. All progress tracked in `<prd-name>.json`
 
 ### Task Workflow
 1. Break work into clear, manageable tasks

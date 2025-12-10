@@ -153,13 +153,13 @@ class ModelSEEDReaction2(Reaction):
             self.is_obsolete = False
         self.is_abstract = is_abstract
 
-        self.delta_g = float(delta_g) if delta_g else None
-        self.delta_g_error = float(delta_g_error) if delta_g_error else None
+        self.delta_g = float(delta_g) if delta_g is not None else None
+        self.delta_g_error = float(delta_g_error) if delta_g_error is not None else None
 
         # removing symbolic high values representing null/none
-        if self.delta_g and self.delta_g > 10000:
+        if self.delta_g is not None and self.delta_g > 10000:
             self.delta_g = None
-        if self.delta_g_error and self.delta_g_error > 10000:
+        if self.delta_g_error is not None and self.delta_g_error > 10000:
             self.delta_g_error = None
 
         self.flags = set()

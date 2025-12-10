@@ -49,6 +49,81 @@ class MSGrowthPhenotype:
         self.objective = objective
         self.parent = parent
 
+    def to_dict(self, media_output_type="complete"):
+        """
+        Convert MSGrowthPhenotype to a dictionary.
+
+        Parameters:
+            media_output_type (str): Output type for media serialization.
+                Options: "minimal", "bounds", "complete" (default: "complete")
+
+        Returns:
+            dict: Dictionary representation of the phenotype
+        """
+        output = {
+            'id': self.id,
+            'name': self.name,
+            'experimental_value': self.experimental_value,
+            'experimental_value_is_binary': self.experimental_value_is_binary,
+            'knockouts': list(self.knockouts) if self.knockouts else [],
+            'additional_compounds': dict(self.additional_compounds) if self.additional_compounds else {},
+            'primary_compounds': list(self.primary_compounds) if self.primary_compounds else [],
+            'gene_association_scores': dict(self.gene_association_scores) if self.gene_association_scores else {},
+            'target_element': self.target_element,
+            'target_element_limit': getattr(self, 'target_element_limit', 10),
+            'objective': self.objective.to_string() if self.objective else None,
+        }
+
+        # Serialize base_media if present
+        if self.base_media:
+            output['base_media'] = self.base_media.to_dict(output_type=media_output_type)
+            output['base_media_id'] = self.base_media.id
+            output['base_media_name'] = self.base_media.name
+            output['base_media_ref'] = self.base_media.media_ref
+
+        return output
+
+    @staticmethod
+    def from_dict(data, parent=None):
+        """
+        Create MSGrowthPhenotype from a dictionary.
+
+        Parameters:
+            data (dict): Dictionary containing phenotype data
+            parent (MSGrowthPhenotypes, optional): Parent phenotype set
+
+        Returns:
+            MSGrowthPhenotype: A new MSGrowthPhenotype instance
+        """
+        # Reconstruct base_media if present
+        base_media = None
+        if 'base_media' in data and data['base_media']:
+            base_media = MSMedia.from_dict(data['base_media'])
+            base_media.id = data.get('base_media_id', 'media')
+            base_media.name = data.get('base_media_name', '')
+            base_media.media_ref = data.get('base_media_ref')
+
+        # Reconstruct objective
+        objective = None
+        if 'objective' in data and data['objective']:
+            objective = ObjectiveData.from_string(data['objective'])
+
+        return MSGrowthPhenotype(
+            id=data.get('id'),
+            base_media=base_media,
+            experimental_value=data.get('experimental_value'),
+            experimental_value_is_binary=data.get('experimental_value_is_binary', False),
+            knockouts=data.get('knockouts', []),
+            additional_compounds=data.get('additional_compounds', {}),
+            primary_compounds=data.get('primary_compounds', []),
+            name=data.get('name'),
+            gene_association_scores=data.get('gene_association_scores', {}),
+            objective=objective,
+            target_element=data.get('target_element'),
+            target_element_limit=data.get('target_element_limit', 10),
+            parent=parent
+        )
+
     def build_media(self):
         """Builds media object to use when simulating the phenotype
         Parameters
@@ -384,6 +459,91 @@ class MSGrowthPhenotypes:
         self.baseline_objective_data = {}
         self.cached_based_growth = {}
 
+    def to_dict(self, media_output_type="complete"):
+        """
+        Convert MSGrowthPhenotypes to a dictionary.
+
+        This function serializes the entire phenotype set including all media objects,
+        allowing the phenotype set to be saved locally and restored later without
+        needing to re-fetch from KBase.
+
+        Parameters:
+            media_output_type (str): Output type for media serialization.
+                Options: "minimal", "bounds", "complete" (default: "complete")
+
+        Returns:
+            dict: Dictionary representation of the phenotype set
+        """
+        output = {
+            'id': self.id,
+            'name': self.name,
+            'source': self.source,
+            'source_id': self.source_id,
+            'type': self.type,
+            'base_uptake': self.base_uptake,
+            'base_excretion': self.base_excretion,
+            'atom_limits': dict(self.atom_limits) if self.atom_limits else {},
+        }
+
+        # Serialize base_media if present
+        if self.base_media:
+            output['base_media'] = self.base_media.to_dict(output_type=media_output_type)
+            output['base_media_id'] = self.base_media.id
+            output['base_media_name'] = self.base_media.name
+            output['base_media_ref'] = self.base_media.media_ref
+
+        # Serialize all phenotypes
+        output['phenotypes'] = []
+        for pheno in self.phenotypes:
+            output['phenotypes'].append(pheno.to_dict(media_output_type=media_output_type))
+
+        return output
+
+    @staticmethod
+    def from_dict(data):
+        """
+        Create MSGrowthPhenotypes from a dictionary.
+
+        This function reconstructs the entire phenotype set from a dictionary,
+        including all media objects. Use this to load a phenotype set that was
+        previously saved using to_dict().
+
+        Parameters:
+            data (dict): Dictionary containing phenotype set data
+
+        Returns:
+            MSGrowthPhenotypes: A new MSGrowthPhenotypes instance
+        """
+        # Reconstruct base_media if present
+        base_media = None
+        if 'base_media' in data and data['base_media']:
+            base_media = MSMedia.from_dict(data['base_media'])
+            base_media.id = data.get('base_media_id', 'media')
+            base_media.name = data.get('base_media_name', '')
+            base_media.media_ref = data.get('base_media_ref')
+
+        # Create the phenotype set
+        growthpheno = MSGrowthPhenotypes(
+            base_media=base_media,
+            base_uptake=data.get('base_uptake', 0),
+            base_excretion=data.get('base_excretion', 1000),
+            global_atom_limits=data.get('atom_limits', {}),
+            id=data.get('id'),
+            name=data.get('name'),
+            source=data.get('source'),
+            source_id=data.get('source_id'),
+            type=data.get('type')
+        )
+
+        # Reconstruct all phenotypes
+        new_phenos = []
+        for pheno_data in data.get('phenotypes', []):
+            newpheno = MSGrowthPhenotype.from_dict(pheno_data, parent=growthpheno)
+            new_phenos.append(newpheno)
+
+        growthpheno.add_phenotypes(new_phenos)
+        return growthpheno
+
     @staticmethod
     def from_compound_hash(
         compounds,
@@ -629,12 +789,7 @@ class MSGrowthPhenotypes:
         for pheno in self.phenotypes:
             result = pheno.simulate(
                 modelutl,
-                multiplier,
-                add_missing_exchanges,
-                save_fluxes,
-                save_reaction_list=save_reaction_list,
-                ignore_experimental_data=ignore_experimental_data,
-                flux_coefficients=flux_coefficients
+                add_missing_exchanges=add_missing_exchanges
             )
             datahash[pheno.id] = result
             data["Class"].append(result["class"])
