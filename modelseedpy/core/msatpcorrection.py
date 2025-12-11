@@ -141,17 +141,18 @@ class MSATPCorrection:
         filename = default_media_path
         medias = pd.read_csv(filename, sep="\t", index_col=0).to_dict()
         for media_id in medias:
-            media_d = {}
-            for exchange, v in medias[media_id].items():
-                if v > 0:
-                    k = exchange.split("_")[1]
-                    media_d[k] = v
-            media_d["cpd00001"] = 1000
-            media_d["cpd00067"] = 1000
-            media = MSMedia.from_dict(media_d)
-            media.id = media_id
-            media.name = media_id
-            self.atp_medias.append([media, min_gap.get(media_id, 0.01)])
+            if media_id not in ["name","msid"]: 
+                media_d = {}
+                for exchange, v in medias[media_id].items():
+                    if v > 0:
+                        k = exchange.split("_")[1]
+                        media_d[k] = v
+                media_d["cpd00001"] = 1000
+                media_d["cpd00067"] = 1000
+                media = MSMedia.from_dict(media_d)
+                media.id = media_id
+                media.name = media_id
+                self.atp_medias.append([media, min_gap.get(media_id, 0.01)])
         
         media_ids = set()
         temp_medias = self.atp_medias
