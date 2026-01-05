@@ -23,7 +23,6 @@ import re, os
 
 logger = logging.getLogger(__name__)
 
-
 class CommunityModelSpecies:
     def __init__(
         self,
@@ -253,8 +252,7 @@ class MSCommunity:
                     else:
                         output = MSModelUtil.parse_id(rxn)
                         if output == None:
-                            if rxn.compartment.id[0] != "e":
-                                rxn.id += str(index)
+                            rxn.id += "."+str(index)
                         elif output[1] != "e":
                             if len(output[2]) == 0:
                                 rxn.id = rxn.id + str(index)
@@ -290,6 +288,7 @@ class MSCommunity:
         # remake the primary biomass reaction based on abundances
         if self.primary_biomass == None:
             logger.critical("Primary biomass reaction not found in community model")
+            return
         all_metabolites = {self.biomass_cpd: 1}
         for species in self.species:
             all_metabolites[species.biomass_cpd] = -1 * abundances[species.id]

@@ -19,15 +19,16 @@ class ExpressionActivationPkg(BaseFBAPkg):
         )
         self.pkgmgr.addpkgs(["ReactionActivationPkg"])
 
-    def build_package(self,on_hash,off_hash,on_coeff=None,off_coeff=None,other_coef=0.1,max_value=0.001):
+    def build_package(self,on_hash,off_hash,on_coeff=None,off_coeff=None,other_coef=0.1,max_value=0.001,use_activation_constraints=False):
         activation_filter = {}
         for rxn in on_hash:
             activation_filter[rxn] = 1
-        self.pkgmgr.getpkg("ReactionActivationPkg").build_package(rxn_filter=activation_filter,max_value=max_value)
+        if use_activation_constraints:
+            self.pkgmgr.getpkg("ReactionActivationPkg").build_package(rxn_filter=activation_filter,max_value=max_value)
         expression_objective = self.model.problem.Objective(0, direction="min")
         obj_coef = dict()
         for rxn in self.model.reactions:
-            if rxn.id in on_hash:
+            if rxn.id in on_hash and use_activation_constraints:
                 coef = on_coeff
                 if coef == None:
                     coef = on_hash[rxn.id]

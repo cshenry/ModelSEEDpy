@@ -11,6 +11,8 @@ from cobra.core.dictlist import DictList
 from cobra.core.gene import Gene, ast2str, eval_gpr, parse_gpr, GPR
 from cobra import Solution
 from ast import And, BitAnd, BitOr, BoolOp, Expression, Name, NodeTransformer, Or
+
+from sympy.logic import false
 from modelseedpy.core.msgenome import MSGenome, MSFeature
 from modelseedpy.core.msmodelutl import MSModelUtil
 
@@ -305,8 +307,6 @@ class MSExpression:
         headers = list(df.columns)
         if id_column is None:
             id_column = headers[0]
-        print(id_column)
-        print(headers)
 
         # Identify condition columns
         conditions = []
@@ -547,7 +547,7 @@ class MSExpression:
                 feature = self.object.model.reactions.get_by_id(id)
         if feature is None:
             logger.warning(
-                "Feature referred by expression " + id + " not found in genome object!"
+                "Feature referred by expression " + str(id)+ " not found in genome object!"
             )
             return None
         if feature.id in self.features:
@@ -654,6 +654,108 @@ class MSExpression:
             return self._data.reset_index()
         else:
             return self._data.copy()
+
+    def add_row_to_data(
+        self,
+        feature_id: str,
+        values: Optional[dict] = None,
+        default_value: float = 0.0,
+        create_feature_if_missing: bool = True,
+        overwrite: bool = False
+    ) -> bool:
+        """Add a row to the expression data for a feature.
+
+        This method adds both a row to the underlying DataFrame and creates
+        the corresponding MSExpressionFeature object in the features list.
+
+        Args:
+            feature_id: The ID of the feature to add
+            values: Optional dictionary mapping condition IDs to values.
+                    If None, all conditions will use default_value.
+                    If a condition is missing from the dict, it will use default_value.
+            default_value: Default value to use for conditions not in values dict (default: 0.0)
+            create_feature_if_missing: If True, create the feature in the genome/model
+                                       if it doesn't exist (default: True)
+            overwrite: If True, overwrite existing data if the feature already exists
+                       (default: False)
+
+        Returns:
+            True if the row was added/updated, False if the feature already exists
+            and overwrite is False
+
+        Example:
+            # Add a gene with 0.0 for all conditions
+            expression.add_row_to_data("gene123")
+
+            # Add a gene with specific values
+            expression.add_row_to_data("gene456", {"condition1": 0.5, "condition2": 0.8})
+
+            # Add a gene with default value of 1.0
+            expression.add_row_to_data("gene789", default_value=1.0)
+
+            # Overwrite existing data for a gene
+            expression.add_row_to_data("gene123", {"condition1": 0.9}, overwrite=True)
+        """
+        # Check if feature already exists in the data
+        exists_in_data = feature_id in self._data.index
+        exists_in_features = feature_id in self.features
+
+        if exists_in_data or exists_in_features:
+            if not overwrite:
+                logger.warning(f"Feature {feature_id} already exists in expression data")
+                return False
+            else:
+                logger.info(f"Overwriting existing data for feature {feature_id}")
+
+        # Build the row values
+        row_values = {}
+        for condition in self.conditions:
+            if values is not None and condition.id in values:
+                row_values[condition.id] = values[condition.id]
+            else:
+                row_values[condition.id] = default_value
+
+        # Add/update row in DataFrame
+        self._data.loc[feature_id] = row_values
+
+        # If feature already exists in features list, we're done (just updated data)
+        if exists_in_features:
+            logger.info(f"Updated data for feature {feature_id} with {len(row_values)} condition values")
+            return True
+
+        # Create and add the MSExpressionFeature
+        # First, try to get/create the underlying feature object
+        feature = None
+        if isinstance(self.object, MSGenome):
+            feature = self.object.search_for_gene(feature_id)
+            if feature is None and create_feature_if_missing:
+                self.object.features.append(MSFeature(feature_id, ""))
+                feature = self.object.search_for_gene(feature_id)
+        elif hasattr(self.object, 'reactions') and feature_id in self.object.reactions:
+            feature = self.object.reactions.get_by_id(feature_id)
+        elif hasattr(self.object, 'model') and hasattr(self.object.model, 'reactions'):
+            if feature_id in self.object.model.reactions:
+                feature = self.object.model.reactions.get_by_id(feature_id)
+
+        # If we still don't have a feature, create a simple placeholder
+        if feature is None:
+            if create_feature_if_missing:
+                # Create a simple feature-like object
+                class SimpleFeature:
+                    def __init__(self, fid):
+                        self.id = fid
+                feature = SimpleFeature(feature_id)
+            else:
+                logger.warning(f"Could not find or create feature {feature_id}")
+                # Still keep the data row, just don't add to features list
+                return True
+
+        # Add to features list
+        expr_feature = MSExpressionFeature(feature, self)
+        self.features.append(expr_feature)
+
+        logger.info(f"Added feature {feature_id} to expression data with {len(row_values)} condition values")
+        return True
     
     def translate_data(self, target_type: str) -> 'MSExpression':
         """Translate expression data to a different type.
@@ -1096,13 +1198,16 @@ class MSExpression:
         activation_threshold: float = 0.90,
         deactivation_threshold: float = 0.95,
         on_coef_override: float = None,
-        off_coef_override: float = None
+        off_coef_override: float = None,
+        use_activation_constraints: bool = False
     ) -> Solution:
         """Fit metabolic model fluxes to mutant growth rate data using threshold-based constraints
         """
+        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"none_on":[],"none_off":[],
+                  "on_genes":[],"off_genes":[],"genes_on_on":{},"genes_on_off":{},"genes_off_on":{},"genes_off_off":{},"genes_on_norxn":[],"genes_off_norxn":[],"solution":None,}
         if not isinstance(model, MSModelUtil):
             model = MSModelUtil(model)
-        
+
         logger.info(f"Fitting model flux to mutant growth rate data for condition: {condition}")
 
         if activation_threshold >= deactivation_threshold:
@@ -1127,18 +1232,37 @@ class MSExpression:
         on_hash = {}
         off_hash = {}
 
+        # Track gene-level on/off status
+        on_genes_set = set()
+        off_genes_set = set()
+
+        # First pass: categorize all genes by their expression values
+        for feature in self.features:
+            gene_id = feature.id if hasattr(feature, 'id') else str(feature)
+            expr_value = self.get_value(gene_id, condition)
+            if expr_value is not None:
+                if expr_value <= activation_threshold:
+                    on_genes_set.add(gene_id)
+                elif expr_value >= deactivation_threshold:
+                    off_genes_set.add(gene_id)
+
         # Iterate through reactions and build dictionaries
+        gene_rxns = {}
         for rxn in model.model.reactions:
             # Check if the reaction ID is in the expression data
             if rxn.id in self.features:
-                expr_value = self.get_value(rxn.id, condition)
+                expr_value = self.get_value(rxn.id, condition) # No genes if reaction has direct expression data
             else:
                 lowest_value = None
-                for gene_id in rxn.genes:
+                inducing_gene = None
+                for gene in rxn.genes:
+                    gene_id = gene.id  # Extract string ID from Gene object
                     if gene_id in self.features:
                         expr_value = self.get_value(gene_id, condition)
-                        if lowest_value is None or expr_value < lowest_value:
-                            lowest_value = expr_value
+                        if expr_value is not None:
+                            if lowest_value is None or expr_value < lowest_value:
+                                lowest_value = expr_value
+                                inducing_gene = gene_id
                 if lowest_value is None:
                     expr_value = None
                 else:
@@ -1149,7 +1273,15 @@ class MSExpression:
                 on_hash[rxn.id] = 1 + 10 * (activation_threshold - expr_value)
             elif expr_value >= deactivation_threshold:
                 off_hash[rxn.id] = 1 + 10 * (expr_value-deactivation_threshold)
-            
+            for gene in rxn.genes:
+                if gene.id not in gene_rxns:
+                    gene_rxns[gene.id] = {}
+                gene_rxns[gene.id][rxn.id] = 1
+
+        # Store gene lists in output
+        output["on_genes"] = list(on_genes_set)
+        output["off_genes"] = list(off_genes_set)
+
         print("On:", on_hash)
         print("Off:", off_hash)
 
@@ -1161,132 +1293,737 @@ class MSExpression:
         expr_pkg = model.pkgmgr.getpkg("ExpressionActivationPkg")
 
         # Use context manager for transient modifications
-        output = {"on_on":[],"on_off":[], "off_on":[], "off_off":[],"none_on":[],"none_off":[],"on_on_reduced":[],"off_on_reduced":[],"none_on_reduced":[],"solution":None}
         original_objective = model.model.objective
         with model.model:
-            expr_pkg.build_package(on_hash, off_hash, other_coef=default_coef, on_coeff=on_coef_override, off_coeff=off_coef_override)
+            expr_pkg.build_package(on_hash, off_hash, other_coef=default_coef, on_coeff=on_coef_override, off_coeff=off_coef_override,use_activation_constraints=use_activation_constraints)
             output["solution"] = model.model.optimize()
-            for rxn in model.model.reactions:
-                if rxn.id in on_hash:
-                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
-                        output["on_on"].append(rxn.id)
-                    else:
-                        output["on_off"].append(rxn.id)
-                elif rxn.id in off_hash:
-                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
-                        output["off_on"].append(rxn.id)
-                    else:
-                        output["off_off"].append(rxn.id)
-                else:
-                    if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
-                        output["none_on"].append(rxn.id)
-                    else:
-                        output["none_off"].append(rxn.id)
-
             if output["solution"].status != "optimal":
                 raise RuntimeError(
                     f"Optimization failed with status: {output['solution'].status}. "
                     f"The model may be infeasible with the given expression constraints."
                 )
+            for rxn in model.model.reactions:
+                if abs(output["solution"].fluxes[rxn.id]) > 1e-6:
+                    if rxn.id in on_hash:
+                        output["on_on"].append(rxn.id)
+                    else:
+                        output["on_off"].append(rxn.id)
+                else:
+                    if rxn.id in on_hash:
+                        output["on_off"].append(rxn.id)
+                    else:
+                        output["off_off"].append(rxn.id)
+            for gene in on_genes_set:
+                if gene not in gene_rxns:
+                    output["genes_on_norxn"].append(gene)
+                    continue
+                on_rxn_found = false
+                for rxn_id  in gene_rxns[gene]:
+                    if rxn_id in on_hash:
+                        on_rxn_found = True
+                        break
+                if on_rxn_found:
+                    if gene not in output["genes_on_on"]:
+                        output["genes_on_on"][gene] = {"on_rxns":[],"off_rxns":[]}
+                    for rxn_id in gene_rxns[gene]:
+                        if rxn_id in on_hash:
+                            output["genes_on_on"][gene]["on_rxns"].append(rxn_id)
+                        elif rxn_id in off_hash:
+                            output["genes_on_on"][gene]["off_rxns"].append(rxn_id)
+                else:
+                    if gene not in output["genes_on_off"]:
+                        output["genes_on_off"][gene] = {"on_rxns":[],"off_rxns":[]}
+                    for rxn_id in gene_rxns[gene]:
+                        if rxn_id in on_hash:
+                            output["genes_on_off"][gene]["on_rxns"].append(rxn_id)
+                        elif rxn_id in off_hash:
+                            output["genes_on_off"][gene]["off_rxns"].append(rxn_id)
+            for gene in off_genes_set:
+                if gene not in gene_rxns:
+                    output["genes_off_norxn"].append(gene)
+                    continue
+                on_rxn_found = false
+                for rxn_id in gene_rxns[gene]:
+                    if rxn_id in on_hash:
+                        on_rxn_found = True
+                        break
+                if on_rxn_found:
+                    if gene not in output["genes_off_on"]:
+                        output["genes_off_on"][gene] = {"on_rxns":[],"off_rxns":[]}
+                    for rxn_id in gene_rxns[gene]:
+                        if rxn_id in on_hash:
+                            output["genes_off_on"][gene]["on_rxns"].append(rxn_id)
+                        elif rxn_id in off_hash:
+                            output["genes_off_on"][gene]["off_rxns"].append(rxn_id)
+                else:
+                    if gene not in output["genes_off_off"]:
+                        output["genes_off_off"][gene] = {"on_rxns":[],"off_rxns":[]}
+                    for rxn_id in gene_rxns[gene]:
+                        if rxn_id in on_hash:
+                            output["genes_off_off"][gene]["on_rxns"].append(rxn_id)
+                        elif rxn_id in off_hash:
+                            output["genes_off_off"][gene]["off_rxns"].append(rxn_id)
 
             logger.info(f"Optimization completed with objective value: {output['solution'].objective_value}")
 
-        # Categorize reactions by flux
-        zero_flux_rxns = []
-        active_rxns = []
-        
-        for rxn_id, flux in output["solution"].fluxes.items():
-            if rxn_id not in [r.id for r in model.model.reactions]:
-                continue
-            if abs(flux) <= 1e-9:
-                zero_flux_rxns.append(rxn_id)
-            else:
-                active_rxns.append((rxn_id, flux))
-        
-        print(f"  Zero-flux reactions: {len(zero_flux_rxns)}")
-        print(f"  Active reactions: {len(active_rxns)}")
-        
-        with model.model:
-            #model.model.objective = original_objective
-            # Set zero-flux reactions to have zero bounds
-            for rxn_id in zero_flux_rxns:
-                rxn = model.model.reactions.get_by_id(rxn_id)
-                rxn.lower_bound = 0
-                rxn.upper_bound = 0
-            
-            # Get baseline growth with constrained model
-            output["baseline_growth"] = model.model.optimize().objective_value
-            
-            # Test each active reaction knockout
-            essentiality_results = {}
-            essential_count = 0
-            reduced_count = 0
-            
-            for rxn_id, original_flux in active_rxns:
-                rxn = model.model.reactions.get_by_id(rxn_id)
-                
-                # Save original bounds
-                orig_lb = rxn.lower_bound
-                orig_ub = rxn.upper_bound
-                
-                # Knock out the reaction
-                rxn.lower_bound = 0
-                rxn.upper_bound = 0
-                
-                # Optimize
-                ko_solution = model.model.optimize()
-                
-                if ko_solution.status == 'optimal':
-                    ko_growth = ko_solution.objective_value
-                    growth_ratio = ko_growth / baseline_growth if baseline_growth > 0 else 0
-                else:
-                    ko_growth = 0
-                    growth_ratio = 0
-                
-                # Categorize impact
-                if growth_ratio < 0.01:
-                    impact = "essential"
-                    essential_count += 1
-                elif growth_ratio < 0.95:
-                    impact = "reduced"
-                    reduced_count += 1
-                else:
-                    impact = "dispensable"
-                
-                essentiality_results[rxn_id] = {
-                    "expression_data_status":"none",
-                    "original_flux": original_flux,
-                    "ko_growth": ko_growth,
-                    "growth_ratio": growth_ratio,
-                    "impact": impact
-                }
-                if rxn_id in on_hash:
-                    essentiality_results[rxn_id]["expression_data_status"] = "on"
-                    if growth_ratio < 0.95:
-                        output["on_on_reduced"].append(rxn_id)
-                elif rxn_id in off_hash:
-                    essentiality_results[rxn_id]["expression_data_status"] = "off"
-                    if growth_ratio < 0.95:
-                        output["off_on_reduced"].append(rxn_id)
-                else:
-                    essentiality_results[rxn_id]["expression_data_status"] = "none"
-                    if growth_ratio < 0.95:
-                        output["none_on_reduced"].append(rxn_id)
-
-                # Restore original bounds
-                rxn.lower_bound = orig_lb
-                rxn.upper_bound = orig_ub
-        
-        print(f"  Essential reactions: {essential_count}")
-        print(f"  Reduced growth reactions: {reduced_count}")
-        print(f"  Dispensable reactions: {len(active_rxns) - essential_count - reduced_count}")
-        
-        output["baseline_growth"] = baseline_growth
-        output["zero_flux_count"] = len(zero_flux_rxns)
-        output["active_count"] = len(active_rxns)
-        output["essential_count"] = essential_count
-        output["reduced_count"] = reduced_count
-        output["reactions"] = essentiality_results
-
         # Task 4.8: Return solution
         return output
+
+    def fit_flux_to_proteomics_fold_change_data(
+        self,
+        model: 'MSModelUtil',
+        reference_condition: str,
+        target_condition: str,
+        reference_flux: dict,
+        zero_flux: float = 0.001,
+        least_squares: bool = True,
+        fold_change_thresholds: list = [1.0, 2.0, 3.0]
+    ) -> dict:
+        """Fit metabolic model fluxes to proteomics fold change data.
+
+        This function uses proteomics log2 data to compute fold changes between a
+        reference and target condition, then fits model fluxes to match those fold
+        changes relative to a reference flux distribution.
+
+        The function assumes the expression data is in log2 form, so fold change
+        is computed as: 2^(target_value - reference_value)
+
+        Parameters
+        ----------
+        model : MSModelUtil
+            The metabolic model to fit to proteomics data.
+        reference_condition : str
+            The condition ID for the reference state (e.g., "wildtype", "control").
+        target_condition : str
+            The condition ID for the target state (e.g., "mutant", "treatment").
+        reference_flux : dict
+            Dictionary of {reaction_id: flux_value} representing the baseline flux
+            distribution to scale by fold changes. Typically from pFBA on reference.
+        zero_flux : float, optional
+            Default flux value to use for reactions with zero reference flux but
+            non-zero predicted flux. Default: 0.001
+        least_squares : bool, optional
+            If True, use least squares fitting (minimize sum of squared deviations).
+            If False, use linear fitting. Default: True
+        fold_change_thresholds : list, optional
+            List of fold change thresholds (in log2 units) for categorizing
+            significant changes. Default: [1.0, 2.0, 3.0] (2x, 4x, 8x fold changes)
+
+        Returns
+        -------
+        dict
+            Results dictionary containing:
+            - 'solution': cobra.Solution object with fitted fluxes
+            - 'target_flux': dict of {rxn_id: target_flux} used for fitting
+            - 'fold_changes': dict of {rxn_id: fold_change} computed from proteomics
+            - 'flux_changes': dict categorizing reactions by flux change magnitude:
+                - 'increased_1std': reactions with >1 stddev increase
+                - 'increased_2std': reactions with >2 stddev increase
+                - 'increased_3std': reactions with >3 stddev increase
+                - 'decreased_1std': reactions with >1 stddev decrease
+                - 'decreased_2std': reactions with >2 stddev decrease
+                - 'decreased_3std': reactions with >3 stddev decrease
+            - 'protein_changes': dict categorizing proteins:
+                - 'significant_implemented': proteins with significant fold change
+                  whose reactions could match the change
+                - 'significant_not_implemented': proteins with significant fold change
+                  whose reactions could NOT match the change
+            - 'reaction_matching': dict categorizing reactions:
+                - 'matched': reactions that matched their gene fold change demands
+                - 'not_matched': reactions that could not match gene demands
+            - 'statistics': dict with summary statistics
+
+        Raises
+        ------
+        ValueError
+            If reference_condition or target_condition not in expression data.
+        ValueError
+            If expression data is not in log2 form.
+        RuntimeError
+            If optimization fails.
+
+        Notes
+        -----
+        The function uses FluxFittingPkg internally to set up the optimization
+        problem. Target fluxes are computed as: reference_flux * fold_change
+        where fold_change = 2^(log2_target - log2_reference)
+        """
+        import numpy as np
+        from modelseedpy.core.msmodelutl import MSModelUtil
+
+        if not isinstance(model, MSModelUtil):
+            model = MSModelUtil(model)
+
+        logger.info(f"Fitting flux to proteomics fold change: {reference_condition} -> {target_condition}")
+
+        # Validate conditions
+        if reference_condition not in self.conditions:
+            available = [c.id for c in self.conditions]
+            raise ValueError(f"Reference condition '{reference_condition}' not found. Available: {available}")
+
+        if target_condition not in self.conditions:
+            available = [c.id for c in self.conditions]
+            raise ValueError(f"Target condition '{target_condition}' not found. Available: {available}")
+
+        # Compute fold changes for each reaction
+        # Since data is log2, fold_change = 2^(target - reference)
+        fold_changes = {}
+        gene_fold_changes = {}
+
+        # First compute gene-level fold changes
+        for feature in self.features:
+            gene_id = feature.id if hasattr(feature, 'id') else str(feature)
+            ref_value = self.get_value(gene_id, reference_condition)
+            target_value = self.get_value(gene_id, target_condition)
+
+            if ref_value is not None and target_value is not None:
+                # Log2 difference gives log2(fold_change)
+                log2_fc = target_value - ref_value
+                gene_fold_changes[gene_id] = {
+                    'log2_fc': log2_fc,
+                    'fold_change': 2 ** log2_fc,
+                    'ref_value': ref_value,
+                    'target_value': target_value
+                }
+
+        # Map gene fold changes to reactions (use minimum fold change like GPR AND logic)
+        for rxn in model.model.reactions:
+            if len(rxn.genes) == 0:
+                continue
+
+            rxn_fold_change = None
+            contributing_genes = []
+
+            for gene in rxn.genes:
+                gene_id = gene.id
+                if gene_id in gene_fold_changes:
+                    fc = gene_fold_changes[gene_id]['fold_change']
+                    contributing_genes.append(gene_id)
+                    if rxn_fold_change is None or fc < rxn_fold_change:
+                        rxn_fold_change = fc
+
+            if rxn_fold_change is not None:
+                fold_changes[rxn.id] = {
+                    'fold_change': rxn_fold_change,
+                    'log2_fc': np.log2(rxn_fold_change),
+                    'contributing_genes': contributing_genes
+                }
+
+        # Compute target fluxes based on reference flux * fold change
+        target_flux = {}
+        for rxn_id, fc_data in fold_changes.items():
+            if rxn_id in reference_flux:
+                ref_flux = reference_flux[rxn_id]
+                if abs(ref_flux) > 1e-9:
+                    target_flux[rxn_id] = ref_flux * fc_data['fold_change']
+                else:
+                    # Use zero_flux as baseline if reference is zero but fold change suggests activity
+                    if fc_data['fold_change'] > 1.5:  # If significantly upregulated
+                        target_flux[rxn_id] = zero_flux * fc_data['fold_change']
+            else:
+                # Reaction not in reference flux - use zero_flux if upregulated
+                if fc_data['fold_change'] > 1.5:
+                    target_flux[rxn_id] = zero_flux * fc_data['fold_change']
+
+        logger.info(f"Computed target fluxes for {len(target_flux)} reactions")
+
+        # Set up flux fitting optimization
+        output = {
+            'solution': None,
+            'target_flux': target_flux,
+            'fold_changes': fold_changes,
+            'gene_fold_changes': gene_fold_changes,
+            'flux_changes': {
+                'increased_1std': [],
+                'increased_2std': [],
+                'increased_3std': [],
+                'decreased_1std': [],
+                'decreased_2std': [],
+                'decreased_3std': []
+            },
+            'protein_changes': {
+                'significant_implemented': {},
+                'significant_not_implemented': {}
+            },
+            'reaction_matching': {
+                'matched': [],
+                'not_matched': []
+            },
+            'statistics': {}
+        }
+
+        # Use FluxFittingPkg for optimization
+        flux_fit_pkg = model.pkgmgr.getpkg("FluxFittingPkg")
+
+        with model.model:
+            flux_fit_pkg.build_package({
+                'target_flux': target_flux,
+                'set_objective': 1 if least_squares else 0,
+                'totalflux': 0
+            })
+
+            # Optimize
+            solution = model.model.optimize()
+
+            if solution.status != 'optimal':
+                raise RuntimeError(f"Optimization failed with status: {solution.status}")
+
+            output['solution'] = solution
+
+            # Analyze flux changes
+            fitted_fluxes = solution.fluxes.to_dict()
+            flux_deviations = []
+
+            for rxn_id in target_flux:
+                if rxn_id in fitted_fluxes:
+                    target = target_flux[rxn_id]
+                    fitted = fitted_fluxes[rxn_id]
+                    if abs(target) > 1e-9:
+                        deviation = (fitted - target) / abs(target)
+                        flux_deviations.append(deviation)
+
+            # Compute statistics
+            if flux_deviations:
+                flux_std = np.std(flux_deviations)
+                flux_mean = np.mean(flux_deviations)
+                output['statistics']['flux_deviation_mean'] = flux_mean
+                output['statistics']['flux_deviation_std'] = flux_std
+                output['statistics']['flux_deviation_count'] = len(flux_deviations)
+            else:
+                flux_std = 1.0
+                output['statistics']['flux_deviation_std'] = 0
+
+            # Categorize flux changes by standard deviations
+            for rxn_id in reference_flux:
+                if rxn_id not in fitted_fluxes:
+                    continue
+
+                ref_flux = reference_flux[rxn_id]
+                fitted_flux = fitted_fluxes[rxn_id]
+
+                if abs(ref_flux) < 1e-9:
+                    ref_flux = zero_flux
+
+                flux_ratio = fitted_flux / ref_flux if abs(ref_flux) > 1e-9 else 0
+                log2_change = np.log2(abs(flux_ratio)) if flux_ratio != 0 else 0
+
+                # Categorize by fold change thresholds
+                for i, threshold in enumerate(fold_change_thresholds):
+                    if log2_change > threshold:
+                        output['flux_changes'][f'increased_{i+1}std'].append({
+                            'rxn_id': rxn_id,
+                            'ref_flux': ref_flux,
+                            'fitted_flux': fitted_flux,
+                            'log2_change': log2_change
+                        })
+                    elif log2_change < -threshold:
+                        output['flux_changes'][f'decreased_{i+1}std'].append({
+                            'rxn_id': rxn_id,
+                            'ref_flux': ref_flux,
+                            'fitted_flux': fitted_flux,
+                            'log2_change': log2_change
+                        })
+
+            # Analyze protein/gene changes and implementation
+            for gene_id, gc_data in gene_fold_changes.items():
+                log2_fc = gc_data['log2_fc']
+
+                # Check if this gene's fold change is significant (>1 threshold)
+                if abs(log2_fc) < fold_change_thresholds[0]:
+                    continue
+
+                # Find reactions associated with this gene
+                gene_rxns = []
+                for rxn in model.model.reactions:
+                    if any(g.id == gene_id for g in rxn.genes):
+                        gene_rxns.append(rxn.id)
+
+                if not gene_rxns:
+                    output['protein_changes']['significant_not_implemented'][gene_id] = {
+                        'log2_fc': log2_fc,
+                        'fold_change': gc_data['fold_change'],
+                        'reason': 'no_reactions_in_model'
+                    }
+                    continue
+
+                # Check if any of the gene's reactions showed matching flux change
+                implemented = False
+                for rxn_id in gene_rxns:
+                    if rxn_id in fitted_fluxes and rxn_id in reference_flux:
+                        ref_flux = reference_flux[rxn_id]
+                        fitted_flux = fitted_fluxes[rxn_id]
+
+                        if abs(ref_flux) > 1e-9:
+                            flux_log2_change = np.log2(abs(fitted_flux / ref_flux)) if fitted_flux != 0 else -10
+
+                            # Check if flux change direction matches protein change
+                            if (log2_fc > 0 and flux_log2_change > 0.5) or \
+                               (log2_fc < 0 and flux_log2_change < -0.5):
+                                implemented = True
+                                break
+
+                if implemented:
+                    output['protein_changes']['significant_implemented'][gene_id] = {
+                        'log2_fc': log2_fc,
+                        'fold_change': gc_data['fold_change'],
+                        'reactions': gene_rxns
+                    }
+                else:
+                    output['protein_changes']['significant_not_implemented'][gene_id] = {
+                        'log2_fc': log2_fc,
+                        'fold_change': gc_data['fold_change'],
+                        'reactions': gene_rxns,
+                        'reason': 'flux_could_not_match'
+                    }
+
+            # Analyze reaction matching
+            for rxn_id, fc_data in fold_changes.items():
+                expected_fc = fc_data['fold_change']
+
+                if rxn_id not in fitted_fluxes or rxn_id not in reference_flux:
+                    output['reaction_matching']['not_matched'].append({
+                        'rxn_id': rxn_id,
+                        'expected_fc': expected_fc,
+                        'reason': 'missing_flux_data'
+                    })
+                    continue
+
+                ref_flux = reference_flux[rxn_id]
+                fitted_flux = fitted_fluxes[rxn_id]
+
+                if abs(ref_flux) < 1e-9:
+                    actual_fc = abs(fitted_flux / zero_flux) if abs(fitted_flux) > 1e-9 else 1.0
+                else:
+                    actual_fc = abs(fitted_flux / ref_flux) if abs(fitted_flux) > 1e-9 else 0.0
+
+                # Check if actual fold change is within 50% of expected
+                fc_ratio = actual_fc / expected_fc if expected_fc > 0 else 0
+                if 0.5 <= fc_ratio <= 2.0:
+                    output['reaction_matching']['matched'].append({
+                        'rxn_id': rxn_id,
+                        'expected_fc': expected_fc,
+                        'actual_fc': actual_fc,
+                        'contributing_genes': fc_data['contributing_genes']
+                    })
+                else:
+                    output['reaction_matching']['not_matched'].append({
+                        'rxn_id': rxn_id,
+                        'expected_fc': expected_fc,
+                        'actual_fc': actual_fc,
+                        'contributing_genes': fc_data['contributing_genes'],
+                        'reason': 'fold_change_mismatch'
+                    })
+
+        # Summary statistics
+        output['statistics']['total_reactions_with_fold_change'] = len(fold_changes)
+        output['statistics']['total_genes_with_fold_change'] = len(gene_fold_changes)
+        output['statistics']['reactions_matched'] = len(output['reaction_matching']['matched'])
+        output['statistics']['reactions_not_matched'] = len(output['reaction_matching']['not_matched'])
+        output['statistics']['proteins_implemented'] = len(output['protein_changes']['significant_implemented'])
+        output['statistics']['proteins_not_implemented'] = len(output['protein_changes']['significant_not_implemented'])
+
+        logger.info(f"Flux fitting complete. Matched {output['statistics']['reactions_matched']}/{output['statistics']['total_reactions_with_fold_change']} reactions")
+        logger.info(f"Proteins implemented: {output['statistics']['proteins_implemented']}, not implemented: {output['statistics']['proteins_not_implemented']}")
+
+        return output
+
+    def plot_expression_distributions(
+        self,
+        conditions: list = None,
+        figsize: tuple = None,
+        bins: int = 50,
+        show_kde: bool = True,
+        show_median: bool = True,
+        show_wildtype_estimate: bool = True,
+        title_suffix: str = "",
+        color: str = 'skyblue',
+        kde_color: str = 'red',
+        save_path: str = None,
+        return_stats: bool = False
+    ) -> dict:
+        """Plot distribution of expression values for each condition.
+
+        Creates histogram plots with optional KDE curves showing the distribution
+        of expression values across features for each condition. Useful for
+        understanding data quality, identifying outliers, and estimating
+        wildtype/baseline expression levels.
+
+        Parameters
+        ----------
+        conditions : list, optional
+            List of condition IDs to plot. If None, plots all conditions.
+        figsize : tuple, optional
+            Figure size as (width, height). If None, automatically calculated
+            based on number of conditions.
+        bins : int, optional
+            Number of histogram bins. Default: 50
+        show_kde : bool, optional
+            If True, overlay a kernel density estimate curve. Default: True
+        show_median : bool, optional
+            If True, show vertical line at median value. Default: True
+        show_wildtype_estimate : bool, optional
+            If True, estimate and show wildtype value as the peak density
+            (mode of the KDE). Default: True
+        title_suffix : str, optional
+            Suffix to add to subplot titles (e.g., "(Gene-level)"). Default: ""
+        color : str, optional
+            Histogram bar color. Default: 'skyblue'
+        kde_color : str, optional
+            KDE line color. Default: 'red'
+        save_path : str, optional
+            If provided, save the figure to this path. Default: None
+        return_stats : bool, optional
+            If True, return statistics dictionary along with figure. Default: False
+
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - 'figure': matplotlib Figure object
+            - 'axes': array of matplotlib Axes objects
+            - 'statistics': dict of per-condition statistics (if return_stats=True)
+              Each condition has: count, mean, median, std, min, max, q25, q75,
+              q95, wildtype_estimate (peak density value)
+
+        Examples
+        --------
+        >>> # Basic usage - plot all conditions
+        >>> result = expression.plot_expression_distributions()
+        >>> result['figure'].savefig('distributions.png')
+
+        >>> # Plot specific conditions with statistics
+        >>> result = expression.plot_expression_distributions(
+        ...     conditions=['glucose', 'acetate'],
+        ...     return_stats=True,
+        ...     save_path='my_distributions.png'
+        ... )
+        >>> print(result['statistics']['glucose']['wildtype_estimate'])
+
+        >>> # Customize appearance
+        >>> result = expression.plot_expression_distributions(
+        ...     bins=30,
+        ...     color='lightcoral',
+        ...     kde_color='blue',
+        ...     title_suffix='(Reaction-level)'
+        ... )
+
+        Notes
+        -----
+        The wildtype estimate is computed as the x-value where the KDE reaches
+        its maximum density. This represents the most common expression value
+        and is often a good estimate of the baseline/wildtype level when most
+        genes are unaffected.
+
+        The function requires matplotlib and scipy to be installed.
+        """
+        try:
+            import matplotlib.pyplot as plt
+            from scipy import stats as scipy_stats
+        except ImportError as e:
+            raise ImportError(
+                "matplotlib and scipy are required for plotting. "
+                "Install with: pip install matplotlib scipy"
+            ) from e
+
+        # Determine conditions to plot
+        if conditions is None:
+            conditions = [c.id for c in self.conditions]
+
+        # Validate conditions exist
+        valid_conditions = []
+        for cond in conditions:
+            if cond in [c.id for c in self.conditions]:
+                valid_conditions.append(cond)
+            else:
+                logger.warning(f"Condition '{cond}' not found in expression data, skipping")
+
+        if not valid_conditions:
+            raise ValueError("No valid conditions to plot")
+
+        n_conditions = len(valid_conditions)
+
+        # Calculate grid dimensions
+        if n_conditions <= 3:
+            n_rows, n_cols = 1, n_conditions
+        elif n_conditions <= 6:
+            n_rows, n_cols = 2, 3
+        elif n_conditions <= 9:
+            n_rows, n_cols = 3, 3
+        else:
+            n_cols = 4
+            n_rows = (n_conditions + n_cols - 1) // n_cols
+
+        # Set figure size if not provided
+        if figsize is None:
+            figsize = (5 * n_cols, 4 * n_rows)
+
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+
+        # Flatten axes for easy iteration
+        if n_conditions == 1:
+            axes = np.array([axes])
+        axes = axes.flatten() if hasattr(axes, 'flatten') else [axes]
+
+        # Store statistics for each condition
+        statistics = {}
+
+        for idx, condition in enumerate(valid_conditions):
+            ax = axes[idx]
+
+            # Get data for this condition
+            if condition not in self._data.columns:
+                ax.text(0.5, 0.5, 'No data', ha='center', va='center',
+                       transform=ax.transAxes, fontsize=12)
+                ax.set_title(f'{condition.capitalize()} {title_suffix}'.strip())
+                continue
+
+            data = self._data[condition].dropna()
+
+            if len(data) < 2:
+                ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
+                       transform=ax.transAxes, fontsize=12)
+                ax.set_title(f'{condition.capitalize()} {title_suffix}'.strip())
+                continue
+
+            # Calculate statistics
+            stats = {
+                'count': len(data),
+                'mean': float(data.mean()),
+                'median': float(data.median()),
+                'std': float(data.std()),
+                'min': float(data.min()),
+                'max': float(data.max()),
+                'q25': float(data.quantile(0.25)),
+                'q75': float(data.quantile(0.75)),
+                'q95': float(data.quantile(0.95))
+            }
+
+            # Create histogram
+            ax.hist(data, bins=bins, alpha=0.6, color=color,
+                   edgecolor='black', density=True)
+
+            # Calculate KDE and find peak density (wildtype estimate)
+            kde = scipy_stats.gaussian_kde(data)
+            x_range = np.linspace(data.min(), data.max(), 1000)
+            kde_values = kde(x_range)
+            peak_density_idx = np.argmax(kde_values)
+            wildtype_estimate = float(x_range[peak_density_idx])
+            stats['wildtype_estimate'] = wildtype_estimate
+
+            # Plot KDE curve
+            if show_kde:
+                ax.plot(x_range, kde_values, color=kde_color, linewidth=2, label='KDE')
+
+            # Add vertical lines for statistics
+            if show_median:
+                ax.axvline(stats['median'], color='green', linestyle='--',
+                          linewidth=2, label=f"Median: {stats['median']:.3f}")
+
+            if show_wildtype_estimate:
+                ax.axvline(wildtype_estimate, color='orange', linestyle='--',
+                          linewidth=2, label=f"WT est: {wildtype_estimate:.3f}")
+
+            # Formatting
+            ax.set_xlabel('Expression Value', fontsize=10)
+            ax.set_ylabel('Density', fontsize=10)
+            ax.set_title(f'{condition.capitalize()} {title_suffix}'.strip(),
+                        fontsize=12, fontweight='bold')
+            ax.legend(fontsize=8)
+            ax.grid(True, alpha=0.3)
+
+            statistics[condition] = stats
+
+        # Hide unused subplots
+        for idx in range(n_conditions, len(axes)):
+            axes[idx].axis('off')
+
+        plt.tight_layout()
+
+        # Save if path provided
+        if save_path:
+            fig.savefig(save_path, dpi=300, bbox_inches='tight')
+            logger.info(f"Distribution plot saved to {save_path}")
+
+        # Build return dictionary
+        result = {
+            'figure': fig,
+            'axes': axes[:n_conditions]
+        }
+
+        if return_stats:
+            result['statistics'] = statistics
+
+        return result
+
+    def print_distribution_statistics(self, conditions: list = None) -> pd.DataFrame:
+        """Print and return distribution statistics for expression data.
+
+        Computes and displays summary statistics for expression values
+        across all features for each condition.
+
+        Parameters
+        ----------
+        conditions : list, optional
+            List of condition IDs to analyze. If None, analyzes all conditions.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with statistics for each condition including:
+            count, mean, median, std, min, max, q25, q75, q95
+
+        Examples
+        --------
+        >>> stats_df = expression.print_distribution_statistics()
+        >>> print(stats_df)
+
+        >>> # Analyze specific conditions
+        >>> stats_df = expression.print_distribution_statistics(['glucose', 'acetate'])
+        """
+        if conditions is None:
+            conditions = [c.id for c in self.conditions]
+
+        records = []
+
+        print("Expression Distribution Statistics:")
+        print("=" * 80)
+
+        for condition in conditions:
+            if condition not in self._data.columns:
+                logger.warning(f"Condition '{condition}' not found, skipping")
+                continue
+
+            data = self._data[condition].dropna()
+
+            if len(data) == 0:
+                logger.warning(f"No data for condition '{condition}', skipping")
+                continue
+
+            stats = {
+                'condition': condition,
+                'count': len(data),
+                'mean': data.mean(),
+                'median': data.median(),
+                'std': data.std(),
+                'min': data.min(),
+                'max': data.max(),
+                'q25': data.quantile(0.25),
+                'q75': data.quantile(0.75),
+                'q95': data.quantile(0.95)
+            }
+            records.append(stats)
+
+            print(f"\n{condition.upper()}:")
+            print(f"  Count:      {stats['count']}")
+            print(f"  Mean:       {stats['mean']:.4f}")
+            print(f"  Median:     {stats['median']:.4f}")
+            print(f"  Std Dev:    {stats['std']:.4f}")
+            print(f"  Min:        {stats['min']:.4f}")
+            print(f"  Max:        {stats['max']:.4f}")
+            print(f"  25th %ile:  {stats['q25']:.4f}")
+            print(f"  75th %ile:  {stats['q75']:.4f}")
+            print(f"  95th %ile:  {stats['q95']:.4f}")
+
+        print("\n" + "=" * 80)
+
+        return pd.DataFrame.from_records(records)

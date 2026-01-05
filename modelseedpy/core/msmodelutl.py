@@ -433,8 +433,11 @@ class MSModelUtil:
 
     def printlp(self,model=None,path="",filename="debug",print=False):
         if print:
+            import os
             if len(path) > 0:
-                path+"/"
+                # Ensure directory exists
+                os.makedirs(path, exist_ok=True)
+                path = path + "/"
             lpfilename = path+filename+".lp"
             if model == None:
                 model = self.model
