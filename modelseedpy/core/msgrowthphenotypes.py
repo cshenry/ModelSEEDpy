@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import logging
-import cobra
 from cobra.core.dictlist import DictList
 from modelseedpy.core.msmedia import MSMedia
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
@@ -192,7 +191,7 @@ class MSGrowthPhenotype:
                 {self.target_element:self.target_element_limit}, exception_reactions=reaction_exceptions
             )
         return output
-
+    
     def simulate(
         self,
         model_or_mdlutl,
@@ -201,6 +200,8 @@ class MSGrowthPhenotype:
         gapfilling=False,
         msgapfill=None,
         annoont=None,
+        ignore_experimental_data=False,
+        reaction_scores={}
     ):
         """Simulates a single phenotype
         Parameters
@@ -243,51 +244,69 @@ class MSGrowthPhenotype:
                 )
                 return None
             target_mdlutl = msgapfill.gfmodelutl
-        #Setting the default score for all model reactions to 0.1
-        reaction_scores = {}
-        for rxn in target_mdlutl.model.reactions:
-            reaction_scores[rxn.id] = {}
-            if rxn.id in modelutl.model.reactions:
-                
-                if modelutl.model.reactions.get_by_id(rxn.id).upper_bound > 0:
-                    reaction_scores[rxn.id][">"] = 0.01
-                else:
-                    reaction_scores[rxn.id][">"] = 2
-                if modelutl.model.reactions.get_by_id(rxn.id).lower_bound > 0:
-                    reaction_scores[rxn.id]["<"] = 0.01
-                else:
-                    reaction_scores[rxn.id]["<"] = 2
-            else:
-                reaction_scores[rxn.id][">"] = 2
-                reaction_scores[rxn.id]["<"] = 2
-        #Computing gene associations and reaction scores from annotation ontology
-        rxn_gene_hash = {}
-        if annoont != None:
-            rxn_gene_hash = annoont.get_reaction_gene_hash(feature_type="gene")
-            direction_list = [">","<"]
-            for rxn in rxn_gene_hash:
-                rxnid = rxn+"_c0"
-                if rxnid not in reaction_scores:
-                    reaction_scores[rxnid] = {">": 2, "<": 2}
-                for direction in direction_list:
-                    current_score = reaction_scores[rxnid][direction]
-                    rxn_score = None
-                    for gene in rxn_gene_hash[rxn]:
-                        new_score = rxn_gene_hash[rxn][gene]["probability"]
-                        if gene in self.gene_association_scores:
-                            new_score = -1*(1-self.gene_association_scores[gene])*new_score
-                        if rxn_score == None or (new_score < 0 and new_score < rxn_score) or (current_score > 0.1 and rxn_score > 0 and new_score > rxn_score):
-                            rxn_score = new_score
-                    if rxn_score != None:
-                        if rxn_score > 0:
-                            rxn_score = 1+rxn_score
-                        reaction_scores[rxnid][direction] = rxn_score
-        #Configuring the model for the phenotype
-        configuration_output = self.configure_model_for_phenotype(target_mdlutl,add_missing_exchanges=add_missing_exchanges)
-        output["missing_transports"] = configuration_output["missing_transports"]
-        output["baseline_objective"] = configuration_output["baseline_objective"]
-        multiplier = 3
+        
         with target_mdlutl.model:
+            original_bounds = {}
+            gapfilling_coefs = {}
+            for rxn in target_mdlutl.model.reactions:
+                #Skipping exchange reactions - these should not be gapfilled or manipulated
+                if rxn.id[:3] == "EX_":
+                    continue
+                gapfilling_coefs[rxn.id] = {}
+                forscore = 100
+                revscore = 100
+                if rxn.id in reaction_scores:
+                    forscore = reaction_scores[rxn.id][">"]
+                    revscore = reaction_scores[rxn.id]["<"]
+                if rxn.id in modelutl.model.reactions:
+                    if modelutl.model.reactions.get_by_id(rxn.id).upper_bound > 0:
+                        gapfilling_coefs[rxn.id][">"] = 0.01
+                    else:
+                        original_bounds.setdefault(rxn.id, {})
+                        original_bounds[rxn.id][">"] = rxn.upper_bound
+                        rxn.upper_bound = 0
+                        gapfilling_coefs[rxn.id][">"] = forscore
+                    if modelutl.model.reactions.get_by_id(rxn.id).lower_bound < 0:
+                        gapfilling_coefs[rxn.id]["<"] = 0.01
+                    else:
+                        gapfilling_coefs[rxn.id]["<"] = revscore
+                        original_bounds.setdefault(rxn.id, {})
+                        original_bounds[rxn.id]["<"] = rxn.lower_bound
+                        rxn.lower_bound = 0
+                else:
+                    gapfilling_coefs[rxn.id][">"] = forscore
+                    gapfilling_coefs[rxn.id]["<"] = revscore
+                    original_bounds.setdefault(rxn.id, {})
+                    original_bounds[rxn.id][">"] = rxn.upper_bound
+                    original_bounds[rxn.id]["<"] = rxn.lower_bound
+                    rxn.upper_bound = 0
+                    rxn.lower_bound = 0
+            #Computing gene associations and reaction scores from annotation ontology
+            rxn_gene_hash = {}
+            if annoont != None:
+                rxn_gene_hash = annoont.get_reaction_gene_hash(feature_type="gene")
+                direction_list = [">","<"]
+                for rxn in rxn_gene_hash:
+                    rxnid = rxn+"_c0"
+                    if rxnid not in gapfilling_coefs:
+                        gapfilling_coefs[rxnid] = {">": 5, "<": 5}
+                    for direction in direction_list:
+                        current_score = gapfilling_coefs[rxnid][direction]
+                        rxn_score = None
+                        for gene in rxn_gene_hash[rxn]:
+                            new_score = rxn_gene_hash[rxn][gene]["probability"]
+                            if gene in self.gene_association_scores:
+                                new_score = -1*(1-self.gene_association_scores[gene])*new_score
+                            if rxn_score == None or (new_score < 0 and new_score < rxn_score) or (current_score > 0.1 and rxn_score > 0 and new_score > rxn_score):
+                                rxn_score = new_score
+                        if rxn_score != None:
+                            if rxn_score > 0:
+                                rxn_score = 1+rxn_score
+                            gapfilling_coefs[rxnid][direction] = rxn_score
+            #Configuring the model for the phenotype
+            configuration_output = self.configure_model_for_phenotype(target_mdlutl,add_missing_exchanges=add_missing_exchanges)
+            output["missing_transports"] = configuration_output["missing_transports"]
+            output["baseline_objective"] = configuration_output["baseline_objective"]
             #Implementing knockouts
             for item in self.knockouts:
                 if item in target_mdlutl.model.genes:
@@ -298,146 +317,135 @@ class MSGrowthPhenotype:
                     rxnobj.knock_out()
                 else:
                     logger.warning("Gene or reaction "+item+" not found in model")
-            #Print model LP for debugging
-            #modelutl.printlp(path="LP_files/",filename=self.id,print=True)
+            #Relaxing minimum objective constraint from gapfilling package if present
+            if gapfilling and msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"] != "none":
+                for name in msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"]:
+                    msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"][name].lb = 0
             #Getting objective value
             solution = target_mdlutl.model.optimize()
             print(self.id,solution.status,solution.objective_value)
-            modelutl.printlp(path="LP_files/",filename="Base-"+self.id,print=True)
+            output["pregapfill_objective_value"] = solution.objective_value
             output["objective_value"] = solution.objective_value
-            if output["objective_value"] < 0.000001:
-                output["objective_value"] = 0
-                if gapfilling:
-                    output["status"] = "gapfilling failed"
-                else:
-                    output["status"] = "no growth without gapfilling"
-            else:
-                output["class"] = "P"
-                target_mdlutl.model.reactions.get_by_id("bio1").lower_bound = output["objective_value"] * multiplier
-                original_objective = target_mdlutl.model.objective
-                coefobj = target_mdlutl.model.problem.Objective(0, direction="min")
-                target_mdlutl.model.objective = coefobj
-                obj_coef = {}
-                direction_list = [">","<"]
-                for rxn in reaction_scores:
-                    if rxn in target_mdlutl.model.reactions:
-                        rxnobj = target_mdlutl.model.reactions.get_by_id(rxn)
-                        for direction in direction_list:
-                            if direction == ">":
-                                obj_coef[rxnobj.forward_variable] = reaction_scores[rxn][direction]
-                            elif direction == "<":
-                                obj_coef[rxnobj.reverse_variable] = reaction_scores[rxn][direction]
-                coefobj.set_linear_coefficients(obj_coef)
-                modelutl.printlp(path="LP_files/",filename=self.id,print=True)
-                solution = target_mdlutl.model.optimize()
-                target_mdlutl.model.objective = original_objective
-                target_mdlutl.model.reactions.get_by_id("bio1").lower_bound = 0
-                #Processing solution
-                output["fluxes"] = {}
-                output["reactions"] = []
-                output["gfreactions"] = {}
-                for rxn in target_mdlutl.model.reactions:
-                    if rxn.id in solution.fluxes:
-                        flux = solution.fluxes[rxn.id]
-                        if abs(flux) > 0.000001:
-                            output["fluxes"][rxn.id] = flux
-                            if rxn.id[0:3] != "bio" and rxn.id[0:3] != "EX_" and rxn.id[0:3] != "DM_" and rxn.id[0:3] != "SK":
-                                output["reaction_count"] += 1
-                                output["reactions"].append(rxn.id)
-                                if rxn.id not in modelutl.model.reactions or (flux < -0.000001 and modelutl.model.reactions.get_by_id(rxn.id).lower_bound == 0) or (flux > 0.000001 and modelutl.model.reactions.get_by_id(rxn.id).upper_bound == 0):
-                                    output["gapfill_count"] += 1
-                                    output["gfreactions"][rxn.id] = None
-                                    if rxn.id in rxn_gene_hash and len(rxn_gene_hash[rxn.id]) > 0:
-                                        output["gfreactions"][rxn.id] = list(rxn_gene_hash[rxn.id].keys())
-                                        output["gapfill_count_with_genes"] += 1
-        # Determining phenotype class
-        multiplier = 3
-        ignore_experimental_data = False
-        if output["objective_value"] != None and output["objective_value"] >= output["baseline_objective"] * multiplier:
-            output["postive"] = True
-            if self.experimental_value == None or ignore_experimental_data:
-                output["class"] = "P"
-            elif self.experimental_value > 0:
-                output["class"] = "CP"
-            elif self.experimental_value == 0:
-                output["class"] = "FP"
-        else:
-            output["postive"] = False
-            if self.experimental_value == None or ignore_experimental_data:
+            output["class"] = "P"
+            if solution.status != "optimal" or output["pregapfill_objective_value"] < growth_threshold:
                 output["class"] = "N"
-            elif self.experimental_value > 0:
-                output["class"] = "FN"
-            elif self.experimental_value == 0:
-                output["class"] = "CN"
+                if gapfilling:
+                    for rxnid in original_bounds:
+                        if rxnid in target_mdlutl.model.reactions:
+                            if ">" in original_bounds[rxnid]:
+                                target_mdlutl.model.reactions.get_by_id(rxnid).upper_bound = original_bounds[rxnid][">"]
+                            if "<" in original_bounds[rxnid]:
+                                target_mdlutl.model.reactions.get_by_id(rxnid).lower_bound = original_bounds[rxnid]["<"]
+                    solution = target_mdlutl.model.optimize()
+                    if solution.status != "optimal" or solution.objective_value < growth_threshold:
+                        output["class"] = determine_phenotype_class(output["class"], self.experimental_value, ignore_experimental_data)
+                        output["status"] = "gapfilling failed"
+                        return output
+                else:
+                    output["class"] = determine_phenotype_class(output["class"], self.experimental_value, ignore_experimental_data)
+                    output["status"] = "No growth without gapfilling"
+                    return output
+            #Negative growth conditions have exited at this point, so we can proceed with solution analysis
+            output["class"] = determine_phenotype_class(output["class"], self.experimental_value, ignore_experimental_data)
+            # TODO: "bio1" is hardcoded here - should use target_mdlutl.primary_biomass() or pass as parameter
+            target_mdlutl.model.reactions.get_by_id("bio1").lower_bound = growth_threshold
+            original_objective = target_mdlutl.model.objective
+            coefobj = target_mdlutl.model.problem.Objective(0, direction="min")
+            target_mdlutl.model.objective = coefobj
+            obj_coef = {}
+            direction_list = [">","<"]
+            for rxn in gapfilling_coefs:
+                if rxn in target_mdlutl.model.reactions:
+                    rxnobj = target_mdlutl.model.reactions.get_by_id(rxn)
+                    for direction in direction_list:
+                        if direction == ">":
+                            obj_coef[rxnobj.forward_variable] = gapfilling_coefs[rxn][direction]
+                        elif direction == "<":
+                            obj_coef[rxnobj.reverse_variable] = gapfilling_coefs[rxn][direction]
+            coefobj.set_linear_coefficients(obj_coef)
+            solution = target_mdlutl.model.optimize()
+            target_mdlutl.model.objective = original_objective
+            target_mdlutl.model.reactions.get_by_id("bio1").lower_bound = 0
+            #Processing solution
+            output["fluxes"] = {}
+            output["reactions"] = []
+            output["gfreactions"] = {}
+            for rxn in target_mdlutl.model.reactions:
+                if rxn.id in solution.fluxes:
+                    flux = solution.fluxes[rxn.id]
+                    if abs(flux) > 0.000001:
+                        output["fluxes"][rxn.id] = flux
+                        if rxn.id[0:3] != "bio" and rxn.id[0:3] != "EX_" and rxn.id[0:3] != "DM_" and rxn.id[0:3] != "SK":
+                            output["reaction_count"] += 1
+                            output["reactions"].append(rxn.id)
+                            if rxn.id not in modelutl.model.reactions or (flux < -0.000001 and modelutl.model.reactions.get_by_id(rxn.id).lower_bound >= 0) or (flux > 0.000001 and modelutl.model.reactions.get_by_id(rxn.id).upper_bound <= 0):
+                                output["gapfill_count"] += 1
+                                if flux < -0.000001:
+                                    output["gfreactions"][rxn.id] = ["<",None]
+                                else:
+                                    output["gfreactions"][rxn.id] = [">",None]
+                                base_rxn_id = rxn.id.replace("_c0", "")
+                                if base_rxn_id in rxn_gene_hash and len(rxn_gene_hash[base_rxn_id]) > 0:
+                                    output["gfreactions"][rxn.id][1] = list(rxn_gene_hash[base_rxn_id].keys())
+                                    output["gapfill_count_with_genes"] += 1
+            #Iteratively testing all gapfilled reactions just to be sure
+            #First, block all gapfilling reactions except the ones identified as needed
+            for rxnid in original_bounds:
+                if rxnid not in output["gfreactions"] and rxnid in target_mdlutl.model.reactions:
+                    if ">" in original_bounds[rxnid]:
+                        target_mdlutl.model.reactions.get_by_id(rxnid).upper_bound = 0
+                    if "<" in original_bounds[rxnid]:
+                        target_mdlutl.model.reactions.get_by_id(rxnid).lower_bound = 0
+            #Now test each gapfilled reaction to see if it's truly needed
+            to_remove = []
+            for rxnid in output["gfreactions"]:
+                if rxnid in target_mdlutl.model.reactions:
+                    if output["gfreactions"][rxnid][0] == ">":
+                        target_mdlutl.model.reactions.get_by_id(rxnid).upper_bound = 0
+                    else:
+                        target_mdlutl.model.reactions.get_by_id(rxnid).lower_bound = 0
+                    solution = target_mdlutl.model.optimize()
+                    if solution.objective_value > growth_threshold:
+                        #Removing unneeded gapfilled reactions
+                        print("Removing unneeded gapfilled reaction: "+rxnid)
+                        to_remove.append(rxnid)
+                    else:
+                        if output["gfreactions"][rxnid][0] == ">" and rxnid in original_bounds and ">" in original_bounds[rxnid]:     
+                            target_mdlutl.model.reactions.get_by_id(rxnid).upper_bound = original_bounds[rxnid][">"]
+                        elif output["gfreactions"][rxnid][0] == "<" and rxnid in original_bounds and "<" in original_bounds[rxnid]:
+                            target_mdlutl.model.reactions.get_by_id(rxnid).lower_bound = original_bounds[rxnid]["<"]
+                        else:
+                            logger.warning("Reaction "+rxnid+" not found in original bounds")
+            for rxnid in to_remove:
+                del output["gfreactions"][rxnid]
+                output["gapfill_count"] -= 1
+                if rxnid in output["reactions"]:
+                    output["reactions"].remove(rxnid)
+                    output["reaction_count"] -= 1
+                if rxnid in output["fluxes"]:
+                    del output["fluxes"][rxnid]
+            #Maximizing growth one final time
+            final_solution = target_mdlutl.model.optimize()
+            output["objective_value"] = final_solution.objective_value
         return output
 
-    def gapfill_model_for_phenotype(
-        self,
-        msgapfill,
-        test_conditions,
-        multiplier=10,
-        add_missing_exchanges=False,
-    ):
-        """Gapfills the model to permit this single phenotype to be positive
-        Parameters
-        ----------
-        msgapfill : MSGapfill
-            Fully configured gapfilling object
-        add_missing_exchanges : bool
-            Boolean indicating if exchanges for compounds mentioned explicitly in phenotype media should be added to the model automatically
-        multiplier : double
-            Indicates a multiplier to use for positive growth above the growth on baseline media
-        objective : string
-            Expression for objective to be activated by gapfilling
-        """
-        # First simulate model without gapfilling to assess ungapfilled growth
-        output = self.simulate(
-            msgapfill.mdlutl,multiplier, add_missing_exchanges
-        )
-        if output["objective_value"] >= output["baseline_objective"] * multiplier:
-            # No gapfilling needed - original model grows without gapfilling
-            return {
-                "reversed": {},
-                "new": {},
-                "media": self.build_media(),
-                "target": output["objective"],
-                "minobjective": output["baseline_objective"] * multiplier,
-                "binary_check": False,
-            }
-
-        # Now pulling the gapfilling configured model from MSGapfill
-        gfmodelutl = MSModelUtil.get(msgapfill.gfmodel)
-        # Saving the gapfill objective because this will be replaced when the simulation runs
-        gfobj = gfmodelutl.model.objective
-        # Running simulate on gapfill model to add missing exchanges and set proper media and uptake limit constraints
-        output = self.simulate(
-            gfmodelutl, multiplier=multiplier, add_missing_exchanges=add_missing_exchanges
-        )
-        # If the gapfilling model fails to achieve the minimum growth, then no solution exists
-        if output["objective_value"] < output["baseline_objective"] * multiplier:
-            logger.warning(
-                "Gapfilling failed with the specified model, media, and target reaction."
-            )
-            return None
-
-        # Running the gapfilling itself
-        full_media = self.build_media()
-        with gfmodelutl.model:
-            # Applying gene knockouts
-            for gene in self.gene_ko:
-                if gene in gfmodelutl.model.genes:
-                    geneobj = gfmodelutl.model.genes.get_by_id(gene)
-                    geneobj.knock_out()
-
-            gfresults = self.gapfilling.run_gapfilling(
-                full_media, None, minimum_obj=output["baseline_objective"] * multiplier
-            )
-            if gfresults is None:
-                logger.warning(
-                    "Gapfilling failed with the specified model, media, and target reaction."
-                )
-
-        return gfresults
+def determine_phenotype_class(current_class, experimental_value, ignore_experimental_data):
+    if ignore_experimental_data:
+        experimental_value = None
+    if current_class == "P":
+        if experimental_value == None:
+            return "P"
+        elif experimental_value > 0:
+            return "CP"
+        elif experimental_value == 0:
+            return "FP"
+    else:
+        if experimental_value == None:
+            return "N"
+        elif experimental_value > 0:
+            return "FN"
+        elif experimental_value == 0:
+            return "CN"
 
 class MSGrowthPhenotypes:
     def __init__(
@@ -739,16 +747,14 @@ class MSGrowthPhenotypes:
     def simulate_phenotypes(
         self,
         model_or_mdlutl,
-        multiplier=3,
+        growth_threshold=0.01,
         add_missing_exchanges=False,
-        save_fluxes=False,
-        save_reaction_list=False,
         gapfill_negatives=False,
         msgapfill=None,
         test_conditions=None,
         ignore_experimental_data=False,
-        flux_coefficients=None,
-        recall_phenotypes=True
+        annoont=None,
+        reaction_scores={}
     ):
         """Simulates all the specified phenotype conditions and saves results
         Parameters
@@ -768,6 +774,10 @@ class MSGrowthPhenotypes:
         modelutl = model_or_mdlutl
         if not isinstance(model_or_mdlutl, MSModelUtil):
             modelutl = MSModelUtil.get(model_or_mdlutl)
+        # Prefilter gapfilling database if gapfilling will be performed
+        if gapfill_negatives and msgapfill and test_conditions != None:
+            logger.info("Prefiltering gapfilling database before phenotype simulations")
+            msgapfill.prefilter(test_conditions=test_conditions)
         # Establishing output of the simulation method
         summary = {
             "Label": ["Accuracy", "CP", "CN", "FP", "FN", "P", "N"],
@@ -789,7 +799,13 @@ class MSGrowthPhenotypes:
         for pheno in self.phenotypes:
             result = pheno.simulate(
                 modelutl,
-                add_missing_exchanges=add_missing_exchanges
+                gapfilling=gapfill_negatives,
+                msgapfill=msgapfill,
+                add_missing_exchanges=add_missing_exchanges,
+                growth_threshold=growth_threshold,
+                ignore_experimental_data=ignore_experimental_data,
+                annoont=annoont,
+                reaction_scores=reaction_scores
             )
             datahash[pheno.id] = result
             data["Class"].append(result["class"])
@@ -819,30 +835,6 @@ class MSGrowthPhenotypes:
                 summary["Count"][5] += 1
             elif result["class"] == "N":
                 summary["Count"][6] += 1
-            # Gapfilling negative growth conditions
-            if gapfill_negatives and result["class"] in ["N", "FN", "CN"]:
-                gapfilling_solutions[pheno] = pheno.gapfill_model_for_phenotype(
-                    msgapfill,
-                    test_conditions,
-                    multiplier,
-                    add_missing_exchanges,
-                )
-                if gapfilling_solutions[pheno] != None:
-                    data["Gapfilling score"] = 0
-                    list = []
-                    for rxn_id in gapfilling_solutions[pheno]["reversed"]:
-                        list.append(
-                            gapfilling_solutions[pheno]["reversed"][rxn_id] + rxn_id
-                        )
-                        data["Gapfilling score"] += 0.5
-                    for rxn_id in gapfilling_solutions[pheno]["new"]:
-                        list.append(gapfilling_solutions[pheno]["new"][rxn_id] + rxn_id)
-                        data["Gapfilling score"] += 1
-                    data["Gapfilled reactions"].append(";".join(list))
-                else:
-                    data["Gapfilled reactions"].append(None)
-            else:
-                data["Gapfilled reactions"].append(None)
         if totalcount == 0:
             summary["Count"][0] = None
         else:
@@ -854,10 +846,7 @@ class MSGrowthPhenotypes:
         datahash["summary"]["FN"] = summary["Count"][4]
         datahash["summary"]["P"] = summary["Count"][5]
         datahash["summary"]["N"] = summary["Count"][6]
-        sdf = pd.DataFrame(summary)
-        df = pd.DataFrame(data)
-        self.adjust_phenotype_calls(df)
-        return {"details": df, "summary": sdf,"data":datahash}
+        return {"details": data, "summary": summary,"data":datahash}
 
     def adjust_phenotype_calls(self,data,baseline_objective=0.01):
         lowest = data["Simulated objective"].min()

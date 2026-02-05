@@ -66,7 +66,7 @@ class GapfillingPkg(BaseFBAPkg):
                         index_hash[m[2]] = 0
                     index_hash[m[2]] += 1
             else:
-                index_hash["none":0]
+                index_hash["none"] += 1
                 # Iterating over all indecies with more than 10 intracellular compounds:
         return index_hash
 

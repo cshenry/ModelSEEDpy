@@ -66,6 +66,7 @@ class MSGapfill:
         ]  # the cpd11416 compound is filtered during model extension with templates
         # Cloning model to create gapfilling model
         self.gfmodel = cobra.io.json.from_json(cobra.io.json.to_json(self.model))
+        self.gfmodel.id = self.model.id + "_gf"
         self.gfmodelutl = MSModelUtil.get(self.gfmodel)
         # Getting package manager for gapfilling model
         self.gfpkgmgr = MSPackageManager.get_pkg_mgr(self.gfmodelutl)

@@ -47,6 +47,7 @@ from modelseedpy.core import (
     MSEquation,
     MSModelReport,
     AnnotationOntology,
+    MSTemplateBuilder,
 )
 from modelseedpy.core.exceptions import *
 

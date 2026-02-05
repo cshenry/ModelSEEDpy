@@ -7,6 +7,24 @@ This repository manages two types of Claude Code extensions:
 1. **Commands** - Task-oriented instructions (create-prd, free-agent, etc.)
 2. **Expert Skills** - Domain-specific knowledge assistants (msmodelutl-expert, etc.)
 
+## Quick Start: Use /create-skill
+
+For guided skill creation with comprehensive content generation, use the `/create-skill` command:
+
+```
+/create-skill Docker container management
+```
+
+This interactive command will:
+1. **Discovery** - Ask about knowledge areas, source files, related skills
+2. **Design** - Propose structure and get your approval
+3. **Creation** - Generate comprehensive skill files with real content
+4. **Deployment** - Optionally deploy to all tracked projects
+
+**When to use /create-skill vs manual creation:**
+- Use `/create-skill` for: New domains, when you want guided creation, comprehensive content
+- Use manual creation for: Quick edits, copying existing skill patterns, full control
+
 ## Command vs. Skill
 
 | Aspect | Command | Expert Skill |
@@ -271,3 +289,89 @@ After deployment, invoke with:
 | Command | `<action>-<target>.md` | `create-prd.md`, `doc-code-usage.md` |
 | Expert Skill | `<domain>-expert.md` | `msmodelutl-expert.md` |
 | Context Dir | `<skill-name>/context/` | `msmodelutl-expert/context/` |
+
+## Real Examples from This Repository
+
+### Example 1: msmodelutl-expert
+
+A focused skill for a specific Python class:
+
+```
+commands/
+├── msmodelutl-expert.md           # Main skill (200 lines)
+└── msmodelutl-expert/
+    └── context/
+        ├── api-summary.md         # Method signatures, parameters
+        ├── patterns.md            # Common usage patterns
+        └── integration.md         # How it connects to other modules
+```
+
+**Key features:**
+- References source code for dynamic loading
+- Embeds 5 essential patterns in Quick Reference
+- Common Mistakes section prevents typical errors
+- Links to related skills: `/modelseedpy-expert`, `/fbapkg-expert`
+
+### Example 2: kb-sdk-dev
+
+A comprehensive skill for KBase SDK development:
+
+```
+commands/
+├── kb-sdk-dev.md                  # Main skill
+└── kb-sdk-dev/
+    └── context/
+        ├── kidl-reference.md      # KIDL specification
+        ├── workspace-datatypes.md # Data type reference
+        ├── ui-spec-reference.md   # UI specification
+        └── kbutillib-integration.md # Integration guide
+```
+
+**Key features:**
+- Multiple context files for different aspects
+- Reference documentation for specifications
+- Integration guides for related tools
+
+### Example 3: claude-commands-expert
+
+A self-referential skill for this repository:
+
+```
+commands/
+├── claude-commands-expert.md      # Main skill
+└── claude-commands-expert/
+    └── context/
+        ├── architecture.md        # System design
+        ├── skill-development.md   # This file
+        └── cli-reference.md       # CLI commands
+```
+
+**Key features:**
+- Can execute CLI commands (not just explain)
+- References `/create-skill` for guided creation
+- Troubleshooting section for common issues
+
+## Troubleshooting
+
+### Skill not appearing after creation
+1. Verify file is in `commands/` directory
+2. Check filename ends with `.md`
+3. Run `claude-commands update` to deploy
+4. Verify with `claude-commands list`
+
+### Context files not loading
+1. Check directory structure: `<skill-name>/context/`
+2. Ensure context files are `.md` format
+3. Verify paths in Knowledge Loading section are absolute
+4. Run `claude-commands update` after adding context files
+
+### Skill producing poor responses
+1. Add more content to Quick Reference section
+2. Include Common Mistakes section
+3. Add response format templates
+4. Reference more source files in Knowledge Loading
+
+### Changes not reflecting in projects
+1. Ensure you edited files in `commands/` (source), not `.claude/commands/` (deployed)
+2. Run `claude-commands update` to push changes
+3. Check project is tracked: `claude-commands list`

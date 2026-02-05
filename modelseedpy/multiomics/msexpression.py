@@ -1377,7 +1377,8 @@ class MSExpression:
         reference_flux: dict,
         zero_flux: float = 0.001,
         least_squares: bool = True,
-        fold_change_thresholds: list = [1.0, 2.0, 3.0]
+        fold_change_thresholds: list = [1.0, 2.0, 3.0],
+        quadratic_formulation: bool = True 
     ) -> dict:
         """Fit metabolic model fluxes to proteomics fold change data.
 
@@ -1514,6 +1515,11 @@ class MSExpression:
         for rxn_id, fc_data in fold_changes.items():
             if rxn_id in reference_flux:
                 ref_flux = reference_flux[rxn_id]
+                fold_change = fc_data['fold_change']
+                if fold_change > 3:
+                    fold_change = 3
+                elif fold_change < 0.33:
+                    fold_change = 0.33
                 if abs(ref_flux) > 1e-9:
                     target_flux[rxn_id] = ref_flux * fc_data['fold_change']
                 else:
@@ -1558,8 +1564,9 @@ class MSExpression:
         with model.model:
             flux_fit_pkg.build_package({
                 'target_flux': target_flux,
-                'set_objective': 1 if least_squares else 0,
-                'totalflux': 0
+                'set_objective': 1,
+                'totalflux': 0,
+                'quadratic_formulation': quadratic_formulation
             })
 
             # Optimize

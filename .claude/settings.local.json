@@ -4,7 +4,9 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(tree:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Skill(modelseedpy-expert)",
+      "Skill(modelseedpy-expert:*)"
     ]
   }
 }

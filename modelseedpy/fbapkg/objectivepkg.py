@@ -42,28 +42,28 @@ class ObjectiveTerm:
 
 #Class for defining an objective function in a modelseedpy model.
 class ObjectiveData:
-    def __init__(self, terms, sign=1):
-        self.sign = sign
+    def __init__(self, terms, sense="max"):
+        self.sense = sense
         self.terms = terms
 
     @staticmethod
     def from_string(objective_string):
-        sign = 1
+        sense = "max"
         terms = []
         if objective_string[0:3] == "MAX":
             objective_string = objective_string[4:-1]#Clearing out the directionality MAX{}
         elif objective_string[0:3] == "MIN":
-            sign = -1
             objective_string = objective_string[4:-1]#Clearing out the directionality MIN{}
+            sense = "min"
         term_strings = objective_string.split("|")
         for term_string in term_strings:
             term = ObjectiveTerm.from_string(term_string)
             terms.append(term)
-        return ObjectiveData(terms, sign)
+        return ObjectiveData(terms, sense)
         
     def to_string(self):
         objective_string = ""
-        if self.sign == 1:
+        if self.sense == "max":
             objective_string += "MAX{"
         else:
             objective_string += "MIN{"
@@ -74,12 +74,12 @@ class ObjectiveData:
     
     def to_cobrapy_objective(self, model):
         #Creating empty objective
-        objective = model.problem.Objective(Zero, direction="max")
+        objective = model.problem.Objective(Zero, direction=self.sense)
         #Parsing the terms
         coefficients = {}
         for term in self.terms:
             if term.variable in model.reactions:
-                coef = term.coefficient * self.sign
+                coef = term.coefficient
                 rxnobj = model.reactions.get_by_id(term.variable)
                 if term.direction == "+":
                     coefficients[rxnobj.forward_variable] = coef

@@ -799,6 +799,7 @@ class MSModelUtil:
                     exchange_list.append(cpd)
         if len(exchange_list) > 0:
             self.add_exchanges_for_metabolites(exchange_list)
+        print(f"Added {len(exchange_list)} exchanges to model "+self.model.id)
         return output
 
     def add_exchanges_for_metabolites(
@@ -903,7 +904,7 @@ class MSModelUtil:
                 for met in reaction.metabolites:
                     coef = reaction.metabolites[met]
                     if met.id.split("_")[-1][0:1] == "e":
-                        transported_charge += coef * met.charge
+                        transported_charge += coef * (met.charge or 0)
                 #Pulling ModelSEED Biochemistry related data
                 msid = MSModelUtil.reaction_msid(reaction)
                 if msid and msid != "rxn00000" and msid in biochem.reactions:
@@ -1928,6 +1929,7 @@ class MSModelUtil:
                         "use_protein_class": None,
                         "use_energy_class": [0, 1],
                         "add_total_biomass_constraint": False,
+                        "set_min_flex_biomass_objective": False,
                     }
                 )
 

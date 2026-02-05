@@ -138,7 +138,7 @@ class FlexibleBiomassPkg(BaseFBAPkg):
             prefix="FLEX_" + self.parameters["bio_rxn"].id + "_",
             prefix_name="Biomass flex for ",
         )
-        if parameters["set_min_flex_biomass_objective"]:
+        if self.parameters["set_min_flex_biomass_objective"]:
             self.set_min_flex_biomass_objective()
         for metabolite in flexcpds:
             self.build_flex_biomass_constraint(metabolite, "flxcpd")
