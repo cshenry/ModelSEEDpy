@@ -11,7 +11,7 @@ from modelseedpy.core.msmedia import MSMedia
 
 logger = logging.getLogger(__name__)
 logger.setLevel(
-    logging.INFO
+    logging.WARNING
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
 zero_threshold = 0.0000001

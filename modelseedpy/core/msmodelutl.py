@@ -603,7 +603,7 @@ class MSModelUtil:
                 if array[1] == compartment or met.compartment == compartment:
                     return [met]
             return []
-        logger.info(name + " not found in model!")
+        logger.debug(name + " not found in model!")
         return []
 
     def rxn_hash(self):
@@ -799,7 +799,7 @@ class MSModelUtil:
                     exchange_list.append(cpd)
         if len(exchange_list) > 0:
             self.add_exchanges_for_metabolites(exchange_list)
-        print(f"Added {len(exchange_list)} exchanges to model "+self.model.id)
+        logger.debug(f"Added {len(exchange_list)} exchanges to model {self.model.id}")
         return output
 
     def add_exchanges_for_metabolites(
@@ -837,7 +837,7 @@ class MSModelUtil:
             else:
                 self.attributes = value
         if hasattr(self.model, "computed_attributes"):
-            logger.info("Setting FBAModel computed_attributes to mdlutl attributes")
+            logger.debug("Setting FBAModel computed_attributes to mdlutl attributes")
             self.attributes["gene_count"] = len(self.model.genes)
             self.model.computed_attributes = self.attributes
 
@@ -1268,7 +1268,7 @@ class MSModelUtil:
                 objective = self.model.slim_optimize()
                 if objective < thresholds[i]:
                     needed = True
-                    logger.info(
+                    logger.debug(
                         medias[i].id + "/" + target + ":" +rxn_id
                         + item[1]
                         + " needed:"
@@ -1279,7 +1279,7 @@ class MSModelUtil:
             #If the reaction isn't needed for any media and target combinations, add it to the unneeded list
             if not needed:
                 unneeded.append([rxn_id, item[1], item[2],original_bound,other_original_bound])
-                logger.info(
+                logger.debug(
                     rxn_id
                     + item[1]
                     + " not needed:"
@@ -1335,7 +1335,7 @@ class MSModelUtil:
         return unneeded
 
     def add_gapfilling(self, solution):
-        logger.info("Adding gapfilling:"+str(solution))
+        logger.debug("Adding gapfilling:"+str(solution))
         self.integrated_gapfillings.append(solution)
 
     def create_kb_gapfilling_data(self, kbmodel, atpmedia_ws="94026"):
@@ -1759,10 +1759,10 @@ class MSModelUtil:
                 else:
                     item[0].lower_bound = 0
             toc = time.perf_counter()
-            logger.info(
+            logger.debug(
                 "Expansion time:" + condition["media"].id + ":" + str((toc - tic))
             )
-            logger.info(
+            logger.debug(
                 "Filtered count:"
                 + str(len(filtered_list))
                 + " out of "
@@ -1978,7 +1978,7 @@ class MSModelUtil:
                         )
                         rxnobj.lower_bound = original_bound
                 else:
-                    logger.info("Reaction "+item[0]+" not in model during sensitivity analysis!")
+                    logger.debug("Reaction "+item[0]+" not in model during sensitivity analysis!")
                     output[item[0]][item[1]] = []
             return output
 

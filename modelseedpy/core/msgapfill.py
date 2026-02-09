@@ -412,10 +412,10 @@ class MSGapfill:
         self.mdlutl.printlp(model=merged_model,filename="GlobalGapfill",print=True)
 
         # Running gapfilling and checking solution
-        print("Starting global optimization-",time.time()-start_time)
+        logger.debug("Starting global optimization- %s", time.time()-start_time)
         sol = merged_model.optimize()
-        print("Global optimization complete-",time.time()-start_time)
-        logger.info(
+        logger.debug("Global optimization complete- %s", time.time()-start_time)
+        logger.debug(
             f"gapfill solution objective value {sol.objective_value} ({sol.status}) for media {media}"
         )
         if sol.status != "optimal":
@@ -447,8 +447,8 @@ class MSGapfill:
                     logger.debug(f"{rxnid} forward {gfrxnidhash[rxnid]['forward'].primal} {penalty}")
                 flux_values[rxnid]["forward"] = gfrxnidhash[rxnid]["forward"].primal
         global_solution = origgfpkg.compute_gapfilled_solution(flux_values)
-        logger.info(f"Gloabl solution: {global_solution}")
-        print("Global gapfilling done -",time.time()-start_time)
+        logger.debug(f"Global solution: {global_solution}")
+        logger.debug("Global gapfilling done - %s", time.time()-start_time)
         return global_solution
 
     def run_multi_gapfill(
@@ -518,8 +518,8 @@ class MSGapfill:
         cumulative_solution = []
         for i,media in enumerate(test_output["medias"]):
             #Implementing specified gapfilling mode
-            if gapfilling_mode == "Independent" or gapfilling_mode == "Sequential":           
-                print("Running "+gapfilling_mode+" gapfilling!")
+            if gapfilling_mode == "Independent" or gapfilling_mode == "Sequential":
+                logger.debug("Running %s gapfilling!", gapfilling_mode)
                 solution = self.run_gapfilling(
                     media,
                     test_output["targets"][i],
@@ -542,7 +542,7 @@ class MSGapfill:
                         self.gfpkgmgr.getpkg("GapfillingPkg").build_gapfilling_objective_function()
         if gapfilling_mode == "Global":
             #Now we run simultaneous gapfilling on a combination of all our various gapfilled models
-            print("Running global gapfilling!")
+            logger.debug("Running global gapfilling!")
             full_solution = self.run_global_gapfilling(
                 medias=test_output["medias"],
                 targets=test_output["targets"],
@@ -575,7 +575,7 @@ class MSGapfill:
                 remove_unneeded_reactions=True,
                 do_not_remove_list=[]
             )#Returns reactions in cumulative solution that are not needed for growth
-            print("Unneeded in global gapfill:",unneeded)
+            logger.debug("Unneeded in global gapfill: %s", unneeded)
         elif gapfilling_mode == "Sequential":
             #Restoring the gapfilling objective function
             self.gfpkgmgr.getpkg("GapfillingPkg").compute_gapfilling_penalties(reaction_scores=self.reaction_scores)
@@ -584,7 +584,7 @@ class MSGapfill:
         #with open("datacache/solutions.json", 'w') as f:
             #json.dump(solution_dictionary,f,indent=4,skipkeys=True)
         if run_sensitivity_analysis:
-            logger.info(
+            logger.debug(
                 "Gapfilling sensitivity analysis running"
             )
             #First aggregating all unique reactions with a media for each
@@ -682,14 +682,14 @@ class MSGapfill:
                 #Clearing current bounds because we only want to add reaction in the direction it was gapfilled in
                 rxn.upper_bound = 0
                 rxn.lower_bound = 0
-            logger.info(f"integrating rxn: {item[0]}")
+            logger.debug(f"integrating rxn: {item[0]}")
             rxn = self.model.reactions.get_by_id(item[0])
             #Setting genes if the reaction has no genes
             if len(rxn.genes) == 0:
                 #Setting genes from reaction scores in we have them
                 coreid = re.sub(r"_[a-z]\d+$", "", item[0])
                 if coreid in self.reaction_scores:
-                    logger.info(f"Found reaction scores for coreid: {coreid}")
+                    logger.debug(f"Found reaction scores for coreid: {coreid}")
                     bestgene = None
                     bestscore = None
                     for gene in self.reaction_scores[coreid]:
@@ -706,10 +706,9 @@ class MSGapfill:
                             bestgene = gene
                             bestscore = score
                     rxn = self.model.reactions.get_by_id(item[0])
-                    logger.info(f"Assigning gene to reaction: {item[0]} {bestgene}")
+                    logger.debug(f"Assigning gene to reaction: {item[0]} {bestgene}")
                     rxn.gene_reaction_rule = bestgene
                     rxn.notes["new_genes"] = bestgene
-                    print("Assigning gene to reaction: "+item[0]+" "+bestgene)
             #Setting bounds according to the direction the reaction was gapfilled in
             if item[1] == ">":
                 rxn.upper_bound = 100
@@ -733,7 +732,7 @@ class MSGapfill:
                         cumulative_solution.append(item)
                 #elif not remove_unneeded_reactions and not self.mdlutl.find_item_in_solution(cumulative_solution,item):
                 #    cumulative_solution.append(item)
-            logger.info(f"Cumulative media target solution: {str(current_media_target_solution)}")
+            logger.debug(f"Cumulative media target solution: {str(current_media_target_solution)}")
         else:
             unneeded = self.mdlutl.test_solution(full_solution,[solution["target"]],[solution["media"]],[solution["minobjective"]],remove_unneeded_reactions,do_not_remove_list=cumulative_solution)#Returns reactions in input solution that are not needed for growth
             for item in cumulative_solution:
@@ -751,7 +750,7 @@ class MSGapfill:
         if check_for_growth:
             self.mdlutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(solution["media"])
             current_media_target_solution["growth"] = self.mdlutl.model.slim_optimize()
-            logger.info(f"Growth: {str(current_media_target_solution['growth'])} {solution['media'].id}")
+            logger.debug(f"Growth: {str(current_media_target_solution['growth'])} {solution['media'].id}")
         # Adding the gapfilling solution data to the model, which is needed for saving the model in KBase
         self.mdlutl.add_gapfilling(current_media_target_solution)
         # Testing which gapfilled reactions are needed to produce each reactant in the objective function

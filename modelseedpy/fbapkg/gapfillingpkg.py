@@ -722,7 +722,7 @@ class GapfillingPkg(BaseFBAPkg):
         self.reset_objective_minimum(0,False)
         self.model.objective = self.original_objective
         self.test_solution = self.model.optimize()
-        logger.info(
+        logger.debug(
             "Objective with gapfill database:"
             + str(self.test_solution.objective_value)
             + "; min objective:"
@@ -796,9 +796,9 @@ class GapfillingPkg(BaseFBAPkg):
                             rxnlist.append([reaction, "<"])
                         if reaction.upper_bound > 0:
                             rxnlist.append([reaction, ">"])
-                print("Full model:",len(self.modelutl.model.reactions))
-                print("Gapfilling count:",len(self.gapfilling_penalties))
-                print("Reaction list:",len(rxndict))
+                logger.debug("Full model: %d", len(self.modelutl.model.reactions))
+                logger.debug("Gapfilling count: %d", len(self.gapfilling_penalties))
+                logger.debug("Reaction list: %d", len(rxndict))
                 filtered_list = self.modelutl.reaction_expansion_test(
                     rxnlist, test_conditions,active_reaction_sets=active_reaction_sets
                 )#,positive_growth=growth_conditions

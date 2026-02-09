@@ -94,7 +94,7 @@ class MSATPCorrection:
         for media_id in forced_media:
             for item in self.atp_medias:
                 if item[0].id == media_id:
-                    print("Forced media: " + media_id)
+                    logger.debug("Forced media: %s", media_id)
                     self.forced_media.append(item[0])
                     break
 
@@ -329,7 +329,7 @@ class MSATPCorrection:
                     run_sensitivity_analysis=False,
                     integrate_solutions=False,
                 )
-                print(str(all_solutions))
+                logger.debug(str(all_solutions))
                 # Adding the new solutions to the media gapfill stats
                 for media in all_solutions:
                     self.media_gapfill_stats[media] = all_solutions[media]
@@ -381,7 +381,7 @@ class MSATPCorrection:
         if self.max_gapfilling is None:
             self.max_gapfilling = best_score
 
-        logger.info(f"max_gapfilling: {self.max_gapfilling}, best_score: {best_score}")
+        logger.debug(f"max_gapfilling: {self.max_gapfilling}, best_score: {best_score}")
 
         for media in self.media_gapfill_stats:
             if atp_att["core_atp_gapfilling"][media.id][
@@ -458,7 +458,7 @@ class MSATPCorrection:
         )
         # Removing filtered reactions
         for item in self.filtered_noncore:
-            logger.info("Removing " + item[0].id + " " + item[1])
+            logger.debug("Removing " + item[0].id + " " + item[1])
             if item[1] == ">":
                 item[0].upper_bound = 0
             else:
