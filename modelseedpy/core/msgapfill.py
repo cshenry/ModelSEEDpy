@@ -17,7 +17,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 logger.setLevel(
-    logging.INFO  # WARNING
+    logging.WARNING
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
 

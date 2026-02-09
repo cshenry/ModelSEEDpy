@@ -22,7 +22,7 @@ from modelseedpy.core.fbahelper import FBAHelper
 
 logger = logging.getLogger(__name__)
 logger.setLevel(
-    logging.INFO
+    logging.WARNING
 )  # When debugging - set this to INFO then change needed messages below from DEBUG to INFO
 
 base_blacklist = {"rxn04656":"=","rxn07589":"<","rxn07588":"<"}
