@@ -132,19 +132,20 @@ class MSGapfill:
             return True
         if self.gfpkgmgr.getpkg("GapfillingPkg").test_solution.status == 'infeasible':
             return False
+        media_id = media.id if media else "Complete"
         gf_sensitivity = {}
         if target != "rxn00062_c0":
             gf_sensitivity = self.mdlutl.get_attributes("gf_sensitivity", {})
-        if media.id not in gf_sensitivity:
-            gf_sensitivity[media.id] = {}
-        if target not in gf_sensitivity[media.id]:
-            gf_sensitivity[media.id][target] = {}
+        if media_id not in gf_sensitivity:
+            gf_sensitivity[media_id] = {}
+        if target not in gf_sensitivity[media_id]:
+            gf_sensitivity[media_id][target] = {}
         filter_msg = " "
         note = "FAF"
         if before_filtering:
             filter_msg = " before filtering "
             note = "FBF"
-        gf_sensitivity[media.id][target][
+        gf_sensitivity[media_id][target][
             note
         ] = self.mdlutl.find_unproducible_biomass_compounds(target)
         if target != "rxn00062_c0":
@@ -153,7 +154,7 @@ class MSGapfill:
             "No gapfilling solution found"
             + filter_msg
             + "for "
-            + media.id
+            + media_id
             + " activating "
             + target
         )
