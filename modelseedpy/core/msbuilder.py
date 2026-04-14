@@ -360,9 +360,9 @@ class MSBuilder:
             return None
         if self.template.drains:
             demands = {
-                x.id: t[0]
+                x.id: -1000
                 for x, t in self.template.drains.items()
-                if t[0] < 0 and x.id in self.template_species_to_model_species
+                if x.id in self.template_species_to_model_species
             }
             return [self.build_demand_reaction(x, v) for x, v in demands.items()]
         else:
