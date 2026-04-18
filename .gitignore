@@ -113,5 +113,8 @@ dmypy.json
 *data/*
 *.lp
 
+# Claude
+.claude/settings.local.json
+
 # Cursor workspace files
 *.code-workspace

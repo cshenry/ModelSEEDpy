@@ -1,3 +1,9 @@
+---
+name: Create New Project
+description: Bootstrap a new project with directory structure, git, and Claude configuration
+scope: universal
+---
+
 # Command: create-new-project
 
 ## Purpose

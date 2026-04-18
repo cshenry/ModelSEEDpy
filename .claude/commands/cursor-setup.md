@@ -1,3 +1,9 @@
+---
+name: Cursor Setup
+description: Configure Cursor IDE with Claude Code integration and project settings
+scope: universal
+---
+
 # Command: cursor-setup
 
 ## Purpose

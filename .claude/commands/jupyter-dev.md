@@ -1,3 +1,9 @@
+---
+name: Jupyter Development
+description: Create and manage Jupyter notebooks for data analysis and development
+scope: universal
+---
+
 # Command: jupyter-dev
 
 ## Purpose
