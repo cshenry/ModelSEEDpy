@@ -51,8 +51,6 @@ from modelseedpy.core import (
 )
 from modelseedpy.core.exceptions import *
 
-#from modelseedpy.community import MSCommunity, MSCompatibility, CommKineticPkg
-
 from modelseedpy.biochem import ModelSEEDBiochem
 
 from modelseedpy.fbapkg import (
