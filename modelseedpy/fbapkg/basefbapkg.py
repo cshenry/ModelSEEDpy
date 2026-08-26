@@ -3,18 +3,16 @@
 from __future__ import absolute_import
 
 import logging
-import re  # !!! import is never used
-from optlang.symbolics import Zero, add  # !!! add is never used
-import json as _json  # !!! import is never used
+import re
+from optlang.symbolics import Zero, add
+import json as _json
 from cobra.core import (
     Gene,
     Metabolite,
     Model,
     Reaction,
-)  # !!! none of these imports are used
+)
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
-from modelseedpy.core.msmodelutl import MSModelUtil
-from modelseedpy.core.exceptions import FeasibilityError
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +28,9 @@ class BaseFBAPkg:
     Base class for FBA packages
     """
 
-    def __init__(
-        self, model, name, variable_types={}, constraint_types={}, reaction_types={}
-    ):
+    def __init__(self, model, name, variable_types={}, constraint_types={}, reaction_types={}):
+        # Deferred import to avoid circular dependency
+        from modelseedpy.core.msmodelutl import MSModelUtil
         if isinstance(model, MSModelUtil):
             self.model = model.model
             self.modelutl = model
@@ -47,12 +45,7 @@ class BaseFBAPkg:
             self.pkgmgr = MSPackageManager.get_pkg_mgr(model, 1)
         self.pkgmgr.addpkgobj(self)
 
-        self.constraints, self.variables, self.parameters, self.new_reactions = (
-            {},
-            {},
-            {},
-            {},
-        )
+        self.constraints, self.variables, self.parameters, self.new_reactions = {}, {}, {}, {}
         self.variable_types = variable_types
         self.constraint_types = constraint_types
 
@@ -92,9 +85,7 @@ class BaseFBAPkg:
             self.constraints[obj_type] = {}
         self.model.remove_cons_vars(cobra_objs)
 
-    def build_variable(
-        self, obj_type, lower_bound, upper_bound, vartype, cobra_obj=None
-    ):
+    def build_variable(self, obj_type, lower_bound, upper_bound, vartype, cobra_obj=None):
         name = None
         if self.variable_types[obj_type] == "none":
             count = len(self.variables[obj_type])
@@ -124,8 +115,7 @@ class BaseFBAPkg:
         if name in self.constraints[obj_type]:
             self.model.remove_cons_vars(self.constraints[obj_type][name])
         self.constraints[obj_type][name] = self.model.problem.Constraint(
-            Zero, lb=lower_bound, ub=upper_bound, name=name + "_" + obj_type
-        )
+            Zero, lb=lower_bound, ub=upper_bound, name=name + "_" + obj_type)
         self.model.add_cons_vars(self.constraints[obj_type][name])
         self.model.solver.update()
         if len(coef) > 0:
