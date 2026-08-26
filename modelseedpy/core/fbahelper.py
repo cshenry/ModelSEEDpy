@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-import logging
-from chemicals import periodic_table
-import re
-from cobra.core import (
-    Gene,
-    Metabolite,
-    Model,
-    Reaction,
-)  # !!! Gene, Metabolite, and Model are never used
-from cobra.util import solver as sutil  # !!! sutil is never used
-import time
-from scipy.odr.odrpack import Output  # !!! Output is never used
-from chemw import ChemMW
-from warnings import warn
 
-# from Carbon.Aliases import false
+
+from cobra.core import Gene, Metabolite, Model, Reaction
+from cobra.util import solver as sutil
+from chemicals import periodic_table
+from collections import Counter
+from scipy.odr import Output
+from typing import Iterable
+from warnings import warn
+from chemw import ChemMW
+import logging, time, re
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +82,6 @@ class FBAHelper:
                 reaction.lower_bound = 0
         reaction.update_variable_bounds()
 
-    @staticmethod
-    def set_objective_from_target_reaction(model, target_reaction, minimize=False):
-        target_reaction = model.reactions.get_by_id(target_reaction)
-        sense = "max"
-        if minimize:
-            sense = "min"
-        model.objective = model.problem.Objective(
-            target_reaction.flux_expression, direction=sense
-        )
-        return target_reaction
 
     @staticmethod
     def modelseed_id_from_cobra_metabolite(metabolite):
@@ -127,13 +114,8 @@ class FBAHelper:
             chem_mw.mass(formula)
             return chem_mw.raw_mw
         except:
-            logger.warn(
-                "The compound "
-                + metabolite.id
-                + " possesses an unconventional formula "
-                + metabolite.formula
-                + "; hence, the MW cannot be computed."
-            )
+            warn(f"The compound {metabolite.id} possesses an unconventional "
+                 f"formula {metabolite.formula}; hence, the MW cannot be computed.")
             return 0
 
     @staticmethod
@@ -159,121 +141,54 @@ class FBAHelper:
         return reaction.id[0:3] == "bio"
 
     @staticmethod
-    def exchange_hash(model):  #!!! This function is pointless?
-        exchange_hash = {}  # !!! this variable is never used
-        for reaction in model.reactions:
-            if len(reaction.metabolites) == 1:
-                for metabolite in reaction.metabolites:
-                    (base, comp, index) = FBAHelper.parse_id(metabolite)
-                    # exchange_hash[base][comp]
+    def isnumber(string):
+        if str(string) in ["nan", "inf", "True", "False"]:  return False
+        try:  float(string);  return True
+        except:  return False
 
     @staticmethod
-    def find_reaction(model, stoichiometry):
-        reaction_strings = FBAHelper.stoichiometry_to_string(stoichiometry)
-        atpstring = reaction_strings[0]
-        rxn_hash = FBAHelper.rxn_hash(model)
-        if atpstring in rxn_hash:
-            return rxn_hash[atpstring]
-        return None
+    def rxn_mets_list(rxn):
+        return [met for met in rxn.reactants+rxn.products]
 
     @staticmethod
-    def msid_hash(model):
-        output = {}
-        for met in model.metabolites:
-            msid = FBAHelper.modelseed_id_from_cobra_metabolite(met)
-            if msid is not None:
-                if msid not in output:
-                    output[msid] = []
-                output[msid].append(met)
-        return output
-
-    @staticmethod
-    def rxn_hash(model):
-        output = {}
-        for rxn in model.reactions:
-            reaction_strings = FBAHelper.stoichiometry_to_string(rxn.metabolites)
-            output[reaction_strings[0]] = [rxn, 1]
-            output[reaction_strings[1]] = [rxn, -1]
-        return output
+    def sum_dict(d1,d2):
+        for key, value in d1.items():
+            if key in d2:  d2[key] += value
+            else:  d2[key] = value
+        return d2
 
     @staticmethod
     def rxn_compartment(reaction):
         compartments = list(reaction.compartments)
-        if len(compartments) == 1:
-            return compartments[0]
-        cytosol = othercomp = None
+        if len(compartments) == 0:
+            if re.search("(?<=\_)(\w\d+)", reaction.id):   return reaction.id.split("_")[-1]
+            agora_comp = re.compile("(?<=\[)(.+)(?=\])")
+            if agora_comp.search([met for met in reaction.metabolites][0].id) is not None:
+                compartments = [agora_comp.search(met.id).groups() for met in reaction.metabolites]
+                print(Counter(compartments))
+                return list(Counter(compartments).keys())[0]
+        if len(compartments) == 1:  return compartments[0]
         for comp in compartments:
-            if comp[0:1] == "c":
-                cytosol = comp
-            elif comp[0:1] != "e":
-                othercomp = comp
-        return othercomp or cytosol
+            if comp[0:1] != "e":  return comp
+            elif comp[0:1] == "e":  extracellular = comp
+        return extracellular
+    
+    @staticmethod
+    def clean_fluxes(sol_fluxes, tol=1e-8):
+        if isinstance(sol_fluxes, dict):
+            cleaned_fluxes = {key: flux for key, flux in sol_fluxes.items() if abs(flux) >= tol}
+        else:
+            cleaned_fluxes = sol_fluxes.copy()
+            cleaned_fluxes[abs(cleaned_fluxes) < tol] = 0
+        return cleaned_fluxes
 
     @staticmethod
-    def stoichiometry_to_string(stoichiometry):
-        reactants, products = [], []
-        for met in stoichiometry:
-            stoich = stoichiometry[met]
-            if not isinstance(met, str):
-                met = (
-                    None
-                    if FBAHelper.modelseed_id_from_cobra_metabolite(met) == "cpd00067"
-                    else met.id
-                )
-            if met:
-                if stoich < 0:
-                    reactants.append(met)
-                else:
-                    products.append(met)
-        return [
-            "+".join(sorted(reactants)) + "=" + "+".join(sorted(products)),
-            "+".join(sorted(products)) + "=" + "+".join(sorted(reactants)),
-        ]
+    def remove_compartment(objID):
+        return re.sub(r"(\_\w\d+)", "", objID)
 
     @staticmethod
-    def add_atp_hydrolysis(model, compartment):
-        # Searching for ATP hydrolysis compounds
-        coefs = {
-            "cpd00002": [-1, compartment],
-            "cpd00001": [-1, compartment],
-            "cpd00008": [1, compartment],
-            "cpd00009": [1, compartment],
-            "cpd00067": [1, compartment],
-        }
-        stoichiometry = {}
-        id_hash = FBAHelper.msid_hash(model)
-        for msid, content in coefs.items():
-            if msid not in id_hash:
-                logger.warning("Compound " + msid + " not found in model!")
-                return None
-            else:
-                for cpd in id_hash[msid]:
-                    if cpd.compartment == content[1]:
-                        stoichiometry[cpd] = content[0]
-        output = FBAHelper.find_reaction(model, stoichiometry)
-        if (
-            output and output[1] == 1
-        ):  # !!! the second element of the output is 1/0 and not a direction string
-            return {"reaction": output[0], "direction": ">", "new": False}
-        cobra_reaction = Reaction(
-            "rxn00062_" + compartment,
-            name="ATP hydrolysis",
-            lower_bound=0,
-            upper_bound=1000,
-        )
-        cobra_reaction.annotation.update(
-            {"sbo": "SBO:0000176", "seed.reaction": "rxn00062"}
-        )  # biochemical reaction
-        cobra_reaction.add_metabolites(stoichiometry)
-        model.add_reactions([cobra_reaction])
-        return {"reaction": cobra_reaction, "direction": ">", "new": True}
-
-    @staticmethod
-    def parse_id(cobra_obj):
-        if re.search("(.+)_([a-z])(\d+)$", cobra_obj.id):
-            m = re.search("(.+)_([a-z])(\d+)$", cobra_obj.id)
-            return (m[1], m[2], int(m[3]))
-        return None
+    def compartment_index(string):
+        return int(re.search(r"(?<=\_|\w)(\d+)(?=$)", string).group())
 
     @staticmethod
     def id_from_ref(ref):
@@ -281,9 +196,8 @@ class FBAHelper:
         return array[-1]
 
     @staticmethod
-    def medianame(media):
-        if media == None:
-            return "Complete"
+    def mediaName(media):
+        if media == None:  return "Complete"
         return media.id
 
     @staticmethod
@@ -300,39 +214,18 @@ class FBAHelper:
     def parse_media(media):
         return [cpd.id for cpd in media.data["mediacompounds"]]
 
-    def get_reframed_model(
-        kbase_model,
-    ):
+    @staticmethod
+    def get_reframed_model(kbase_model):
         from reframed import from_cobrapy
 
         reframed_model = from_cobrapy(kbase_model)
         if hasattr(kbase_model, "id"):
             reframed_model.id = kbase_model.id
-        reframed_model.compartments.e0.external = True
+        for comp in reframed_model.compartments:
+            if 'e' in comp:
+                reframed_model.compartments[comp].external = True
+
         return reframed_model
-
-    @staticmethod
-    def add_vars_cons(model, vars_cons):
-        model.add_cons_vars(vars_cons)
-        model.solver.update()
-        return model
-
-    @staticmethod
-    def update_model_media(model, media):
-        medium = {}
-        model_reactions = [rxn.id for rxn in model.reactions]
-        for cpd in media.data["mediacompounds"]:
-            ex_rxn = f"EX_{cpd.id}"
-            if ex_rxn not in model_reactions:
-                model.add_boundary(
-                    metabolite=Metabolite(id=cpd.id, name=cpd.name, compartment="e0"),
-                    type="exchange",
-                    lb=cpd.minFlux,
-                    ub=cpd.maxFlux,
-                )
-            medium[ex_rxn] = cpd.maxFlux
-        model.medium = medium
-        return model
 
     @staticmethod
     def filter_cobra_set(cobra_set):
@@ -345,21 +238,50 @@ class FBAHelper:
         return unique_objs
 
     @staticmethod
-    def get_reframed_model(
-        kbase_model,
-    ):
-        from reframed import from_cobrapy
-
-        reframed_model = from_cobrapy(kbase_model)
-        if hasattr(kbase_model, "id"):
-            reframed_model.id = kbase_model.id
-        reframed_model.compartments.e0.external = True
-        return reframed_model
+    def parse_df(df, float_values=True):
+        if isinstance(df, tuple):
+            return df
+        from collections import namedtuple
+        dataframe = namedtuple("DataFrame", ("index", "columns", "values"))
+        df.dropna(inplace=True)
+        values = df.to_numpy()
+        if float_values:
+            values = values.astype("float64")
+        return dataframe(list(df.index), list(df.columns), values)
 
     @staticmethod
-    def parse_df(df):
-        from numpy import array
+    def solution_to_dict(solution):
+        return {key:flux for key, flux in solution.fluxes.items()}
+    
+    @staticmethod
+    def solution_to_rxns_dict(solution, model):
+        return {model.reactions.get_by_id(key):flux for key, flux in solution.fluxes.items()}
+        
+    @staticmethod
+    def solution_to_variables_dict(solution, model):
+        return {model.variables.get(key):flux for key, flux in solution.fluxes.items()}
+    
+    @staticmethod
+    def remove_media_compounds(media_dict, compounds, printing=True):
+        edited_dic = media_dict.copy()
+        for cpd in compounds:
+            if cpd in edited_dic:
+                edited_dic.pop(cpd)
+                if printing:
+                    print(f"{cpd} removed")
+            else:
+                print(f"ERROR: The {cpd} is not located in the media.")
+        return edited_dic
 
-        return array(
-            dtype=object, object=[array(df.index), array(df.columns), df.to_numpy()]
-        )
+    @staticmethod
+    def IDRxnMets(rxn):
+        if not isinstance(rxn, dict):
+            return {met.id: stoich for met, stoich in rxn.metabolites.items()}
+        else:
+            return {met.id: stoich for met, stoich in rxn.items()}
+
+    @staticmethod
+    def convert_kbase_media(kbase_media, uniform_uptake=1000):
+        if uniform_uptake is None:
+            return {"EX_"+exID: -bound[0] for exID, bound in kbase_media.get_media_constraints().items()}
+        return {"EX_"+exID: uniform_uptake for exID in kbase_media.get_media_constraints().keys()}
