@@ -1,4 +1,4 @@
-Template packages
+mstemplate
 --------------------------------------
 
 +++++++++++++++++++++
@@ -405,9 +405,9 @@ A class that defines template compartments:
 
 .. code-block:: python
 
- complex_template = NewModelTemplateComplex(compartment_id: str, name: str, ph: float, hierarchy=0, aliases=None)
+ complex_template = NewModelTemplateComplex(compartment_index: str, name: str, ph: float, hierarchy=0, aliases=None)
 
-- *compartment_id* & *name* ``str``: The ID and name of the compartment that will be refined into a template.
+- *compartment_index* & *name* ``str``: The ID and name of the compartment that will be refined into a template.
 - *ph* ``float``: The pH of the compartment.
 - *hierarchy* ``float``: The pH of the compartment.
 - *aliases* ``list``: The collection of alternative identifications for the compartment.
