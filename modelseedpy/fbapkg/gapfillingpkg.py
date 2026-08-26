@@ -131,8 +131,8 @@ class GapfillingPkg(BaseFBAPkg):
         indexhash = self.get_model_index_hash()
         # Iterating over all indecies with more than 10 intracellular compounds:
         self.base_gapfilling_penalties = dict()
-        for index in indexhash:
-            if indexhash[index] > 10:
+        for index, val in indexhash.items():
+            if val > 10:
                 if index == "none":
                     for template in self.parameters["default_gapfill_templates"]:
                         new_penalties = self.extend_model_with_template_for_gapfilling(
@@ -308,114 +308,111 @@ class GapfillingPkg(BaseFBAPkg):
                     None, minobjective
                 )
 
+    def get_model_index_hash(self):
+        """Determine all indices that should be gap filled"""
+        index_hash = {"none": 0}
+        for metabolite in self.model.metabolites:
+            if re.search('_[a-z]\d+$', metabolite.id) is not None:
+                m = re.search('_([a-z])(\d+)$', metabolite.id)
+                if m[1] != "e":
+                    if m[2] not in index_hash:
+                        index_hash[m[2]] = 0
+                    index_hash[m[2]] += 1
+            else:
+                index_hash["none":0]
+                # Iterating over all indecies with more than 10 intracellular compounds:
+        return index_hash
+
+    def get_model_index_hash(self):
+        """Determine all indices that should be gap filled"""
+        index_hash = {"none": 0}
+        for metabolite in self.model.metabolites:
+            if re.search('_[a-z]\d+$', metabolite.id) is not None:
+                m = re.search('_([a-z])(\d+)$', metabolite.id)
+                if m[1] != "e":
+                    if m[2] not in index_hash:
+                        index_hash[m[2]] = 0
+                    index_hash[m[2]] += 1
+            else:
+                index_hash["none":0]
+                # Iterating over all indecies with more than 10 intracellular compounds:
+        return index_hash
+
     def extend_model_with_model_for_gapfilling(self, source_model, index):
-        new_metabolites = {}
-        new_reactions = {}
-        new_exchange = []
-        new_demand = []
-        new_penalties = dict()
-        local_remap = {}
+        self.new_metabolites, self.new_reactions, local_remap, new_penalties = {}, {}, {}, {}
+        new_exchange, new_demand = [], []
         # Adding metabolites from source model to gapfill model
-        for cobra_metabolite in source_model.metabolites:
-            original_id = cobra_metabolite.id
-            if re.search("(.+)_([a-z])\d+$", cobra_metabolite.id) != None:
-                m = re.search("(.+)_([a-z])\d+$", cobra_metabolite.id)
+        for cobra_met in source_model.metabolites:
+            original_id = cobra_met.id
+            if re.search('(.+)_([a-z])\d+$', cobra_met.id) is not None:
+                m = re.search('(.+)_([a-z])\d+$', cobra_met.id)
                 if m[2] == "e":
-                    cobra_metabolite.compartment = "e0"
-                    cobra_metabolite.id = m[1] + "_e0"
+                    cobra_met.compartment = "e0"
+                    cobra_met.id = m[1] + "_e0"
                 else:
-                    cobra_metabolite.compartment = m[2] + index
-                    cobra_metabolite.id = m[1] + "_" + m[2] + index
+                    cobra_met.compartment = m[2] + index
+                    cobra_met.id = m[1] + "_" + m[2] + index
                 if (
-                    cobra_metabolite.id not in self.model.metabolites
-                    and cobra_metabolite.id not in new_metabolites
+                    cobra_met.id not in self.model.metabolites
+                    and cobra_met.id not in self.new_metabolites
                 ):
-                    new_metabolites[cobra_metabolite.id] = cobra_metabolite
-                    local_remap[original_id] = cobra_metabolite
+                    self.new_metabolites[cobra_met.id] = cobra_met
+                    local_remap[original_id] = cobra_met
                     if m[1] + "_" + m[2] in self.parameters["auto_sink"]:
-                        new_demand.append(cobra_metabolite)
+                        new_demand.append(cobra_met)
                     if m[2] == "e":
-                        new_exchange.append(cobra_metabolite)
+                        new_exchange.append(cobra_met)
         # Adding all metabolites to model prior to adding reactions
-        self.model.add_metabolites(new_metabolites.values())
+        self.model.add_metabolites(self.new_metabolites.values())
         # Adding reactions from source model to gapfill model
         for modelreaction in source_model.reactions:
             if re.search("(.+)_([a-z])\d+$", modelreaction.id) != None:
                 m = re.search("(.+)_([a-z])\d+$", modelreaction.id)
                 if m[1] not in self.parameters["blacklist"]:
+                    cobra_rxn = modelreaction.copy()
                     if m[1] in base_blacklist:
                         if base_blacklist[m[1]] == ">" or base_blacklist[m[1]] == "=":
-                            cobra_reaction.upper_bound = 0
+                            cobra_rxn.upper_bound = 0
                         if base_blacklist[m[1]] == "<" or base_blacklist[m[1]] == "=":
-                            cobra_reaction.lower_bound = 0
-                    cobra_reaction = modelreaction.copy()
-                    cobra_reaction.id = groups[1] + "_" + groups[2] + index
+                            cobra_rxn.lower_bound = 0
+                    cobra_rxn.id = m[1] + "_" + m[2] + index
                     if (
-                        cobra_reaction.id not in self.model.reactions
-                        and cobra_reaction.id not in new_reactions
+                        cobra_rxn.id not in self.model.reactions
+                        and cobra_rxn.id not in self.new_reactions
                     ):
-                        new_reactions[cobra_reaction.id] = cobra_reaction
-                        new_penalties[cobra_reaction.id] = dict()
-                        new_penalties[cobra_reaction.id]["added"] = 1
-                        if cobra_reaction.lower_bound < 0:
-                            new_penalties[cobra_reaction.id][
+                        self.new_reactions[cobra_rxn.id] = cobra_rxn
+                        new_penalties[cobra_rxn.id] = dict()
+                        new_penalties[cobra_rxn.id]["added"] = 1
+                        if cobra_rxn.lower_bound < 0:
+                            new_penalties[cobra_rxn.id][
                                 "reverse"
                             ] = self.parameters["model_penalty"]
-                        if cobra_reaction.upper_bound > 0:
-                            new_penalties[cobra_reaction.id][
+                        if cobra_rxn.upper_bound > 0:
+                            new_penalties[cobra_rxn.id][
                                 "forward"
                             ] = self.parameters["model_penalty"]
                         # Updating metabolites in reaction to new model
-                        metabolites = cobra_reaction.metabolites
                         new_stoichiometry = {}
-                        for metabolite in metabolites:
+                        for met in cobra_rxn.metabolites:
                             # Adding new coefficient:
-                            new_stoichiometry[local_remap[metabolite.id]] = metabolites[
-                                metabolite
-                            ]
+                            new_stoichiometry[local_remap[met.id]] = cobra_rxn.metabolites[met]
                             # Zeroing out current coefficients
-                            if local_remap[metabolite.id] != metabolite:
-                                new_stoichiometry[metabolite] = 0
-                        cobra_reaction.add_metabolites(new_stoichiometry, combine=False)
-                    elif (
-                        cobra_reaction.lower_bound < 0
-                        and self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).lower_bound
-                        == 0
-                    ):
-                        self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).lower_bound = cobra_reaction.lower_bound
-                        self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).update_variable_bounds()
-                        new_penalties[cobra_reaction.id]["reverse"] = self.parameters[
-                            "model_penalty"
-                        ]
-                        new_penalties[cobra_reaction.id]["reversed"] = 1
-                    elif (
-                        cobra_reaction.upper_bound > 0
-                        and self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).upper_bound
-                        == 0
-                    ):
-                        self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).upper_bound = cobra_reaction.upper_bound
-                        self.model.reactions.get_by_id(
-                            cobra_reaction.id
-                        ).update_variable_bounds()
-                        new_penalties[cobra_reaction.id]["forward"] = model_penalty
-                        new_penalties[cobra_reaction.id]["reversed"] = 1
+                            if local_remap[met.id] != met:
+                                new_stoichiometry[met] = 0
+                        cobra_rxn.add_metabolites(new_stoichiometry, combine=False)
+                    elif cobra_rxn.lower_bound < 0 and self.model.reactions.get_by_id(cobra_rxn.id).lower_bound == 0:
+                        self.model.reactions.get_by_id(cobra_rxn.id).lower_bound = cobra_rxn.lower_bound
+                        self.model.reactions.get_by_id(cobra_rxn.id).update_variable_bounds()
+                        new_penalties[cobra_rxn.id]["reverse"] = self.parameters["model_penalty"]
+                        new_penalties[cobra_rxn.id]["reversed"] = True
+                    elif cobra_rxn.upper_bound > 0 and self.model.reactions.get_by_id(cobra_rxn.id).upper_bound == 0:
+                        self.model.reactions.get_by_id(cobra_rxn.id).upper_bound = cobra_rxn.upper_bound
+                        self.model.reactions.get_by_id(cobra_rxn.id).update_variable_bounds()
+                        new_penalties[cobra_rxn.id]["forward"] = self.parameters["model_penalty"]
+                        new_penalties[cobra_rxn.id]["reversed"] = True
 
-                        # Only run this on new exchanges so we don't readd for all exchanges
-        self.modelutl.add_exchanges_for_metabolites(
-            new_exchange,
-            self.parameters["default_uptake"],
-            self.parameters["default_excretion"],
-        )
+        # Only run this on new exchanges so we don't readd for all exchanges
+        self.modelutl.add_exchanges_for_metabolites(new_exchange,self.parameters["default_uptake"],self.parameters["default_excretion"])
         # Only run this on new demands so we don't readd for all exchanges
         self.modelutl.add_exchanges_for_metabolites(
             new_demand,
@@ -424,7 +421,7 @@ class GapfillingPkg(BaseFBAPkg):
             "DM_",
         )
         # Adding all new reactions to the model at once (much faster than one at a time)
-        self.model.add_reactions(new_reactions.values())
+        self.model.add_reactions(self.new_reactions.values())
         return new_penalties
 
     def extend_model_with_template_metabolites(self, template, index="0"):
@@ -434,28 +431,23 @@ class GapfillingPkg(BaseFBAPkg):
         :param index:
         :return:
         """
-        new_metabolites = {}
-        new_exchange = []
-        new_demand = []
+        self.new_metabolites = {}
+        new_exchange, new_demand = [], []
         for template_compound in template.compcompounds:
             compartment = template_compound.compartment
-            compartment_index = "0" if compartment == "e" else index
-            cobra_metabolite = template_compound.to_metabolite(compartment_index)
-            # cobra_metabolite = self.convert_template_compound(template_compound, compartment_index, template)  # TODO: move function out
-            if (
-                cobra_metabolite.id not in self.model.metabolites
-                and cobra_metabolite.id not in new_metabolites
-            ):
-                new_metabolites[cobra_metabolite.id] = cobra_metabolite
-                # self.model.add_metabolites([cobra_metabolite])
-                msid = FBAHelper.modelseed_id_from_cobra_metabolite(cobra_metabolite)
+            compartment_index = "0" if compartment == 'e' else index
+            cobra_met = self.convert_template_compound(template_compound, compartment_index, template)  # TODO: move function out
+            if cobra_met.id not in self.model.metabolites and cobra_met.id not in self.new_metabolites:
+                self.new_metabolites[cobra_met.id] = cobra_met
+                #self.model.add_metabolites([cobra_met])
+                msid = FBAHelper.modelseed_id_from_cobra_metabolite(cobra_met)
                 if msid in self.parameters["auto_sink"]:
-                    if msid != "cpd11416" or cobra_metabolite.compartment == "c0":
-                        new_demand.append(cobra_metabolite)
+                    if msid != "cpd11416" or cobra_met.compartment == "c0":
+                        new_demand.append(cobra_met)
                 if compartment == "e":
-                    new_exchange.append(cobra_metabolite)
+                    new_exchange.append(cobra_met)
         # Adding all metabolites to model prior to adding reactions
-        self.model.add_metabolites(new_metabolites.values())
+        self.model.add_metabolites(self.new_metabolites.values())
 
         return new_exchange, new_demand
 
@@ -463,7 +455,7 @@ class GapfillingPkg(BaseFBAPkg):
     def extend_model_with_template_for_gapfilling(self, template, index):
         logger.debug(f"extend model with template: {template}, index: {index}")
 
-        new_reactions = {}
+        self.new_reactions = {}
         new_penalties = dict()
 
         # Adding all metabolites to model prior to adding reactions
@@ -474,7 +466,7 @@ class GapfillingPkg(BaseFBAPkg):
         for template_reaction in template.reactions:
             if template_reaction.reference_id in self.parameters["blacklist"]:
                 continue
-            cobra_reaction = self.convert_template_reaction(
+            cobra_rxn = self.convert_template_reaction(
                 template_reaction, index, template, 1
             )  # TODO: move function out
             if template_reaction.reference_id in base_blacklist:
@@ -482,42 +474,42 @@ class GapfillingPkg(BaseFBAPkg):
                     base_blacklist[template_reaction.reference_id] == ">"
                     or base_blacklist[template_reaction.reference_id] == "="
                 ):
-                    cobra_reaction.upper_bound = 0
+                    cobra_rxn.upper_bound = 0
                 if (
                     base_blacklist[template_reaction.reference_id] == "<"
                     or base_blacklist[template_reaction.reference_id] == "="
                 ):
-                    cobra_reaction.lower_bound = 0
-            new_penalties[cobra_reaction.id] = dict()
+                    cobra_rxn.lower_bound = 0
+            new_penalties[cobra_rxn.id] = dict()
             if (
-                cobra_reaction.id not in self.model.reactions
-                and cobra_reaction.id not in new_reactions
+                cobra_rxn.id not in self.model.reactions
+                and cobra_rxn.id not in self.new_reactions
             ):
                 # Adding any template reactions missing from the present model
-                new_reactions[cobra_reaction.id] = cobra_reaction
-                if cobra_reaction.lower_bound < 0:
-                    new_penalties[cobra_reaction.id]["reverse"] = (
+                self.new_reactions[cobra_rxn.id] = cobra_rxn
+                if cobra_rxn.lower_bound < 0:
+                    new_penalties[cobra_rxn.id]["reverse"] = (
                         template_reaction.base_cost + template_reaction.reverse_penalty
                     )
-                if cobra_reaction.upper_bound > 0:
-                    new_penalties[cobra_reaction.id]["forward"] = (
+                if cobra_rxn.upper_bound > 0:
+                    new_penalties[cobra_rxn.id]["forward"] = (
                         template_reaction.base_cost + template_reaction.forward_penalty
                     )
-                new_penalties[cobra_reaction.id]["added"] = 1
+                new_penalties[cobra_rxn.id]["added"] = 1
             elif template_reaction.GapfillDirection == "=":
                 # Adjusting directionality as needed for existing reactions
-                model_reaction = self.model.reactions.get_by_id(cobra_reaction.id)
-                new_penalties[cobra_reaction.id]["reversed"] = 1
+                model_reaction = self.model.reactions.get_by_id(cobra_rxn.id)
+                new_penalties[cobra_rxn.id]["reversed"] = True
                 if model_reaction.lower_bound == 0:
                     model_reaction.lower_bound = template_reaction.lower_bound
                     model_reaction.update_variable_bounds()
-                    new_penalties[cobra_reaction.id]["reverse"] = (
+                    new_penalties[cobra_rxn.id]["reverse"] = (
                         template_reaction.base_cost + template_reaction.reverse_penalty
                     )
                 if model_reaction.upper_bound == 0:
                     model_reaction.upper_bound = template_reaction.upper_bound
                     model_reaction.update_variable_bounds()
-                    new_penalties[cobra_reaction.id]["forward"] = (
+                    new_penalties[cobra_rxn.id]["forward"] = (
                         template_reaction.base_cost + template_reaction.forward_penalty
                     )
         # Only run this on new exchanges so we don't read for all exchanges
@@ -540,16 +532,14 @@ class GapfillingPkg(BaseFBAPkg):
             new_penalties[ex.id] = {"added": 1, "reverse": self.parameters["default_exchange_penalty"], "forward": self.parameters["default_exchange_penalty"]}
 
         # Adding all new reactions to the model at once (much faster than one at a time)
-        self.model.add_reactions(new_reactions.values())
+        self.model.add_reactions(self.new_reactions.values())
         return new_penalties
 
     def convert_template_compound(self, template_compound, index, template):
         base_id = template_compound.id.split("_")[0]
         base_compound = template.compounds.get_by_id(base_id)
-        new_id = template_compound.id
-        new_id += str(index)
-        compartment = template_compound.compartment
-        compartment += str(index)
+        new_id = template_compound.id + str(index)
+        compartment = template_compound.compartment + str(index)
 
         met = Metabolite(
             new_id,
@@ -568,29 +558,18 @@ class GapfillingPkg(BaseFBAPkg):
     def convert_template_reaction(
         self, template_reaction, index, template, for_gapfilling=1
     ):
-        array = template_reaction.id.split("_")
-        base_id = array[0]
-        new_id = template_reaction.id
-        new_id += str(index)
+        base_id = template_reaction.id.split("_")[0]
+        new_id = template_reaction.id + str(index)
 
         lower_bound = template_reaction.lower_bound
         upper_bound = template_reaction.upper_bound
-
         direction = template_reaction.GapfillDirection
         if for_gapfilling == 0:
             direction = template_reaction.direction
-
         if direction == ">":
             lower_bound = 0
         elif direction == "<":
             upper_bound = 0
-
-        cobra_reaction = Reaction(
-            new_id,
-            name=template_reaction.name,
-            lower_bound=lower_bound,
-            upper_bound=upper_bound,
-        )
 
         object_stoichiometry = {}
         for m, value in template_reaction.metabolites.items():
@@ -604,12 +583,12 @@ class GapfillingPkg(BaseFBAPkg):
             metabolite = self.model.metabolites.get_by_id(metabolite_id)
             object_stoichiometry[metabolite] = value
 
-        cobra_reaction.add_metabolites(object_stoichiometry)
+        cobra_rxn = Reaction(new_id, name=template_reaction.name, lower_bound=lower_bound, upper_bound=upper_bound)
+        cobra_rxn.add_metabolites(object_stoichiometry)
+        cobra_rxn.annotation["sbo"] = "SBO:0000176"  # biochemical reaction
+        cobra_rxn.annotation["seed.reaction"] = template_reaction.reference_id
 
-        cobra_reaction.annotation["sbo"] = "SBO:0000176"  # biochemical reaction
-        cobra_reaction.annotation["seed.reaction"] = template_reaction.reference_id
-
-        return cobra_reaction
+        return cobra_rxn
 
     def set_media(self, media):
         if self.parameters["base_media"]:
@@ -625,32 +604,26 @@ class GapfillingPkg(BaseFBAPkg):
         self.modelutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(media, self.parameters["default_uptake"], self.parameters["default_excretion"])
 
     def binary_check_gapfilling_solution(self, solution=None, flux_values=None):
-        if solution is None:
-            solution = self.compute_gapfilled_solution()
-        if flux_values is None:
-            flux_values = self.modelutl.compute_flux_values_from_variables()
-        filter = {}
-        for rxn_id in solution["reversed"]:
-            filter[rxn_id] = solution["reversed"][rxn_id]
-        for rxn_id in solution["new"]:
-            filter[rxn_id] = solution["new"][rxn_id]
-        self.pkgmgr.getpkg("ReactionUsePkg").build_package(filter)
+        solution = solution or self.compute_gapfilled_solution(flux_values)
+        flux_values = flux_values or FBAHelper.compute_flux_values_from_variables(self.model)
+        rxn_filter = {rxn_id:solution["reversed"][rxn_id] for rxn_id in solution["reversed"]}
+        rxn_filter.update({rxn_id:solution["new"][rxn_id] for rxn_id in solution["new"]})
+        self.pkgmgr.getpkg("ReactionUsePkg").build_package(rxn_filter)
         objcoef = {}
-        for rxnid in filter:
-            if filter[rxnid] == ">":
+        for rxnid in rxn_filter:
+            if rxn_filter[rxnid] == ">":
                 objcoef[self.pkgmgr.getpkg("ReactionUsePkg").variables["fu"][rxnid]] = 1
-            if filter[rxnid] == "<":
+            if rxn_filter[rxnid] == "<":
                 objcoef[self.pkgmgr.getpkg("ReactionUsePkg").variables["ru"][rxnid]] = 1
         new_solution = {}
-        with self.model:
+        with self.model: # to prevent the model for permanently assuming the zeroed reactions
             # Setting all gapfilled reactions not in the solution to zero
             self.knockout_gf_reactions_outside_solution(solution, flux_values)
-            # Setting the objective to be minimization of sum of binary variables
-            min_reaction_objective = self.model.problem.Objective(Zero, direction="min")
-            self.model.objective = min_reaction_objective
-            min_reaction_objective.set_linear_coefficients(objcoef)
+            # Setting the objective to the minimum sum of binary variables
+            self.model.objective = self.model.problem.Objective(Zero, direction="min")
+            self.model.objective.set_linear_coefficients(objcoef)
             self.model.optimize()
-            new_solution = self.compute_gapfilled_solution()
+            new_solution = self.compute_gapfilled_solution(flux_values)
         return new_solution
 
     def knockout_gf_reactions_outside_solution(self, solution=None, flux_values=None):
@@ -658,7 +631,7 @@ class GapfillingPkg(BaseFBAPkg):
         This function is designed to KO all gap filled reactions not included in the solution
         """
         if solution == None:
-            solution = self.compute_gapfilled_solution()
+            solution = self.compute_gapfilled_solution(flux_values)
         if flux_values == None:
             flux_values = self.modelutl.compute_flux_values_from_variables()
         for rxnobj in self.model.reactions:
@@ -676,9 +649,9 @@ class GapfillingPkg(BaseFBAPkg):
                 rxnobj.update_variable_bounds()
 
     def run_test_conditions(self, condition_list, solution=None, max_iterations=10):
+        reaction_list, filtered_list = [], []
         if solution == None:
             solution = self.compute_gapfilled_solution()
-        reaction_list = []
         for rxnid in solution["reversed"]:
             reaction_list.append(
                 [self.model.reactions.get_by_id(rxnid), solution["reversed"][rxnid]]
