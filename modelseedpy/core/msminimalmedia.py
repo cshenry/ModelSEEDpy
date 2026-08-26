@@ -85,7 +85,7 @@ def bioFlux_check(model, sol=None, sol_dict=None, min_growth=0.1):
             f" where the observed growth value was {simulated_growth}."
         )
     if sol.status != "optimal":
-        display(sol)
+        print(sol)
     return sol_dict
 
 
@@ -128,9 +128,12 @@ class MSMinimalMedia:
         org_model, min_growth=None, environment=None, interacting=True, printing=True
     ):
         """minimize the total in-flux of exchange reactions in the model"""
-        if org_model.slim_optimize() == 0:
+        # nan-safe guard: an infeasible model returns nan from slim_optimize,
+        # and nan == 0 is False, so the old check let infeasible models through
+        growth = org_model.slim_optimize()
+        if growth != growth or growth <= 1e-8:
             raise ObjectiveError(
-                f"The model {org_model.id} possesses an objective value of 0 in complete media, "
+                f"The model {org_model.id} possesses an objective value of {growth} in complete media, "
                 "which is incompatible with minimal media computations."
             )
         model_util = MSModelUtil(org_model, True)
