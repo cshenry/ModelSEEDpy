@@ -755,6 +755,7 @@ class MSGapfill:
         self.mdlutl.add_gapfilling(current_media_target_solution)
         # Testing which gapfilled reactions are needed to produce each reactant in the objective function
         self.cumulative_gapfilling.extend(cumulative_solution)
+        logger.info(f"Cumulative: {str(self.cumulative_gapfilling)}")
         return current_media_target_solution
 
     def compute_reaction_weights_from_expression_data(self, omics_data, annoont):
@@ -880,4 +881,5 @@ class MSGapfill:
             blacklist,
         )
         gfresults = gapfiller.run_gapfilling(media, target_reaction)
-        return gapfiller.integrate_gapfill_solution(gfresults)
+        gapfiller.integrate_gapfill_solution(gfresults)
+        return gapfiller.mdlutl.model
