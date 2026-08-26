@@ -12,6 +12,13 @@ class MSPackageManager:
     Class for organizing FBA package objects
     """
 
+    # NOTE: entries pin their key (a cobra model, often a full per-call copy)
+    # for the process lifetime, and weak keying cannot help because each value
+    # strongly references its key (self.model, attached packages). Code that
+    # wraps throwaway model copies MUST release its entry when done:
+    #     MSPackageManager.pkgmgrs.pop(model, None)
+    # — otherwise sweeps that wrap a copy per call leak one model copy per
+    # call, and large multi-worker runs die by OOM.
     pkgmgrs = {}
 
     @staticmethod
