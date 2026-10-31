@@ -296,3 +296,46 @@ def test_ms_atp_correction_and_gap_fill1(
     gap_fill.integrate_gapfill_solution(result)
 
     # TODO: add some model testing assertion
+
+
+def test_ms_atp_correction_no_selected_media_keeps_filter(
+    get_model_with_infinite_atp_loop, template, monkeypatch
+):
+    """When no ATP test media are selected, the final build_tests() in
+    run_atp_correction() must not undo the expansion filter."""
+    from collections import defaultdict
+    from modelseedpy.core.msmodelutl import MSModelUtil
+
+    # reliability scores only order the expansion test; avoid loading the biochemistry database
+    monkeypatch.setattr(
+        MSModelUtil,
+        "assign_reliability_scores_to_reactions",
+        lambda self, **kwargs: defaultdict(lambda: {">": 0, "<": 0}),
+    )
+    model = get_model_with_infinite_atp_loop()
+    # without exchanges every test media fails in the core model, so none are selected
+    model.remove_reactions([r for r in model.reactions if r.id.startswith("EX_")])
+    model.objective = "ATPM_c0"
+    assert model.slim_optimize() > 1  # free ATP from the K+ transport loop
+
+    atp_correction = MSATPCorrection(model, template, atp_hydrolysis_id="ATPM_c0")
+    # the steps of run_atp_correction(), without core gapfilling
+    atp_correction.evaluate_growth_media(no_gapfilling=True)
+    atp_correction.determine_growth_media()
+    assert atp_correction.selected_media == []
+    atp_correction.apply_growth_media_gapfilling()
+    atp_correction.expand_model_to_genome_scale()
+    filtered = [(item[0].id, item[1]) for item in atp_correction.filtered_noncore]
+    assert filtered
+    tests = atp_correction.build_tests()
+
+    assert [t["media"].id for t in tests] == ["empty"]
+    for rxn_id, direction in filtered:
+        if rxn_id in model.reactions:
+            rxn = model.reactions.get_by_id(rxn_id)
+            if direction == ">":
+                assert rxn.upper_bound == 0
+            else:
+                assert rxn.lower_bound == 0
+    model.objective = "ATPM_c0"
+    assert model.slim_optimize() < 1e-5

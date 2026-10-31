@@ -397,6 +397,8 @@ class MSATPCorrection:
                 self.selected_media.append(media)
                 atp_att["selected_media"][media.id] = 0
                 
+        if not self.selected_media:
+            logger.warning("No ATP test media selected - only the empty media test will be applied!")
 
         self.modelutl.save_attributes(atp_att, "ATP_analysis")
 
@@ -463,6 +465,12 @@ class MSATPCorrection:
                 item[0].upper_bound = 0
             else:
                 item[0].lower_bound = 0
+            # Saving filtered bounds as original so a later restore cannot undo the filtering
+            if item[0].id in self.original_bounds:
+                self.original_bounds[item[0].id] = (
+                    item[0].lower_bound,
+                    item[0].upper_bound,
+                )
             # reaction.update_variable_bounds()
             if item[0].lower_bound == 0 and item[0].upper_bound == 0:
                 self.model.remove_reactions([item[0]])
@@ -521,7 +529,8 @@ class MSATPCorrection:
         ------
         """
         #Checking if ATP stats have been run yet and if not, running them
-        if not self.selected_media:
+        #(an empty list means they were run and no media were selected)
+        if self.selected_media is None:
             logger.warning("ATP tests not yet computed - running without allowing for model changes!")
             self.evaluate_growth_media(no_gapfilling=True)
             self.determine_growth_media()
