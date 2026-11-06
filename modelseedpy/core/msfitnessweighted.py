@@ -245,6 +245,9 @@ class MSFitnessWeightedAnalysis:
         not finish within loopless_timeout seconds). "auto" (default): solve the LP only; with all
         internal reactions priced > 0 its optimum has no loops, and the result reports
         loopless "implied". False: LP, reported as not loopless.
+    nonpositive_penalty : str
+        What to do with a template gap-fill penalty <= 0 (some templates carry negative reverse
+        penalties): "floor" prices it at 1e-9, nearly free (GAA); "one" uses 1.0 before scaling.
     biomass_reference : str
         "superset": fix biomass at frac times the optimum of the model plus all candidates
         (GAA). "model": if the model alone grows, frac times the model's own optimum, else
@@ -281,6 +284,7 @@ class MSFitnessWeightedAnalysis:
         min_growth=MIN_GROWTH,
         price_reversals=True,
         biomass_reference="superset",
+        nonpositive_penalty="floor",
         compartment="c0",
     ):
         if isinstance(model_or_mdlutl, MSModelUtil):
@@ -306,7 +310,7 @@ class MSFitnessWeightedAnalysis:
             fit_important=fit_important, ko_important=ko_important, w_essential=w_essential,
             w_active=w_active, frac=frac, loopless=loopless, loopless_timeout=loopless_timeout,
             flux_tol=flux_tol, min_growth=min_growth, price_reversals=price_reversals,
-            biomass_reference=biomass_reference,
+            biomass_reference=biomass_reference, nonpositive_penalty=nonpositive_penalty,
         )
         self.compartment = compartment
         self.draft_reactions = {r.id for r in self.model.reactions}
@@ -457,8 +461,8 @@ class MSFitnessWeightedAnalysis:
             if rid not in self.draft_reactions:
                 pen = self.gapfilling_penalties.get(rid) or {}
                 out[rid] = {
-                    ">": max(cand_mult * float(pen.get("forward", P["p_gapfill"] / cand_mult) or 1.0), 1e-9),
-                    "<": max(cand_mult * float(pen.get("reverse", P["p_gapfill"] / cand_mult) or 1.0), 1e-9),
+                    ">": self._candidate_price(pen, "forward", cand_mult),
+                    "<": self._candidate_price(pen, "reverse", cand_mult),
                 }
                 continue
             genes = self.edges.get(rid)
@@ -471,11 +475,23 @@ class MSFitnessWeightedAnalysis:
             if P["price_reversals"] and rid in self.reversals:
                 gp = self.gapfilling_penalties.get(rid) or {}
                 if ">" in self.reversals[rid]:
-                    pen[">"] = cand_mult * float(gp.get("forward", 1.0) or 1.0)
+                    pen[">"] = self._candidate_price(gp, "forward", cand_mult)
                 if "<" in self.reversals[rid]:
-                    pen["<"] = cand_mult * float(gp.get("reverse", 1.0) or 1.0)
+                    pen["<"] = self._candidate_price(gp, "reverse", cand_mult)
             out[rid] = pen
         return out
+
+    def _candidate_price(self, pen, key, mult):
+        """mult * gap-fill penalty; a missing direction costs p_gapfill (its bound is closed anyway)."""
+        if key not in pen:
+            return self.params["p_gapfill"]
+        value = float(pen[key] or 1.0)
+        if value <= 0:
+            if self.params["nonpositive_penalty"] == "one":
+                value = 1.0
+            else:
+                return 1e-9
+        return mult * value
 
     # ------------------------------------------------------------------ helpers
     def _condition_model(self, media):

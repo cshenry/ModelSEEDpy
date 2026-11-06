@@ -316,3 +316,27 @@ def test_loopless_solution(template, glucose):
     auto = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert auto["loopless"] == "implied"
     assert auto["objective"] == pytest.approx(res["objective"], rel=1e-6)
+
+
+def test_nonpositive_template_penalty(template):
+    """A gap-fill penalty <= 0 is floored at 1e-9 (GAA) or replaced by 1.0 before scaling."""
+    fwa = MSFitnessWeightedAnalysis(_model(ko=["GLCpts_c0"]), template, biomass=BIOMASS, atp_safe=False)
+    fwa.build_superset()
+    assert fwa._candidate_price({"reverse": -3.0}, "reverse", 20.0) == 1e-9
+    assert fwa._candidate_price({}, "reverse", 20.0) == 10.0  # direction not offered: p_gapfill
+    fwa.params["nonpositive_penalty"] = "one"
+    assert fwa._candidate_price({"reverse": -3.0}, "reverse", 20.0) == 20.0
+    assert fwa._candidate_price({"forward": 4.0}, "forward", 20.0) == 80.0
+
+
+def test_biomass_reference_model(template, glucose):
+    """biomass_reference='model': a model that grows on its own is not pushed to the superset optimum."""
+    model = _model(ko=["PGI_c0"])  # grows (pentose phosphate bypass) but slower than with PGI
+    fwa = MSFitnessWeightedAnalysis(model, template, biomass=BIOMASS, atp_safe=False)
+    sup = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
+    assert sup["growth_model"] < sup["growth_superset"] - 1e-6
+    assert sup["gapfilled"].get("PGI_c0")  # reaching the superset optimum needs PGI back
+    fwa.params["biomass_reference"] = "model"
+    mod = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
+    assert mod["biomass_fixed"] == pytest.approx(mod["growth_model"], rel=1e-9)
+    assert mod["distance_to_growth"] == 0
