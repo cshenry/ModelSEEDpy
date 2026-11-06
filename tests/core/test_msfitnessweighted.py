@@ -33,7 +33,9 @@ def _model(ko=None, extra=None):
     """e_coli_core with ModelSEED-style compartment suffixes (as in test_msgapfill.py)."""
     with open(os.path.join(DATA, "e_coli_core.json")) as fh:
         model_json = json.load(fh)
-    model_json["compartments"] = {k + "0": v for (k, v) in model_json["compartments"].items()}
+    model_json["compartments"] = {
+        k + "0": v for (k, v) in model_json["compartments"].items()
+    }
     metabolites = {}
     for m in model_json["metabolites"]:
         m["id"] += "0"
@@ -41,14 +43,18 @@ def _model(ko=None, extra=None):
         metabolites[m["id"]] = m
     for r in model_json["reactions"]:
         r["metabolites"] = {i + "0": v for (i, v) in r["metabolites"].items()}
-        compartments = set([metabolites[k]["compartment"] for k in r["metabolites"].keys()])
+        compartments = set(
+            [metabolites[k]["compartment"] for k in r["metabolites"].keys()]
+        )
         if r["id"].endswith("_e"):
             r["id"] += "0"
         elif len(compartments) == 1:
             r["id"] += "_" + list(compartments)[0]
         else:
             r["id"] += "_c0"
-    model_json["reactions"] = [x for x in model_json["reactions"] if x["id"] not in (ko or [])]
+    model_json["reactions"] = [
+        x for x in model_json["reactions"] if x["id"] not in (ko or [])
+    ]
     model = cobra.io.from_json(json.dumps(model_json))
     if extra:
         extra(model)
@@ -73,7 +79,9 @@ def glucose():
 def _duplicate_pgi(model):
     """Add PGI2_c0: an exact copy of PGI_c0 catalysed by a made-up gene g_pgi2."""
     pgi = model.reactions.get_by_id("PGI_c0")
-    dup = cobra.Reaction("PGI2_c0", lower_bound=pgi.lower_bound, upper_bound=pgi.upper_bound)
+    dup = cobra.Reaction(
+        "PGI2_c0", lower_bound=pgi.lower_bound, upper_bound=pgi.upper_bound
+    )
     dup.add_metabolites(pgi.metabolites)
     model.add_reactions([dup])
     dup.gene_reaction_rule = "g_pgi2"
@@ -88,10 +96,15 @@ def test_fitness_penalty_tiers():
 
 
 def test_normalize_fitness_shapes():
-    rows = [{"gene": "a", "fitness": -3.0, "t_score": -5.0}, {"gene": "b", "fitness": 1.0}]
+    rows = [
+        {"gene": "a", "fitness": -3.0, "t_score": -5.0},
+        {"gene": "b", "fitness": 1.0},
+    ]
     assert fw.normalize_fitness(rows) == {"a": (-3.0, -5.0), "b": (1.0, None)}
     assert fw.normalize_fitness({"a": (-3.0, -5.0)}) == {"a": (-3.0, -5.0)}
-    assert fw.normalize_fitness({"a": {"fitness": -3.0, "t_score": -5.0}}) == {"a": (-3.0, -5.0)}
+    assert fw.normalize_fitness({"a": {"fitness": -3.0, "t_score": -5.0}}) == {
+        "a": (-3.0, -5.0)
+    }
     assert fw.normalize_fitness({"a": float("nan")}) == {}
 
 
@@ -107,21 +120,40 @@ def test_classify_impact_and_score_edge():
     assert fw.classify_impact(-3.0, -5.0) == (True, 1.0, "tier1")
     assert fw.classify_impact(-1.0, -5.0) == (True, 0.5, "tier2")
     assert fw.classify_impact(-3.0, -3.9) == (False, 0.0, None)  # |t| < 4
-    assert fw.classify_impact(-3.0, None) == (False, 0.0, None)  # missing t never significant
-    assert fw.classify_impact(3.0, 9.0) == (False, 0.0, None)  # positive fitness: no impact
-    assert fw.classify_impact(None, None, is_essential=True) == (True, 1.0, "essentiality")
+    assert fw.classify_impact(-3.0, None) == (
+        False,
+        0.0,
+        None,
+    )  # missing t never significant
+    assert fw.classify_impact(3.0, 9.0) == (
+        False,
+        0.0,
+        None,
+    )  # positive fitness: no impact
+    assert fw.classify_impact(None, None, is_essential=True) == (
+        True,
+        1.0,
+        "essentiality",
+    )
     tier1 = fw.classify_impact(-3.0, -5.0)
     none = fw.classify_impact(0.1, 0.2)
     assert fw.score_edge(fw.ESSENTIAL, tier1) == (fw.STRONG_POS, 1.0)
     assert fw.score_edge(fw.ESSENTIAL, none, ko_ratio=0.0) == (fw.STRONG_NEG, -1.0)
-    assert fw.score_edge(fw.ESSENTIAL, none, ko_ratio=0.9) == (fw.NEUTRAL, 0.0)  # isozyme gate
+    assert fw.score_edge(fw.ESSENTIAL, none, ko_ratio=0.9) == (
+        fw.NEUTRAL,
+        0.0,
+    )  # isozyme gate
     assert fw.score_edge(fw.ACTIVE, fw.classify_impact(-1.0, -5.0)) == (fw.POS, 0.25)
     assert fw.score_edge(fw.ACTIVE, none) == (fw.MILD_NEG, -0.5)
     assert fw.score_edge(fw.UNUSED, tier1) == (fw.UNEXPLAINED, 0.0)
     assert fw.score_edge(fw.BLOCKED, none) == (fw.NEUTRAL, 0.0)
     assert fw.score_edge(fw.ESSENTIAL, tier1, is_gapfill=True) == (fw.NEUTRAL, 0.0)
-    assert fw.dominant_verdict([fw.POS, fw.MILD_NEG]) == fw.MILD_NEG  # tie, same rank: alphabetical
-    assert fw.dominant_verdict([fw.POS, fw.STRONG_NEG]) == fw.STRONG_NEG  # tie: stronger class wins
+    assert (
+        fw.dominant_verdict([fw.POS, fw.MILD_NEG]) == fw.MILD_NEG
+    )  # tie, same rank: alphabetical
+    assert (
+        fw.dominant_verdict([fw.POS, fw.STRONG_NEG]) == fw.STRONG_NEG
+    )  # tie: stronger class wins
 
 
 def test_flux_pkg_coefficients():
@@ -143,10 +175,14 @@ def test_flux_pkg_coefficients():
 def test_penalty_tiers_on_model(template):
     # without these reactions the template has candidates to offer
     ko = ["GLCpts_c0", "CYTBD_c0", "NADH16_c0", "O2t_c0"]
-    fwa = MSFitnessWeightedAnalysis(_model(ko=ko), template, biomass=BIOMASS, atp_safe=False)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(ko=ko), template, biomass=BIOMASS, atp_safe=False
+    )
     fwa.build_superset()
     # pgi b4025: significant, PFK b3916: not significant (|t| < 4), PGK b2926: positive
-    fit = fw.normalize_fitness({"b4025": (-4.0, -6.0), "b3916": (-4.0, -3.0), "b2926": (2.0, 9.0)})
+    fit = fw.normalize_fitness(
+        {"b4025": (-4.0, -6.0), "b3916": (-4.0, -3.0), "b2926": (2.0, 9.0)}
+    )
     pen = fwa.reaction_penalties(fit)
     assert pen["PGI_c0"][">"] == pytest.approx(fw.fitness_penalty(4.0))
     assert pen["PFK_c0"][">"] == pytest.approx(1.0)
@@ -161,7 +197,9 @@ def test_penalty_tiers_on_model(template):
     if "forward" in gp:
         assert pen[rid][">"] == pytest.approx(20.0 * gp["forward"])
     # mass-imbalanced model reactions cost p_mass_imbalanced
-    fwa2 = MSFitnessWeightedAnalysis(_model(), template, biomass=BIOMASS, atp_safe=False, mass_imbalanced=["PGI"])
+    fwa2 = MSFitnessWeightedAnalysis(
+        _model(), template, biomass=BIOMASS, atp_safe=False, mass_imbalanced=["PGI"]
+    )
     fwa2.build_superset()
     assert fwa2.reaction_penalties({})["PGI_c0"] == {">": 1000.0, "<": 1000.0}
 
@@ -169,7 +207,11 @@ def test_penalty_tiers_on_model(template):
 def test_flux_follows_fitness(template, glucose):
     """Two identical parallel reactions: the one whose gene has a strong fitness defect wins."""
     fwa = MSFitnessWeightedAnalysis(
-        _model(extra=_duplicate_pgi), template, biomass=BIOMASS, atp_safe=False, loopless=False
+        _model(extra=_duplicate_pgi),
+        template,
+        biomass=BIOMASS,
+        atp_safe=False,
+        loopless=False,
     )
     fwa.build_superset()
     r1 = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
@@ -199,7 +241,9 @@ def test_gapfill_distance_and_template(template, glucose):
     """No glucose transporter in the model: the superset solve gap-fills it from the template;
     a template without it cannot grow."""
     model = _model(ko=["GLCpts_c0"])
-    fwa = MSFitnessWeightedAnalysis(model, template, biomass=BIOMASS, atp_safe=False, loopless=False)
+    fwa = MSFitnessWeightedAnalysis(
+        model, template, biomass=BIOMASS, atp_safe=False, loopless=False
+    )
     res = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert res["status"] == "done"
     assert res["gapfilled"].get("GLCpts_c0") == ">"
@@ -210,7 +254,9 @@ def test_gapfill_distance_and_template(template, glucose):
     tdict = _template_dict()
     tdict["reactions"] = [r for r in tdict["reactions"] if r["id"] != "GLCpts_c"]
     small = MSTemplateBuilder.from_dict(tdict).build()
-    fwa2 = MSFitnessWeightedAnalysis(_model(ko=["GLCpts_c0"]), small, biomass=BIOMASS, atp_safe=False, loopless=False)
+    fwa2 = MSFitnessWeightedAnalysis(
+        _model(ko=["GLCpts_c0"]), small, biomass=BIOMASS, atp_safe=False, loopless=False
+    )
     res2 = fwa2.analyze_condition("glc", glucose, {})
     assert "GLCpts_c0" not in fwa2.superset.reactions
     assert res2["status"] == "no_growth"
@@ -224,9 +270,13 @@ def _template_with_free_atp():
     free["id"] = "FREEATP_c"
     free["name"] = "ATP from nothing"
     free["templateReactionReagents"] = [
-        x for x in free["templateReactionReagents"] if not x["templatecompcompound_ref"].endswith(("h_e", "h_c"))
+        x
+        for x in free["templateReactionReagents"]
+        if not x["templatecompcompound_ref"].endswith(("h_e", "h_c"))
     ]
-    free["templateReactionReagents"].append({"coefficient": 1.0, "templatecompcompound_ref": "~/compcompounds/id/h_c"})
+    free["templateReactionReagents"].append(
+        {"coefficient": 1.0, "templatecompcompound_ref": "~/compcompounds/id/h_c"}
+    )
     free["direction"] = free["GapfillDirection"] = ">"
     free["lower_bound"] = 0.0
     tdict["reactions"].append(free)
@@ -237,7 +287,9 @@ def _free_atp_possible(fwa):
     sup = fwa.superset.copy()
     from modelseedpy import MSModelUtil
 
-    MSModelUtil.get(sup).pkgmgr.getpkg("KBaseMediaPkg").build_package(MSMedia.from_dict({}))
+    MSModelUtil.get(sup).pkgmgr.getpkg("KBaseMediaPkg").build_package(
+        MSMedia.from_dict({})
+    )
     sup.objective = "ATPM_c0"
     return sup.slim_optimize(error_value=0.0)
 
@@ -261,7 +313,9 @@ def test_loopless_fallback(template, glucose, monkeypatch):
         raise RuntimeError("no loopless here")
 
     monkeypatch.setattr(cobra.flux_analysis.loopless, "add_loopless", boom)
-    fwa = MSFitnessWeightedAnalysis(_model(), template, biomass=BIOMASS, atp_safe=False, loopless=True)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(), template, biomass=BIOMASS, atp_safe=False, loopless=True
+    )
     res = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert res["status"] == "done" and res["loopless"] is False
 
@@ -273,7 +327,9 @@ def test_reversal_priced_as_candidate(template, glucose):
     def one_way(model):
         model.reactions.get_by_id("PGI_c0").lower_bound = 0
 
-    fwa = MSFitnessWeightedAnalysis(_model(extra=one_way), template, biomass=BIOMASS, atp_safe=False)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(extra=one_way), template, biomass=BIOMASS, atp_safe=False
+    )
     fwa.build_superset()
     if "PGI_c0" not in fwa.reversals:
         pytest.skip("template does not open the PGI reverse direction")
@@ -285,7 +341,9 @@ def test_reversal_priced_as_candidate(template, glucose):
 
 
 def test_run_and_rollup(template, glucose):
-    fwa = MSFitnessWeightedAnalysis(_model(), template, biomass=BIOMASS, atp_safe=False, loopless=False)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(), template, biomass=BIOMASS, atp_safe=False, loopless=False
+    )
     out = fwa.run(
         {
             "glc1": {"media": glucose, "fitness": {"b4025": (-3.0, -8.0)}},
@@ -297,7 +355,11 @@ def test_run_and_rollup(template, glucose):
     roll = {(r["gene"], r["reaction"]): r for r in out["annotation_evidence"]}
     row = roll[("b4025", "PGI_c0")]
     # PGI is FVA-essential in e_coli_core at full growth, and pgi has a tier-1 defect
-    assert row["n_conditions"] == 2 and row["n_strong_pos"] == 2 and row["dominant_verdict"] == fw.STRONG_POS
+    assert (
+        row["n_conditions"] == 2
+        and row["n_strong_pos"] == 2
+        and row["dominant_verdict"] == fw.STRONG_POS
+    )
     assert row["net_score"] == pytest.approx(2.0)
     assert out["superset"]["n_candidates"] == len(fwa.candidates)
 
@@ -305,7 +367,9 @@ def test_run_and_rollup(template, glucose):
 def test_loopless_solution(template, glucose):
     """On a small model the loopless MILP finishes and gives the same weighted objective as the LP
     (all penalties are positive, so the LP optimum has no loop flux to remove)."""
-    fwa = MSFitnessWeightedAnalysis(_model(), template, biomass=BIOMASS, atp_safe=False, loopless=True)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(), template, biomass=BIOMASS, atp_safe=False, loopless=True
+    )
     res = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert res["status"] == "done" and res["loopless"] is True
     fwa.params["loopless"] = False
@@ -320,10 +384,14 @@ def test_loopless_solution(template, glucose):
 
 def test_nonpositive_template_penalty(template):
     """A gap-fill penalty <= 0 is floored at 1e-9 (GAA) or replaced by 1.0 before scaling."""
-    fwa = MSFitnessWeightedAnalysis(_model(ko=["GLCpts_c0"]), template, biomass=BIOMASS, atp_safe=False)
+    fwa = MSFitnessWeightedAnalysis(
+        _model(ko=["GLCpts_c0"]), template, biomass=BIOMASS, atp_safe=False
+    )
     fwa.build_superset()
     assert fwa._candidate_price({"reverse": -3.0}, "reverse", 20.0) == 1e-9
-    assert fwa._candidate_price({}, "reverse", 20.0) == 10.0  # direction not offered: p_gapfill
+    assert (
+        fwa._candidate_price({}, "reverse", 20.0) == 10.0
+    )  # direction not offered: p_gapfill
     fwa.params["nonpositive_penalty"] = "one"
     assert fwa._candidate_price({"reverse": -3.0}, "reverse", 20.0) == 20.0
     assert fwa._candidate_price({"forward": 4.0}, "forward", 20.0) == 80.0
@@ -331,11 +399,15 @@ def test_nonpositive_template_penalty(template):
 
 def test_biomass_reference_model(template, glucose):
     """biomass_reference='model': a model that grows on its own is not pushed to the superset optimum."""
-    model = _model(ko=["PGI_c0"])  # grows (pentose phosphate bypass) but slower than with PGI
+    model = _model(
+        ko=["PGI_c0"]
+    )  # grows (pentose phosphate bypass) but slower than with PGI
     fwa = MSFitnessWeightedAnalysis(model, template, biomass=BIOMASS, atp_safe=False)
     sup = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert sup["growth_model"] < sup["growth_superset"] - 1e-6
-    assert sup["gapfilled"].get("PGI_c0")  # reaching the superset optimum needs PGI back
+    assert sup["gapfilled"].get(
+        "PGI_c0"
+    )  # reaching the superset optimum needs PGI back
     fwa.params["biomass_reference"] = "model"
     mod = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert mod["biomass_fixed"] == pytest.approx(mod["growth_model"], rel=1e-9)

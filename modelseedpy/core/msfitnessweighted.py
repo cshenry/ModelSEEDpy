@@ -69,7 +69,14 @@ MIN_GROWTH = 0.01
 ESSENTIAL, ACTIVE, BLOCKED, UNUSED = "essential", "active", "blocked", "unused"
 STRONG_POS, STRONG_NEG, POS, MILD_NEG = "strong_pos", "strong_neg", "pos", "mild_neg"
 UNEXPLAINED, NEUTRAL = "unexplained", "neutral"
-_VERDICT_RANK = {STRONG_POS: 2, STRONG_NEG: 2, POS: 1, MILD_NEG: 1, UNEXPLAINED: 0, NEUTRAL: -1}
+_VERDICT_RANK = {
+    STRONG_POS: 2,
+    STRONG_NEG: 2,
+    POS: 1,
+    MILD_NEG: 1,
+    UNEXPLAINED: 0,
+    NEUTRAL: -1,
+}
 
 
 def fitness_penalty(fit_best, p_base=P_BASE, p_min=P_MIN, k=K):
@@ -98,7 +105,9 @@ def normalize_fitness(fitness):
             else:
                 items.append((gene, value, None))
     else:
-        items = [(row["gene"], row.get("fitness"), row.get("t_score")) for row in fitness]
+        items = [
+            (row["gene"], row.get("fitness"), row.get("t_score")) for row in fitness
+        ]
     for gene, fit, t in items:
         if fit is None or (isinstance(fit, float) and math.isnan(fit)):
             continue
@@ -135,7 +144,9 @@ def classify_commitment(fva_min, fva_max, flux, flux_tol=FLUX_TOL):
     return UNUSED
 
 
-def classify_impact(fit, t, is_essential=False, t_sig=T_SIG, fit_important=FIT_IMPORTANT):
+def classify_impact(
+    fit, t, is_essential=False, t_sig=T_SIG, fit_important=FIT_IMPORTANT
+):
     """(is_impactful, weight, tier) for a gene's fitness in one condition.
 
     tier1: fitness < fit_important and |t| >= t_sig (weight 1). tier2: fit_important <= fitness
@@ -201,7 +212,12 @@ def _media_from(media):
     if media is None or isinstance(media, MSMedia):
         return media
     if isinstance(media, dict):
-        return MSMedia.from_dict({k: tuple(v) if isinstance(v, (list, tuple)) else v for k, v in media.items()})
+        return MSMedia.from_dict(
+            {
+                k: tuple(v) if isinstance(v, (list, tuple)) else v
+                for k, v in media.items()
+            }
+        )
     raise TypeError("media must be an MSMedia, a {cpd: (lb, ub)} dict or None")
 
 
@@ -305,12 +321,26 @@ class MSFitnessWeightedAnalysis:
         self.blacklist = list(blacklist or [])
         self.mass_imbalanced = set(mass_imbalanced or [])
         self.params = dict(
-            p_base=p_base, p_min=p_min, k=k, p_gapfill=p_gapfill, p_mass_imbalanced=p_mass_imbalanced,
-            candidate_scale=candidate_scale, candidate_factor=candidate_factor, t_sig=t_sig,
-            fit_important=fit_important, ko_important=ko_important, w_essential=w_essential,
-            w_active=w_active, frac=frac, loopless=loopless, loopless_timeout=loopless_timeout,
-            flux_tol=flux_tol, min_growth=min_growth, price_reversals=price_reversals,
-            biomass_reference=biomass_reference, nonpositive_penalty=nonpositive_penalty,
+            p_base=p_base,
+            p_min=p_min,
+            k=k,
+            p_gapfill=p_gapfill,
+            p_mass_imbalanced=p_mass_imbalanced,
+            candidate_scale=candidate_scale,
+            candidate_factor=candidate_factor,
+            t_sig=t_sig,
+            fit_important=fit_important,
+            ko_important=ko_important,
+            w_essential=w_essential,
+            w_active=w_active,
+            frac=frac,
+            loopless=loopless,
+            loopless_timeout=loopless_timeout,
+            flux_tol=flux_tol,
+            min_growth=min_growth,
+            price_reversals=price_reversals,
+            biomass_reference=biomass_reference,
+            nonpositive_penalty=nonpositive_penalty,
         )
         self.compartment = compartment
         self.draft_reactions = {r.id for r in self.model.reactions}
@@ -332,7 +362,9 @@ class MSFitnessWeightedAnalysis:
             if rid not in self.draft_reactions:
                 continue
             if isinstance(genes, dict):
-                edges[rid] = {g: list(src) if src else ["model"] for g, src in genes.items()}
+                edges[rid] = {
+                    g: list(src) if src else ["model"] for g, src in genes.items()
+                }
             else:
                 edges[rid] = {g: ["model"] for g in genes}
         return edges
@@ -356,8 +388,12 @@ class MSFitnessWeightedAnalysis:
             self.mdlutl.gfutl = None
         self.superset = self.gapfiller.gfmodelutl.model
         gfpkg = self.gapfiller.gfpkgmgr.getpkg("GapfillingPkg")
-        self.gapfilling_penalties = {k: dict(v) for k, v in gfpkg.gapfilling_penalties.items()}
-        self.superset_bounds_before_filter = {r.id: r.bounds for r in self.superset.reactions}
+        self.gapfilling_penalties = {
+            k: dict(v) for k, v in gfpkg.gapfilling_penalties.items()
+        }
+        self.superset_bounds_before_filter = {
+            r.id: r.bounds for r in self.superset.reactions
+        }
         self.timing["superset"] = time.time() - t0
         self.atp_reaction = None
         self._added_atp_reaction = False
@@ -408,11 +444,18 @@ class MSFitnessWeightedAnalysis:
         self.atp_reaction = found
         empty = MSMedia.from_dict({})
         empty.id = empty.name = "empty"
-        return {"media": empty, "is_max_threshold": True, "threshold": 0.00001, "objective": found}
+        return {
+            "media": empty,
+            "is_max_threshold": True,
+            "threshold": 0.00001,
+            "objective": found,
+        }
 
     def _classify_superset(self):
         sup = self.superset
-        self.candidates = {r.id for r in sup.reactions if r.id not in self.draft_reactions}
+        self.candidates = {
+            r.id for r in sup.reactions if r.id not in self.draft_reactions
+        }
         # directions of model reactions that only the superset opens
         self.reversals = {}
         for rid, pen in self.gapfilling_penalties.items():
@@ -529,10 +572,14 @@ class MSFitnessWeightedAnalysis:
         if mode == "auto":
             unpriced = [r for r in self.priced if r not in penalties]
             if not unpriced:
-                fluxes, _ = self._weighted_solve_attempts(model, penalties, target, [False])
+                fluxes, _ = self._weighted_solve_attempts(
+                    model, penalties, target, [False]
+                )
                 return fluxes, ("implied" if fluxes is not None else False)
             mode = True
-        return self._weighted_solve_attempts(model, penalties, target, [True, False] if mode else [False])
+        return self._weighted_solve_attempts(
+            model, penalties, target, [True, False] if mode else [False]
+        )
 
     def _weighted_solve_attempts(self, model, penalties, target, attempts):
         for loopless in attempts:
@@ -543,14 +590,23 @@ class MSFitnessWeightedAnalysis:
                 if loopless:
                     cobra.flux_analysis.loopless.add_loopless(work)
                 work.solver.configuration.timeout = (
-                    self.params["loopless_timeout"] if loopless else model.solver.configuration.timeout
+                    self.params["loopless_timeout"]
+                    if loopless
+                    else model.solver.configuration.timeout
                 )
-                pkg = MSPackageManager.get_pkg_mgr(work).getpkg("FitnessWeightedFluxPkg")
+                pkg = MSPackageManager.get_pkg_mgr(work).getpkg(
+                    "FitnessWeightedFluxPkg"
+                )
                 pkg.build_package(penalties)
                 status = work.solver.optimize()
                 if status == OPTIMAL:
                     return (
-                        {r.id: float(r.forward_variable.primal - r.reverse_variable.primal) for r in work.reactions},
+                        {
+                            r.id: float(
+                                r.forward_variable.primal - r.reverse_variable.primal
+                            )
+                            for r in work.reactions
+                        },
                         loopless,
                     )
                 logger.info("weighted solve status %s (loopless=%s)", status, loopless)
@@ -569,7 +625,9 @@ class MSFitnessWeightedAnalysis:
             opt = self._optimum(model)
             if opt is None:
                 return out, None
-            model.reactions.get_by_id(self.biomass).lower_bound = frac * opt * (1 - 1e-9)
+            model.reactions.get_by_id(self.biomass).lower_bound = (
+                frac * opt * (1 - 1e-9)
+            )
             for rid in reaction_ids:
                 if rid not in model.reactions:
                     continue
@@ -597,7 +655,9 @@ class MSFitnessWeightedAnalysis:
         return out
 
     # ------------------------------------------------------------------ per condition
-    def analyze_condition(self, condition_id, media, fitness, essential_genes=None, fluxes_out=True):
+    def analyze_condition(
+        self, condition_id, media, fitness, essential_genes=None, fluxes_out=True
+    ):
         """Run stages 2 and 3 for one condition.
 
         Parameters
@@ -626,7 +686,11 @@ class MSFitnessWeightedAnalysis:
         try:
             opt_superset = self._optimum(model)
             res["growth_superset"] = opt_superset
-            if opt_superset is None or opt_superset <= tol or opt_superset < P["min_growth"]:
+            if (
+                opt_superset is None
+                or opt_superset <= tol
+                or opt_superset < P["min_growth"]
+            ):
                 res["status"] = "no_growth"
                 res["time_s"] = time.time() - t0
                 return res
@@ -640,7 +704,11 @@ class MSFitnessWeightedAnalysis:
                 opt_model = self._optimum(model)
             res["growth_model"] = opt_model
             target = P["frac"] * opt_superset
-            if P["biomass_reference"] == "model" and opt_model is not None and opt_model >= P["min_growth"]:
+            if (
+                P["biomass_reference"] == "model"
+                and opt_model is not None
+                and opt_model >= P["min_growth"]
+            ):
                 target = P["frac"] * opt_model
             res["biomass_fixed"] = target
             penalties = self.reaction_penalties(fit)
@@ -654,7 +722,8 @@ class MSFitnessWeightedAnalysis:
             res["loopless"] = loopless
             res["objective"] = sum(
                 (penalties[r][">"] * v if v > 0 else -penalties[r]["<"] * v)
-                for r, v in fluxes.items() if r in penalties and abs(v) > tol
+                for r, v in fluxes.items()
+                if r in penalties and abs(v) > tol
             )
             gapfilled = {}
             for rid in self.candidates:
@@ -668,7 +737,9 @@ class MSFitnessWeightedAnalysis:
                     reversed_used[rid] = ">" if v > 0 else "<"
             res["gapfilled"] = gapfilled
             res["reversals_used"] = reversed_used
-            res["distance_to_growth"] = len(gapfilled) + (len(reversed_used) if P["price_reversals"] else 0)
+            res["distance_to_growth"] = len(gapfilled) + (
+                len(reversed_used) if P["price_reversals"] else 0
+            )
             res["annotation_gap"] = res["distance_to_growth"] > 0
             if fluxes_out:
                 res["fluxes"] = {r: v for r, v in fluxes.items() if abs(v) > tol}
@@ -685,7 +756,12 @@ class MSFitnessWeightedAnalysis:
                         continue
                     vmin, vmax = fva[rid]
                     v = fluxes.get(rid, 0.0)
-                    calls[rid] = [classify_commitment(vmin, vmax, v, tol), v, vmin, vmax]
+                    calls[rid] = [
+                        classify_commitment(vmin, vmax, v, tol),
+                        v,
+                        vmin,
+                        vmax,
+                    ]
                 res["reaction_calls"] = calls
                 # knockout ratios only where they decide a verdict (essential, no impact)
                 need = set()
@@ -694,18 +770,30 @@ class MSFitnessWeightedAnalysis:
                         continue
                     for gene in self.edges[rid]:
                         f, t = fit.get(gene, (None, None))
-                        if not classify_impact(f, t, gene in essential_genes, P["t_sig"], P["fit_important"])[0]:
+                        if not classify_impact(
+                            f,
+                            t,
+                            gene in essential_genes,
+                            P["t_sig"],
+                            P["fit_important"],
+                        )[0]:
                             need.add(gene)
-                kos = self._ko_ratios(model, sorted(need), opt_net or 0.0) if need else {}
+                kos = (
+                    self._ko_ratios(model, sorted(need), opt_net or 0.0) if need else {}
+                )
             res["time_fva_s"] = time.time() - t2
-            res["edge_evidence"] = self.score_condition_edges(calls, fit, kos, essential_genes)
+            res["edge_evidence"] = self.score_condition_edges(
+                calls, fit, kos, essential_genes
+            )
             res["status"] = "done"
             res["time_s"] = time.time() - t0
             return res
         finally:
             _release(model)
 
-    def score_condition_edges(self, calls, fitness, ko_ratios=None, essential_genes=None):
+    def score_condition_edges(
+        self, calls, fitness, ko_ratios=None, essential_genes=None
+    ):
         """Edge evidence rows for one condition: one row per (gene, reaction, source) whose
         verdict is not neutral."""
         P = self.params
@@ -716,18 +804,36 @@ class MSFitnessWeightedAnalysis:
             commitment = call[0]
             for gene, sources in self.edges.get(rid, {}).items():
                 f, t = fitness.get(gene, (None, None))
-                impact = classify_impact(f, t, gene in essential_genes, P["t_sig"], P["fit_important"])
+                impact = classify_impact(
+                    f, t, gene in essential_genes, P["t_sig"], P["fit_important"]
+                )
                 ko = ko_ratios.get(gene, 1.0)
                 verdict, score = score_edge(
-                    commitment, impact, ko, False, P["ko_important"], P["w_essential"], P["w_active"]
+                    commitment,
+                    impact,
+                    ko,
+                    False,
+                    P["ko_important"],
+                    P["w_essential"],
+                    P["w_active"],
                 )
                 if verdict == NEUTRAL:
                     continue
                 for source in sources:
-                    rows.append({
-                        "gene": gene, "reaction": rid, "source": source, "verdict": verdict, "score": score,
-                        "commitment": commitment, "fitness": f, "t_score": t, "tier": impact[2], "ko_ratio": ko,
-                    })
+                    rows.append(
+                        {
+                            "gene": gene,
+                            "reaction": rid,
+                            "source": source,
+                            "verdict": verdict,
+                            "score": score,
+                            "commitment": commitment,
+                            "fitness": f,
+                            "t_score": t,
+                            "tier": impact[2],
+                            "ko_ratio": ko,
+                        }
+                    )
         return rows
 
     # ------------------------------------------------------------------ many conditions
@@ -748,7 +854,11 @@ class MSFitnessWeightedAnalysis:
         results = {}
         for cid, spec in conditions.items():
             results[cid] = self.analyze_condition(
-                cid, spec.get("media"), spec.get("fitness"), spec.get("essential_genes"), fluxes_out
+                cid,
+                spec.get("media"),
+                spec.get("fitness"),
+                spec.get("essential_genes"),
+                fluxes_out,
             )
         return {
             "conditions": results,
@@ -762,19 +872,27 @@ class MSFitnessWeightedAnalysis:
         groups = defaultdict(list)
         for cid, res in results.items():
             for row in res.get("edge_evidence", []):
-                groups[(row["gene"], row["reaction"], row["source"])].append(dict(row, condition=cid))
+                groups[(row["gene"], row["reaction"], row["source"])].append(
+                    dict(row, condition=cid)
+                )
         out = []
         for (gene, rid, source), rows in sorted(groups.items()):
             counts = Counter(r["verdict"] for r in rows)
-            out.append({
-                "gene": gene, "reaction": rid, "source": source,
-                "net_score": sum(r["score"] for r in rows),
-                "n_strong_pos": counts.get(STRONG_POS, 0), "n_pos": counts.get(POS, 0),
-                "n_mild_neg": counts.get(MILD_NEG, 0), "n_strong_neg": counts.get(STRONG_NEG, 0),
-                "n_unexplained": counts.get(UNEXPLAINED, 0),
-                "n_conditions": len({r["condition"] for r in rows}),
-                "dominant_verdict": dominant_verdict([r["verdict"] for r in rows]),
-            })
+            out.append(
+                {
+                    "gene": gene,
+                    "reaction": rid,
+                    "source": source,
+                    "net_score": sum(r["score"] for r in rows),
+                    "n_strong_pos": counts.get(STRONG_POS, 0),
+                    "n_pos": counts.get(POS, 0),
+                    "n_mild_neg": counts.get(MILD_NEG, 0),
+                    "n_strong_neg": counts.get(STRONG_NEG, 0),
+                    "n_unexplained": counts.get(UNEXPLAINED, 0),
+                    "n_conditions": len({r["condition"] for r in rows}),
+                    "dominant_verdict": dominant_verdict([r["verdict"] for r in rows]),
+                }
+            )
         return out
 
     def summary(self):
