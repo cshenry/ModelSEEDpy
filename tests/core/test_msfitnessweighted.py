@@ -312,3 +312,7 @@ def test_loopless_solution(template, glucose):
     lp = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert lp["loopless"] is False
     assert res["objective"] == pytest.approx(lp["objective"], rel=1e-6)
+    fwa.params["loopless"] = "auto"
+    auto = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
+    assert auto["loopless"] == "implied"
+    assert auto["objective"] == pytest.approx(res["objective"], rel=1e-6)

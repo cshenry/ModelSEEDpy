@@ -20,8 +20,9 @@ Method, per model:
    |fitness| among its genes' significant negative fitness values (fitness < 0 and
    |t| >= t_sig). A model reaction without genes costs ``p_base``. A candidate costs
    ``candidate_scale * candidate_factor * gap-fill penalty``. Mass-imbalanced reactions
-   cost ``p_mass_imbalanced``. The solve is loopless when the MILP finishes within
-   ``loopless_timeout`` seconds, otherwise a plain LP. Candidates that carry flux are the
+   cost ``p_mass_imbalanced``. Every internal reaction has a positive penalty, so an optimal
+   solution never carries a loop (removing a loop would lower the cost); the loopless MILP
+   (``loopless=True``) is therefore optional and off by default ("auto"). Candidates that carry flux are the
    condition's gap-fill solution; their number is the distance to growth.
 3. Per condition, restricted FVA on the model reactions with genes (inactive candidates
    closed, biomass at least ``frac`` of the optimum of that network), a commitment class
@@ -239,6 +240,11 @@ class MSFitnessWeightedAnalysis:
         has it one-way, the template two-way), price that direction as a candidate and
         report it as gap-filled. GAA prices it like the model reaction and never reports it
         (False reproduces that).
+    loopless : bool or "auto"
+        True: add cobra's loopless constraints (a MILP; falls back to the LP if it fails or does
+        not finish within loopless_timeout seconds). "auto" (default): solve the LP only; with all
+        internal reactions priced > 0 its optimum has no loops, and the result reports
+        loopless "implied". False: LP, reported as not loopless.
     biomass_reference : str
         "superset": fix biomass at frac times the optimum of the model plus all candidates
         (GAA). "model": if the model alone grows, frac times the model's own optimum, else
@@ -269,7 +275,7 @@ class MSFitnessWeightedAnalysis:
         w_essential=W_ESSENTIAL,
         w_active=W_ACTIVE,
         frac=FRAC,
-        loopless=True,
+        loopless="auto",
         loopless_timeout=LOOPLESS_TIMEOUT,
         flux_tol=FLUX_TOL,
         min_growth=MIN_GROWTH,
@@ -503,7 +509,16 @@ class MSFitnessWeightedAnalysis:
 
     def _weighted_solve(self, model, penalties, target):
         """Fix biomass at target and minimise sum(penalty * |flux|). Returns (fluxes, loopless)."""
-        attempts = [True, False] if self.params["loopless"] else [False]
+        mode = self.params["loopless"]
+        if mode == "auto":
+            unpriced = [r for r in self.priced if r not in penalties]
+            if not unpriced:
+                fluxes, _ = self._weighted_solve_attempts(model, penalties, target, [False])
+                return fluxes, ("implied" if fluxes is not None else False)
+            mode = True
+        return self._weighted_solve_attempts(model, penalties, target, [True, False] if mode else [False])
+
+    def _weighted_solve_attempts(self, model, penalties, target, attempts):
         for loopless in attempts:
             work = model.copy()
             try:
