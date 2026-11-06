@@ -369,6 +369,47 @@ class MSFitnessWeightedAnalysis:
                 edges[rid] = {g: ["model"] for g in genes}
         return edges
 
+    # ------------------------------------------------------------------ ATP tests
+    @staticmethod
+    def atp_tests_from_correction(
+        model_or_mdlutl, core_template, atp_medias=None, atp_hydrolysis_id=None
+    ):
+        """ATP tests from MSATPCorrection on a copy of the model: one test per ATP medium the model passes,
+        limiting ATP production to a multiple of what the core network makes there, plus the empty medium.
+
+        These are the tests MSBuilder's gap-fill uses. The default single empty-medium test only stops ATP made from
+        nothing; a superset that passes it can still hold energy loops that need a carbon source. Returns the list
+        of tests (media objects and thresholds) to pass as ``atp_tests``.
+        """
+        from modelseedpy.core.msatpcorrection import (
+            MSATPCorrection,
+            load_default_medias,
+        )
+
+        model = (
+            model_or_mdlutl.model
+            if isinstance(model_or_mdlutl, MSModelUtil)
+            else model_or_mdlutl
+        )
+        work = model.copy()
+        try:
+            atp = MSATPCorrection(
+                work,
+                core_template,
+                atp_medias if atp_medias is not None else load_default_medias(),
+                compartment="c0",
+                atp_hydrolysis_id=atp_hydrolysis_id,
+                # the default medias are passed above; on dev the load_default_medias=True path calls the bool
+                load_default_medias=False,
+            )
+            atp.evaluate_growth_media()
+            atp.determine_growth_media()
+            atp.apply_growth_media_gapfilling()
+            atp.expand_model_to_genome_scale()
+            return atp.build_tests()
+        finally:
+            _release(work)
+
     # ------------------------------------------------------------------ stage 1
     def build_superset(self):
         """Build the gap-fill superset once (model plus all template candidates) and, with

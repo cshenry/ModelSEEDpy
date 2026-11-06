@@ -412,3 +412,23 @@ def test_biomass_reference_model(template, glucose):
     mod = fwa.analyze_condition("glc", glucose, {"b4025": (-3.0, -8.0)})
     assert mod["biomass_fixed"] == pytest.approx(mod["growth_model"], rel=1e-9)
     assert mod["distance_to_growth"] == 0
+
+
+def test_atp_tests_from_correction(template):
+    """Tests come from MSATPCorrection on a copy: the input model is not changed, the empty medium comes first,
+    and the tests can be passed to the analysis."""
+    model = _model()
+    n = len(model.reactions)
+    tests = MSFitnessWeightedAnalysis.atp_tests_from_correction(
+        model, template, atp_hydrolysis_id="ATPM_c0"
+    )
+    assert len(model.reactions) == n
+    assert tests and tests[0]["media"].id == "empty"
+    assert all(
+        {"media", "threshold", "objective", "is_max_threshold"} <= set(t) for t in tests
+    )
+    fwa = MSFitnessWeightedAnalysis(
+        _model(), template, biomass=BIOMASS, atp_tests=tests
+    )
+    fwa.build_superset()
+    assert fwa.superset is not None
