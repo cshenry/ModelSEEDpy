@@ -47,6 +47,7 @@ from modelseedpy.core import (
     MSEquation,
     MSModelReport,
     AnnotationOntology,
+    MSFitnessWeightedAnalysis,
 )
 from modelseedpy.core.exceptions import *
 
@@ -73,6 +74,7 @@ from modelseedpy.fbapkg import (
     ObjConstPkg,
     ChangeOptPkg,
     ElementUptakePkg,
+    FitnessWeightedFluxPkg,
 )
 
 from modelseedpy.multiomics import MSExpression

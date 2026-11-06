@@ -14,4 +14,5 @@ from modelseedpy.core.msmodelutl import MSModelUtil
 from modelseedpy.core.mstemplate import MSTemplateBuilder
 from modelseedpy.core.msmodelreport import MSModelReport
 from modelseedpy.core.annotationontology import AnnotationOntology
+from modelseedpy.core.msfitnessweighted import MSFitnessWeightedAnalysis
 from modelseedpy.core.exceptions import *

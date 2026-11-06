@@ -20,3 +20,4 @@ from modelseedpy.fbapkg.objconstpkg import ObjConstPkg
 from modelseedpy.fbapkg.objectivepkg import ObjectivePkg
 from modelseedpy.fbapkg.changeoptpkg import ChangeOptPkg
 from modelseedpy.fbapkg.elementuptakepkg import ElementUptakePkg
+from modelseedpy.fbapkg.fitnessweightedfluxpkg import FitnessWeightedFluxPkg
