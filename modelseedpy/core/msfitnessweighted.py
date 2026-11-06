@@ -503,9 +503,10 @@ class MSFitnessWeightedAnalysis:
             if rid in self.draft_reactions and rid in sup.reactions:
                 orig = self.model.reactions.get_by_id(rid)
                 dirs = ""
-                if "forward" in pen and orig.upper_bound <= 0:
+                srxn = sup.reactions.get_by_id(rid)
+                if "forward" in pen and orig.upper_bound <= 0 < srxn.upper_bound:
                     dirs += ">"
-                if "reverse" in pen and orig.lower_bound >= 0:
+                if "reverse" in pen and orig.lower_bound >= 0 > srxn.lower_bound:
                     dirs += "<"
                 if dirs:
                     self.reversals[rid] = dirs
