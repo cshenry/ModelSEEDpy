@@ -1,4 +1,4 @@
-FBAHelper Packages
+fbahelper
 -------------------
 
 +++++++++++++++++++++
@@ -274,7 +274,7 @@ Determines the non-extracellular compartment of the parameterized reaction:
 **returns** *ID_components* ``tuple``: The basename, compartment, and index of the COBRA object in a single tuple, respectively.
 
 -------------------------------------
-medianame()
+mediaName()
 -------------------------------------
 
 **returns** *media_id* ``str``: The ID of a media, where "Complete" is provided by default.
