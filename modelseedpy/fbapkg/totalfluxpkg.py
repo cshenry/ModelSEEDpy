@@ -8,12 +8,7 @@ from optlang.symbolics import Zero, add
 import json as _json
 from cobra.core import Gene, Metabolite, Model, Reaction
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
-
-# Adding a few exception classes to handle different types of errors
-class FeasibilityError(Exception):
-    """Error in FBA formulation"""
-
-    pass
+from modelseedpy.core.exceptions import FeasibilityError
 
 
 # Base class for FBA packages
@@ -34,9 +29,7 @@ class TotalFluxPkg(BaseFBAPkg):
                     )
                     self.model.add_cons_vars(self.variables["tf"][reaction.id])
                     self.constraints["tf"][reaction.id] = self.model.problem.Constraint(
-                        reaction.forward_variable
-                        + reaction.reverse_variable
-                        - self.variables["tf"][reaction.id],
+                        reaction.forward_variable + reaction.reverse_variable - self.variables["tf"][reaction.id],
                         lb=0,
                         ub=0,
                         name=reaction.id + "_tf",
