@@ -4,7 +4,6 @@ from __future__ import absolute_import
 import logging
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 from optlang.symbolics import Zero
-import re
 
 # Base class for FBA packages
 class SimpleThermoPkg(BaseFBAPkg):
@@ -43,7 +42,7 @@ class SimpleThermoPkg(BaseFBAPkg):
             -1*self.parameters["max_potential"],
             self.parameters["max_potential"],
             "continuous",
-            object,
+            obj,
         )
     
     def build_dgp_variable(self, object):
