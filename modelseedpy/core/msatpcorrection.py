@@ -38,6 +38,7 @@ default_threshold_multipiers = {
     "default": 1.2,
 }
 
+
 class MSATPCorrection:
 
     DEBUG = False
@@ -75,7 +76,7 @@ class MSATPCorrection:
             self.modelutl = MSModelUtil.get(model_or_mdlutl)
         # Setting atpcorrection attribute in model utl so link is bidirectional
         self.modelutl.atputl = self
-        
+
         self.compartment = compartment
 
         if atp_hydrolysis_id and atp_hydrolysis_id in self.model.reactions:
@@ -126,7 +127,7 @@ class MSATPCorrection:
                 default_target=self.atp_hydrolysis.id,
             )
         return self.msgapfill
-    
+
     def load_default_template(self):
         self.coretemplate = MSTemplateBuilder.from_dict(
             get_template("template_core"), None
@@ -141,7 +142,7 @@ class MSATPCorrection:
         filename = default_media_path
         medias = pd.read_csv(filename, sep="\t", index_col=0).to_dict()
         for media_id in medias:
-            if media_id not in ["name","msid"]: 
+            if media_id not in ["name", "msid"]:
                 media_d = {}
                 for exchange, v in medias[media_id].items():
                     if v > 0:
@@ -153,7 +154,7 @@ class MSATPCorrection:
                 media.id = media_id
                 media.name = media_id
                 self.atp_medias.append([media, min_gap.get(media_id, 0.01)])
-        
+
         media_ids = set()
         temp_medias = self.atp_medias
         self.atp_medias = []
@@ -274,7 +275,7 @@ class MSATPCorrection:
                 gfrxn.lower_bound = 0
                 gfrxn.upper_bound = 0
 
-    def evaluate_growth_media(self,no_gapfilling=False):
+    def evaluate_growth_media(self, no_gapfilling=False):
         """
         Determines how much gap filling each input test media requires to make ATP
 
@@ -396,7 +397,6 @@ class MSATPCorrection:
             elif media in self.forced_media:
                 self.selected_media.append(media)
                 atp_att["selected_media"][media.id] = 0
-                
 
         self.modelutl.save_attributes(atp_att, "ATP_analysis")
 
@@ -416,7 +416,7 @@ class MSATPCorrection:
                 and MSGapfill.gapfill_count(self.media_gapfill_stats[media]) > 0
             ):
                 self.get_msgapfill().integrate_gapfill_solution(
-                    stats, self.cumulative_core_gapfilling,check_for_growth=False
+                    stats, self.cumulative_core_gapfilling, check_for_growth=False
                 )
                 # Adding reactions to gapfilling sensitivity structure so we can track all gapfilled reactions
                 gf_sensitivity = self.modelutl.get_attributes("gf_sensitivity", {})
@@ -542,7 +542,9 @@ class MSATPCorrection:
         # before any evaluation, which is its purpose, and no longer runs a
         # second time at the end of ``run_atp_correction``.
         if self.selected_media is None:
-            logger.warning("ATP tests not yet computed - running without allowing for model changes!")
+            logger.warning(
+                "ATP tests not yet computed - running without allowing for model changes!"
+            )
             self.evaluate_growth_media(no_gapfilling=True)
             self.determine_growth_media()
             self.restore_noncore_reactions()

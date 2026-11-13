@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Unit tests for the JSON-RPC client's error handling.
 
 Regression coverage for the 500-response branch. Different upstream
@@ -38,6 +39,7 @@ class _FakeResp:
         if isinstance(self._body, (dict, list)):
             return self._body
         import json as _json
+
         return _json.loads(self._body)
 
     def raise_for_status(self):
@@ -59,7 +61,12 @@ def _patched(body_shape) -> _FakeResp:
 
 
 def test_500_with_dict_error_raises_serverererror_populated(monkeypatch):
-    body = {"name": "JSONRPCError", "code": -32603, "message": "boom", "error": "trace-here"}
+    body = {
+        "name": "JSONRPCError",
+        "code": -32603,
+        "message": "boom",
+        "error": "trace-here",
+    }
     monkeypatch.setattr(
         "modelseedpy.core.rpcclient._requests.post",
         lambda *a, **kw: _patched(body),
@@ -106,7 +113,9 @@ def test_500_with_no_error_key_raises_unknown(monkeypatch):
     guard against regression."""
     monkeypatch.setattr(
         "modelseedpy.core.rpcclient._requests.post",
-        lambda *a, **kw: _FakeResp(500, {"content-type": "application/json"}, {"result": None}),
+        lambda *a, **kw: _FakeResp(
+            500, {"content-type": "application/json"}, {"result": None}
+        ),
     )
     with pytest.raises(ServerError) as exc_info:
         _client().call("some.method", [])
@@ -117,7 +126,9 @@ def test_500_with_non_json_body_raises_unknown(monkeypatch):
     """Content-Type isn't JSON. Pre-existing branch. Regression-locked."""
     monkeypatch.setattr(
         "modelseedpy.core.rpcclient._requests.post",
-        lambda *a, **kw: _FakeResp(500, {"content-type": "text/html"}, "<h1>Bad Gateway</h1>"),
+        lambda *a, **kw: _FakeResp(
+            500, {"content-type": "text/html"}, "<h1>Bad Gateway</h1>"
+        ),
     )
     with pytest.raises(ServerError) as exc_info:
         _client().call("some.method", [])

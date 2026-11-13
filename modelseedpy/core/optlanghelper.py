@@ -64,7 +64,6 @@ def get_expression_template(expr):
 
 
 class OptlangHelper:
-
     @staticmethod
     def add_variables(
         var_name: str, var_bounds: (list, tuple), var_type: str = "continuous"

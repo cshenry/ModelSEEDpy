@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from modelseedpy.core.exceptions import ObjectiveError, FeasibilityError
 from modelseedpy.fbapkg.reactionusepkg import ReactionUsePkg
 from modelseedpy.core.fbahelper import FBAHelper
@@ -8,7 +9,8 @@ from optlang import Variable, Constraint
 from cobra.medium import minimal_medium
 from optlang.symbolics import Zero
 from math import isclose, inf, factorial
-#from deepdiff import DeepDiff
+
+# from deepdiff import DeepDiff
 from time import process_time
 from pprint import pprint
 import logging
@@ -101,7 +103,6 @@ def minimizeFlux_withGrowth(model_util, min_growth, obj):
 
 
 class MSMinimalMedia:
-
     @staticmethod
     def _influx_objective(model_util, interacting):
         rxns = (
@@ -368,15 +369,15 @@ class MSMinimalMedia:
                     ]
                     # this dictionary should be parsed into a list of substitute metabolites and a list of functionally coupled reactions
                     for exchange in [rxn for rxn in changed_reactions if "EX_" in rxn]:
-                        interdependencies[sol_index][exchange] = (
-                            MSMinimalMedia._examine_permutations(
-                                model,
-                                exchange_ids_to_explore,
-                                variables,
-                                sol_dict,
-                                sol_index + 1,
-                                interacting,
-                            )
+                        interdependencies[sol_index][
+                            exchange
+                        ] = MSMinimalMedia._examine_permutations(
+                            model,
+                            exchange_ids_to_explore,
+                            variables,
+                            sol_dict,
+                            sol_index + 1,
+                            interacting,
                         )
                 # coef = {variables["met"][exID]: 0 for cpd in new_mets.keys()}
                 # coef.update({variables["met"][exID]: 1 for exID in sol_dict if exID not in new_mets.keys()})

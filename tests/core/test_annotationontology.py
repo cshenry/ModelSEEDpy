@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Unit tests for AnnotationOntology factories.
 
 Covers from_prd_input (introduced alongside the bulk-reconstruction
@@ -129,9 +130,11 @@ def test_from_prd_input_unmapped_term_retained_with_empty_msrxns(tmp_path):
 
 def test_from_prd_input_passes_namespaced_term_to_translator(tmp_path):
     seen = []
+
     def remember(term):
         seen.append(term)
         return []
+
     AnnotationOntology.from_prd_input(
         "g",
         {"gene1": {"KO": [{"term": "K00001"}], "EC": [{"term": "1.1.1.1"}]}},
@@ -144,7 +147,10 @@ def test_from_prd_input_passes_namespaced_term_to_translator(tmp_path):
 
 def test_from_prd_input_empty_input_produces_empty_ontology(tmp_path):
     ao = AnnotationOntology.from_prd_input(
-        "g", {}, data_dir=str(tmp_path), translator=_fake_translator,
+        "g",
+        {},
+        data_dir=str(tmp_path),
+        translator=_fake_translator,
     )
     assert ao.genome_ref == "g"
     assert len(ao.genes) == 0

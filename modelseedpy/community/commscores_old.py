@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from modelseedpy.core.exceptions import ObjectiveError, ParameterError
 from modelseedpy.community.commhelper import build_from_species_models
 from modelseedpy.community.mscompatibility import MSCompatibility
@@ -1707,9 +1708,9 @@ class CommScores:
                     for key, val in j.ontology_terms.items():
                         if key == "SSO":
                             genome2_set.update(val)
-                distances[f"{genome1} ++ {genome2}"] = (
-                    CommScores._calculate_jaccard_score(genome1_set, genome2_set)
-                )
+                distances[
+                    f"{genome1} ++ {genome2}"
+                ] = CommScores._calculate_jaccard_score(genome1_set, genome2_set)
         else:
             distances = {
                 f"{genome1} ++ {genome2}": CommScores._calculate_jaccard_score(

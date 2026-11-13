@@ -23,6 +23,7 @@ import re, os
 
 logger = logging.getLogger(__name__)
 
+
 class CommunityModelSpecies:
     def __init__(
         self,
@@ -172,14 +173,14 @@ class MSCommunity:
                 other_biomass_cpds.append(biomass_cpd)
         for biomass_cpd in other_biomass_cpds:
             species_obj = CommunityModelSpecies(self, biomass_cpd, names)
-            print(species_obj.index,species_obj.id)
+            print(species_obj.index, species_obj.id)
             self.species.append(species_obj)
         if abundances:
             self.set_abundance(abundances)
 
     @staticmethod
     def build_from_species_models(
-        models, mdlid=None, name=None, names=[], abundances=None,basemodel=None
+        models, mdlid=None, name=None, names=[], abundances=None, basemodel=None
     ):
         """Merges the input list of single species metabolic models into a community metabolic model
 
@@ -252,7 +253,7 @@ class MSCommunity:
                     else:
                         output = MSModelUtil.parse_id(rxn)
                         if output == None:
-                            rxn.id += "."+str(index)
+                            rxn.id += "." + str(index)
                         elif output[1] != "e":
                             if len(output[2]) == 0:
                                 rxn.id = rxn.id + str(index)

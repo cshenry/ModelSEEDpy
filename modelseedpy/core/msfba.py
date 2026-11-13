@@ -9,14 +9,30 @@ from modelseedpy.core.msmodelutl import MSModelUtil
 
 logger = logging.getLogger(__name__)
 
+
 class MSFBA:
-    def __init__(self,model_or_mdlutl,media,objective_reactions={"bio1":1},maximize=True,gene_ko=[],reaction_ko=[],pfba=True,fva=True,clone=True,primary_solution=None,id=None):
+    def __init__(
+        self,
+        model_or_mdlutl,
+        media,
+        objective_reactions={"bio1": 1},
+        maximize=True,
+        gene_ko=[],
+        reaction_ko=[],
+        pfba=True,
+        fva=True,
+        clone=True,
+        primary_solution=None,
+        id=None,
+    ):
         if isinstance(model_or_mdlutl, MSModelUtil):
             model_or_mdlutl = model_or_mdlutl.model
         if clone:
-            model_or_mdlutl = cobra.io.json.from_json(cobra.io.json.to_json(model_or_mdlutl))
+            model_or_mdlutl = cobra.io.json.from_json(
+                cobra.io.json.to_json(model_or_mdlutl)
+            )
         self.model = model_or_mdlutl
-        self.mdlutl = MSModelUtil.get(model_or_mdlutl)        
+        self.mdlutl = MSModelUtil.get(model_or_mdlutl)
         self.media = media
         self.objective_reactions = objective_reactions
         self.maximize = maximize
@@ -31,7 +47,7 @@ class MSFBA:
         self.fva_results = None
         self.secondary_fva = None
         if id == None:
-            id = self.mdlutl.model.id+".fba"
+            id = self.mdlutl.model.id + ".fba"
         self.id = id
 
     def build_objective(self):
@@ -44,7 +60,7 @@ class MSFBA:
             if rxnid in self.model.reactions:
                 rxn = self.model.reactions.get_by_id(rxnid)
                 objcoef[rxn.forward_variable] = self.objective_reactions[rxnid]
-                objcoef[rxn.reverse_variable] = -1*self.objective_reactions[rxnid]
+                objcoef[rxn.reverse_variable] = -1 * self.objective_reactions[rxnid]
             else:
                 logger.warning(f"KO reaction {rxnid} not found in model")
         obj.set_linear_coefficients(objcoef)
@@ -61,7 +77,7 @@ class MSFBA:
                 self.model.reactions.get_by_id(rxn).knock_out()
             else:
                 logger.warning(f"KO reaction {rxn} not found in model")
-    
+
     def run(self):
         if self.pfba:
             self.primary_solution = pfba(self.model)
@@ -70,7 +86,7 @@ class MSFBA:
         if self.fva:
             self.fva_results = flux_variability_analysis(self.model)
 
-    def add_secondary_solution(self,solution,fva=None):
+    def add_secondary_solution(self, solution, fva=None):
         if self.secondary_solutions == None:
             self.secondary_solutions = []
         self.secondary_solutions.append(solution)
@@ -79,7 +95,7 @@ class MSFBA:
                 self.secondary_fva = []
             self.secondary_fva.append(fva)
 
-    def get_variable_class(self,variable_min, variable_max):
+    def get_variable_class(self, variable_min, variable_max):
         variable_class = "Unknown"
         if variable_min is None or variable_max is None:
             return variable_class
@@ -96,8 +112,8 @@ class MSFBA:
         else:
             variable_class = "Variable"
         return variable_class
-    
-    def generate_kbase_data(self,fbamodel_ref,media_ref):
+
+    def generate_kbase_data(self, fbamodel_ref, media_ref):
         output = {
             "FBABiomassVariables": [],
             "FBACompoundBounds": [],
@@ -173,7 +189,7 @@ class MSFBA:
             max_flux = rxn.upper_bound
             if self.fva_results and rxn.id in self.fva_results:
                 min_flux, max_flux = self.fva_results[rxn.id]
-            other_mins= []
+            other_mins = []
             other_maxes = []
             other_fluxes = []
             if self.secondary_solutions:
@@ -201,7 +217,7 @@ class MSFBA:
                 "other_min": other_mins,
                 "other_values": other_fluxes,
                 "value": flux,
-                "variableType": "flux"
+                "variableType": "flux",
             }
             variable_key = "FBAReactionVariables"
             if rxn.id.startswith("EX_"):
@@ -213,18 +229,22 @@ class MSFBA:
                 variable_data["max"] = -1 * lower
                 variable_data["value"] = -1 * variable_data["value"]
                 variable_data["variableType"] = "drainflux"
-                variable_data["modelcompound_ref"] = "~/fbamodel/modelcompounds/id/" + rxn.id[3:]
+                variable_data["modelcompound_ref"] = (
+                    "~/fbamodel/modelcompounds/id/" + rxn.id[3:]
+                )
                 variable_key = "FBACompoundVariables"
             elif rxn.id.startswith("bio"):
                 variable_data["variableType"] = "biomassflux"
                 variable_data["biomass_ref"] = "~/fbamodel/biomasses/id/" + rxn.id
                 variable_key = "FBABiomassVariables"
             else:
-                variable_data["modelreaction_ref"] = "~/fbamodel/modelreactions/id/" + rxn.id
+                variable_data["modelreaction_ref"] = (
+                    "~/fbamodel/modelreactions/id/" + rxn.id
+                )
                 variable_data["exp_state"] = "unknown"
                 variable_data["biomass_dependencies"] = []
                 variable_data["coupled_reactions"] = []
                 variable_data["expression"] = 0
                 variable_data["scaled_exp"] = 0
-            output[variable_key].append(variable_data)    
+            output[variable_key].append(variable_data)
         return output

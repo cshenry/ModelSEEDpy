@@ -27,7 +27,8 @@ from optlang.symbolics import Zero
 from scipy.optimize import newton
 from matplotlib import pyplot
 from math import inf, isclose
-#from deepdiff import DeepDiff
+
+# from deepdiff import DeepDiff
 from pandas import DataFrame
 from itertools import chain
 from pprint import pprint
@@ -178,7 +179,6 @@ biomass_partition_coefs = [
 
 
 class CommPhitting:
-
     def __init__(
         self,
         msdb_path,
@@ -1234,25 +1234,25 @@ class CommPhitting:
                     )
 
                     # cvt <= bcv*b_{pheno} + cvmin
-                    self.constraints["cvc_" + pheno][short_code][timestep] = (
-                        tupConstraint(
-                            _name("cvc_", pheno, short_code, timestep, self.names),
-                            (0, None),
-                            {
-                                "elements": [
-                                    {
-                                        "elements": [
-                                            -1,
-                                            self.variables["cvt_" + pheno][short_code][
-                                                timestep
-                                            ].name,
-                                        ],
-                                        "operation": "Mul",
-                                    }
-                                ],
-                                "operation": "Add",
-                            },
-                        )
+                    self.constraints["cvc_" + pheno][short_code][
+                        timestep
+                    ] = tupConstraint(
+                        _name("cvc_", pheno, short_code, timestep, self.names),
+                        (0, None),
+                        {
+                            "elements": [
+                                {
+                                    "elements": [
+                                        -1,
+                                        self.variables["cvt_" + pheno][short_code][
+                                            timestep
+                                        ].name,
+                                    ],
+                                    "operation": "Mul",
+                                }
+                            ],
+                            "operation": "Add",
+                        },
                     )
                     # biomass_term = [self.parameters['bcv']*b_value + self.parameters['cvmin']] if FBAHelper.isnumber(b_value) else [
                     biomass_term = [
@@ -1277,30 +1277,28 @@ class CommPhitting:
                         self.variables["b4_" + pheno][short_code][timestep].name,
                         self.variables["b5_" + pheno][short_code][timestep].name,
                     ]
-                    self.constraints["gc_" + pheno][short_code][timestep] = (
-                        tupConstraint(
-                            name=_name("gc_", pheno, short_code, timestep, self.names),
-                            expr={
-                                "elements": [
-                                    *[
-                                        {
-                                            "elements": [
-                                                -self.parameters["kcat"][species][
-                                                    phenotype
-                                                ],
-                                                b,
+                    self.constraints["gc_" + pheno][short_code][
+                        timestep
+                    ] = tupConstraint(
+                        name=_name("gc_", pheno, short_code, timestep, self.names),
+                        expr={
+                            "elements": [
+                                *[
+                                    {
+                                        "elements": [
+                                            -self.parameters["kcat"][species][
+                                                phenotype
                                             ],
-                                            "operation": "Mul",
-                                        }
-                                        for b in b_values
-                                    ],
-                                    self.variables["g_" + pheno][short_code][
-                                        timestep
-                                    ].name,
+                                            b,
+                                        ],
+                                        "operation": "Mul",
+                                    }
+                                    for b in b_values
                                 ],
-                                "operation": "Add",
-                            },
-                        )
+                                self.variables["g_" + pheno][short_code][timestep].name,
+                            ],
+                            "operation": "Add",
+                        },
                     )
 
                     constraints.extend(
@@ -1336,32 +1334,30 @@ class CommPhitting:
                         ]
                         for pheno in self.fluxes_tup.columns
                     ]
-                    self.constraints["dcc_" + met_id][short_code][timestep] = (
-                        tupConstraint(
-                            name=_name(
-                                "dcc_", met_id, short_code, timestep, self.names
-                            ),
-                            expr={
-                                "elements": [
-                                    self.variables[concID][short_code][timestep].name,
-                                    {
-                                        "elements": [
-                                            -1,
-                                            self.variables[concID][short_code][
-                                                next_timestep
-                                            ].name,
-                                        ],
-                                        "operation": "Mul",
-                                    },
-                                    *OptlangHelper.dot_product(
-                                        growth_phenos,
-                                        heuns_coefs=half_dt
-                                        * self.fluxes_tup.values[r_index],
-                                    ),
-                                ],
-                                "operation": "Add",
-                            },
-                        )
+                    self.constraints["dcc_" + met_id][short_code][
+                        timestep
+                    ] = tupConstraint(
+                        name=_name("dcc_", met_id, short_code, timestep, self.names),
+                        expr={
+                            "elements": [
+                                self.variables[concID][short_code][timestep].name,
+                                {
+                                    "elements": [
+                                        -1,
+                                        self.variables[concID][short_code][
+                                            next_timestep
+                                        ].name,
+                                    ],
+                                    "operation": "Mul",
+                                },
+                                *OptlangHelper.dot_product(
+                                    growth_phenos,
+                                    heuns_coefs=half_dt
+                                    * self.fluxes_tup.values[r_index],
+                                ),
+                            ],
+                            "operation": "Add",
+                        },
                     )
                     constraints.append(
                         self.constraints["dcc_" + met_id][short_code][timestep]
@@ -1493,60 +1489,60 @@ class CommPhitting:
                         # print(pheno, timestep, b_values[pheno][short_code][timestep], b_values[pheno][short_code][next_timestep])
                         if "stationary" in pheno:
                             # b_{phenotype} - sum_k^K(es_k*cvf) + sum_k^K(pheno_bool*cvt) = b+1_{phenotype}
-                            self.constraints["dbc_" + pheno][short_code][timestep] = (
-                                tupConstraint(
-                                    name=_name(
-                                        "dbc_", pheno, short_code, timestep, self.names
-                                    ),
-                                    expr={
-                                        "elements": [*from_sum, *to_sum],
-                                        "operation": "Add",
-                                    },
-                                )
+                            self.constraints["dbc_" + pheno][short_code][
+                                timestep
+                            ] = tupConstraint(
+                                name=_name(
+                                    "dbc_", pheno, short_code, timestep, self.names
+                                ),
+                                expr={
+                                    "elements": [*from_sum, *to_sum],
+                                    "operation": "Add",
+                                },
                             )
                         else:
                             # b_{phenotype} + dt/2*(g_{phenotype} + g+1_{phenotype}) + cvf-cvt = b+1_{phenotype}
-                            self.constraints["dbc_" + pheno][short_code][timestep] = (
-                                tupConstraint(
-                                    name=_name(
-                                        "dbc_", pheno, short_code, timestep, self.names
-                                    ),
-                                    expr={
-                                        "elements": [
-                                            self.variables["cvf_" + pheno][short_code][
-                                                timestep
-                                            ].name,
-                                            {
-                                                "elements": [
-                                                    half_dt,
-                                                    self.variables["g_" + pheno][
-                                                        short_code
-                                                    ][timestep].name,
-                                                ],
-                                                "operation": "Mul",
-                                            },
-                                            {
-                                                "elements": [
-                                                    half_dt,
-                                                    self.variables["g_" + pheno][
-                                                        short_code
-                                                    ][next_timestep].name,
-                                                ],
-                                                "operation": "Mul",
-                                            },
-                                            {
-                                                "elements": [
-                                                    -1,
-                                                    self.variables["cvt_" + pheno][
-                                                        short_code
-                                                    ][timestep].name,
-                                                ],
-                                                "operation": "Mul",
-                                            },
-                                        ],
-                                        "operation": "Add",
-                                    },
-                                )
+                            self.constraints["dbc_" + pheno][short_code][
+                                timestep
+                            ] = tupConstraint(
+                                name=_name(
+                                    "dbc_", pheno, short_code, timestep, self.names
+                                ),
+                                expr={
+                                    "elements": [
+                                        self.variables["cvf_" + pheno][short_code][
+                                            timestep
+                                        ].name,
+                                        {
+                                            "elements": [
+                                                half_dt,
+                                                self.variables["g_" + pheno][
+                                                    short_code
+                                                ][timestep].name,
+                                            ],
+                                            "operation": "Mul",
+                                        },
+                                        {
+                                            "elements": [
+                                                half_dt,
+                                                self.variables["g_" + pheno][
+                                                    short_code
+                                                ][next_timestep].name,
+                                            ],
+                                            "operation": "Mul",
+                                        },
+                                        {
+                                            "elements": [
+                                                -1,
+                                                self.variables["cvt_" + pheno][
+                                                    short_code
+                                                ][timestep].name,
+                                            ],
+                                            "operation": "Mul",
+                                        },
+                                    ],
+                                    "operation": "Add",
+                                },
                             )
                         # if not FBAHelper.isnumber(self.variables['b_' + pheno][short_code][timestep]):
                         biomass_term = [
@@ -1576,31 +1572,31 @@ class CommPhitting:
                             signal not in requisite_biomass[short_code],
                         ]
                     ):
-                        self.variables[signal + "|bio"][short_code][timestep] = (
-                            tupVariable(
-                                _name(signal, "|bio", short_code, timestep, self.names)
-                            )
+                        self.variables[signal + "|bio"][short_code][
+                            timestep
+                        ] = tupVariable(
+                            _name(signal, "|bio", short_code, timestep, self.names)
                         )
                     else:
                         biomass_flux = requisite_biomass[short_code][signal]["bio"]
                         estimated_biomass = biomass_flux  # * int(timestep)*self.parameters['data_timestep_hr']
-                        self.variables[signal + "|bio"][short_code][timestep] = (
-                            tupVariable(
-                                _name(signal, "|bio", short_code, timestep, self.names),
-                                Bounds(estimated_biomass, None),
-                            )
+                        self.variables[signal + "|bio"][short_code][
+                            timestep
+                        ] = tupVariable(
+                            _name(signal, "|bio", short_code, timestep, self.names),
+                            Bounds(estimated_biomass, None),
                         )
-                    self.variables[signal + "|diffpos"][short_code][timestep] = (
-                        tupVariable(
-                            _name(signal, "|diffpos", short_code, timestep, self.names),
-                            Bounds(0, 100),
-                        )
+                    self.variables[signal + "|diffpos"][short_code][
+                        timestep
+                    ] = tupVariable(
+                        _name(signal, "|diffpos", short_code, timestep, self.names),
+                        Bounds(0, 100),
                     )
-                    self.variables[signal + "|diffneg"][short_code][timestep] = (
-                        tupVariable(
-                            _name(signal, "|diffneg", short_code, timestep, self.names),
-                            Bounds(0, 100),
-                        )
+                    self.variables[signal + "|diffneg"][short_code][
+                        timestep
+                    ] = tupVariable(
+                        _name(signal, "|diffneg", short_code, timestep, self.names),
+                        Bounds(0, 100),
                     )
                     variables.extend(
                         [
@@ -1612,65 +1608,61 @@ class CommPhitting:
 
                     # {signal}__conversion*datum = {signal}__bio
                     # TODO - the conversion variable must be a constant for BIOLOG conditions
-                    self.constraints[signal + "|bioc"][short_code][timestep] = (
-                        tupConstraint(
-                            name=_name(
-                                signal, "|bioc", short_code, timestep, self.names
-                            ),
-                            expr={
-                                "elements": [
-                                    {
-                                        "elements": [
-                                            -1,
-                                            self.variables[signal + "|bio"][short_code][
-                                                timestep
-                                            ].name,
-                                        ],
-                                        "operation": "Mul",
-                                    },
-                                    {
-                                        "elements": [
-                                            self.variables[signal + "|conversion"].name,
-                                            values_slice[timestep, signal_column_index],
-                                        ],
-                                        "operation": "Mul",
-                                    },
-                                ],
-                                "operation": "Add",
-                            },
-                        )
+                    self.constraints[signal + "|bioc"][short_code][
+                        timestep
+                    ] = tupConstraint(
+                        name=_name(signal, "|bioc", short_code, timestep, self.names),
+                        expr={
+                            "elements": [
+                                {
+                                    "elements": [
+                                        -1,
+                                        self.variables[signal + "|bio"][short_code][
+                                            timestep
+                                        ].name,
+                                    ],
+                                    "operation": "Mul",
+                                },
+                                {
+                                    "elements": [
+                                        self.variables[signal + "|conversion"].name,
+                                        values_slice[timestep, signal_column_index],
+                                    ],
+                                    "operation": "Mul",
+                                },
+                            ],
+                            "operation": "Add",
+                        },
                     )
                     constraints.append(
                         self.constraints[signal + "|bioc"][short_code][timestep]
                     )
 
                     # {speces}_bio + {signal}_diffneg-{signal}_diffpos = sum_k^K(es_k*b_{phenotype})
-                    self.constraints[signal + "|diffc"][short_code][timestep] = (
-                        tupConstraint(
-                            name=_name(
-                                signal, "|diffc", short_code, timestep, self.names
-                            ),
-                            expr={
-                                "elements": [
-                                    self.variables[signal + "|bio"][short_code][
-                                        timestep
-                                    ].name,
-                                    self.variables[signal + "|diffneg"][short_code][
-                                        timestep
-                                    ].name,
-                                    {
-                                        "elements": [
-                                            -1,
-                                            self.variables[signal + "|diffpos"][
-                                                short_code
-                                            ][timestep].name,
-                                        ],
-                                        "operation": "Mul",
-                                    },
-                                ],
-                                "operation": "Add",
-                            },
-                        )
+                    self.constraints[signal + "|diffc"][short_code][
+                        timestep
+                    ] = tupConstraint(
+                        name=_name(signal, "|diffc", short_code, timestep, self.names),
+                        expr={
+                            "elements": [
+                                self.variables[signal + "|bio"][short_code][
+                                    timestep
+                                ].name,
+                                self.variables[signal + "|diffneg"][short_code][
+                                    timestep
+                                ].name,
+                                {
+                                    "elements": [
+                                        -1,
+                                        self.variables[signal + "|diffpos"][short_code][
+                                            timestep
+                                        ].name,
+                                    ],
+                                    "operation": "Mul",
+                                },
+                            ],
+                            "operation": "Add",
+                        },
                     )
                     if all([isinstance(val, dict) for val in signal_sum]):
                         self.constraints[signal + "|diffc"][short_code][timestep].expr[

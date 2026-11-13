@@ -343,7 +343,6 @@ def add_rel_flux_cons(model, ex, phenoRXN, carbon_ratio, rel_flux=0.2):
 
 
 class GrowthData:
-
     @staticmethod
     def process(
         community_members: dict,
@@ -384,16 +383,18 @@ class GrowthData:
             row_num,
             extract_zip_path,
         )
-        experimental_metadata, standardized_carbon_conc, trial_name_conversion = (
-            GrowthData.metadata(
-                base_media,
-                community_members,
-                species_abundances,
-                carbon_conc_series,
-                species_identities_rows,
-                row_num,
-                _findDate(data_paths["path"]),
-            )
+        (
+            experimental_metadata,
+            standardized_carbon_conc,
+            trial_name_conversion,
+        ) = GrowthData.metadata(
+            base_media,
+            community_members,
+            species_abundances,
+            carbon_conc_series,
+            species_identities_rows,
+            row_num,
+            _findDate(data_paths["path"]),
         )
         data_df = GrowthData.data_process(dataframes, trial_name_conversion)
         requisite_biomass = (
@@ -866,9 +867,9 @@ class GrowthData:
                     * abs(flux_conversion)
                     * abs(flux_conversion / total_consumed)
                 )
-                requisite_fluxes[short_code][f"{species}|{name_signal[species]}"] = (
-                    fluxes[fluxes != 0]
-                )
+                requisite_fluxes[short_code][
+                    f"{species}|{name_signal[species]}"
+                ] = fluxes[fluxes != 0]
                 pheno = reverse_strip_comp(pheno)
                 if "excreted" in pheno_info[pheno]:
                     # print(pheno_info[pheno]["excreted"])
@@ -949,7 +950,6 @@ class GrowthData:
 
 
 class BiologData:
-
     @staticmethod
     def process(
         data_paths,
@@ -984,10 +984,12 @@ class BiologData:
             date,
             solver,
         )
-        experimental_metadata, standardized_carbon_conc, trial_name_conversion = (
-            BiologData.metadata(
-                trial_conditions_path, row_num, column_num, culture, date
-            )
+        (
+            experimental_metadata,
+            standardized_carbon_conc,
+            trial_name_conversion,
+        ) = BiologData.metadata(
+            trial_conditions_path, row_num, column_num, culture, date
         )
         biolog_df = BiologData.data_process(dataframes, trial_name_conversion)
         requisite_biomass = BiologData.biomass_growth(biolog_df, member_conversions)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from modelseedpy import FBAHelper
 from modelseedpy.core.exceptions import (
     ObjectAlreadyDefinedError,
@@ -34,7 +35,6 @@ def add_collection_item(
 
 
 class MSSteadyCom:
-
     @staticmethod
     def run_fba(
         mscommodel,

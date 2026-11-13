@@ -68,7 +68,7 @@ class FlexibleBiomassPkg(BaseFBAPkg):
                 "use_energy_class": [-1, 1],
                 "add_total_biomass_constraint": True,
                 "set_min_flex_biomass_objective": True,
-            }
+            },
         )
         if self.parameters["bio_rxn_id"] not in self.model.reactions:
             raise ValueError(self.parameters["bio_rxn_id"] + " not found in model!")
@@ -239,18 +239,12 @@ class FlexibleBiomassPkg(BaseFBAPkg):
                     sign = 1
                 coef[
                     self.model.reactions.get_by_id(
-                        "FLEX_"
-                        + self.parameters["bio_rxn"].id
-                        + "_"
-                        + metabolite.id
+                        "FLEX_" + self.parameters["bio_rxn"].id + "_" + metabolite.id
                     ).forward_variable
                 ] = (sign * mw)
                 coef[
                     self.model.reactions.get_by_id(
-                        "FLEX_"
-                        + self.parameters["bio_rxn"].id
-                        + "_"
-                        + metabolite.id
+                        "FLEX_" + self.parameters["bio_rxn"].id + "_" + metabolite.id
                     ).reverse_variable
                 ] = (-1 * sign * mw)
         for met_class in classes:
@@ -263,7 +257,7 @@ class FlexibleBiomassPkg(BaseFBAPkg):
                 if abs(massdiff) > 0.00001:
                     coef[rxn.forward_variable] = massdiff
                     coef[rxn.reverse_variable] = -massdiff
-        return self.build_constraint( "flxbio", 0, 0, coef, cobra_obj)
+        return self.build_constraint("flxbio", 0, 0, coef, cobra_obj)
 
     def build_flex_biomass_constraint(self, cobra_obj, obj_type):
         first_entry = None
@@ -295,9 +289,7 @@ class FlexibleBiomassPkg(BaseFBAPkg):
             # 0.75 * vbio - vrxn,for >= 0
             # 0.75 * vbio - vrxn,rev >= 0
             first_entry = self.parameters["use_" + cobra_obj.id[0:-5] + "_class"][0]
-            second_entry = self.parameters["use_" + cobra_obj.id[0:-5] + "_class"][
-                1
-            ]
+            second_entry = self.parameters["use_" + cobra_obj.id[0:-5] + "_class"][1]
             object = cobra_obj
         if first_entry == second_entry:
             # If the value is positive, lock in the forward variable and set the reverse to zero

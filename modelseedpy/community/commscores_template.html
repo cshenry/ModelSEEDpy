@@ -77,10 +77,10 @@
                 {{ heatmap|safe }}
             </div>
             <div class="tab-pane fade" id="nav-info" role="tabpanel" aria-labelledby="nav-info-tab">
-                <br> 
+                <br>
                 <h3>Novel scores</h3><br>
 
-                <h4>Functional Complementarity (FC)</h4>    
+                <h4>Functional Complementarity (FC)</h4>
                 <p>
                     The <b>FC</b> score is calculated as the Jiccard Index of ontologies <i>O</i> from either RAST or another annotation software available on KBase
                     <div class="latex">
@@ -89,7 +89,7 @@
                     This score captures the potential for niche overlap and therefore negative interactions. The broad assessment of the entire genome further captures secondary metabolic interactions as well as the primary metabolism that is embodied in genome-scale metabolic models.
                 </p>
 
-                <h4>Growth Yield Difference (GYD)</h4>    
+                <h4>Growth Yield Difference (GYD)</h4>
                 <p>
                     The <b>GYD</b> score evaluates the disparity in growth rate between the isolated members
                     <div class="latex">
@@ -98,13 +98,13 @@
                     by normalizing the difference in the member's growth rates by the growth rate of the slower growing member. A relatively large disparity in the isolate growth rates may foreshadow a negative interaction when the members are combined, where one member rapidly begins dominating the environment and media consumption which leaves the other member potentially starved and possibly launching antibiotic warfare in desparation to survive.
                 </p>
 
-                <h4>Costless Interaction Potential (CIP)</h4>    
+                <h4>Costless Interaction Potential (CIP)</h4>
                 <p>
                     The <b>CIP</b> score quantifies the union of costless excreta <i>CE</i> (compounds that are excreted at maximal growth and therefore have no fitness cost associated with their excretion) in the isolated members
                     <div class="latex">
                         \[ CIP = len(CE_1 \cup CE_2)~~, \]
                     </div>
-                    which may contextualize syntrophic exchanges in their likelihood for exchange based on the fitness expense of their excretion. Our curation of the MIP score can be further contextualized with costless excreta via the intersection of exchanged compounds in the MIP score and the CIP for the same member pair. 
+                    which may contextualize syntrophic exchanges in their likelihood for exchange based on the fitness expense of their excretion. Our curation of the MIP score can be further contextualized with costless excreta via the intersection of exchanged compounds in the MIP score and the CIP for the same member pair.
                 </p>
 
                 <h4>Biological Interaction Potential (BIT)</h4>
@@ -119,11 +119,11 @@
                     which provides a tangible biological description of the member interaction based on growth through the primary metabolism.
                 </p>
 
-                <h3>Curated scores</h3><br> 
+                <h3>Curated scores</h3><br>
 
                 <h4>MRO</h4>
                 <p>
-                    The <i><b>M</b>etabolic <b>R</b>esource <b>O</b>verlap</i> (MRO) score is in the SMETANA suite and was published in several earlier studies as well, albeit with slight algorithmic variations. The MRO quantifies the fraction of a member's nutritional requirements, in a given media or the complete media by default, that overlap with the other member's nutritional requirements 
+                    The <i><b>M</b>etabolic <b>R</b>esource <b>O</b>verlap</i> (MRO) score is in the SMETANA suite and was published in several earlier studies as well, albeit with slight algorithmic variations. The MRO quantifies the fraction of a member's nutritional requirements, in a given media or the complete media by default, that overlap with the other member's nutritional requirements
                         <div class="latex">\[ MRO= \frac{|M_1 \cap M_2|}{|M_1|} \]</div>
                     and is importantly directional (by replacing the denominator member), which can capture directional dependencies of interactions (e.g. lawn versus spot). The minimal media <i>M</i> of each member is determined by minimizing the total exchange flux.
                 </p>
