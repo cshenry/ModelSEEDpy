@@ -1,6 +1,5 @@
 from cobrakbase.core.kbasefba.fbamodel_from_cobra import CobraModelConverter
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
-from modelseedpy.community.mscommunity import MSCommunity
 from cobrakbase.core.kbasefba.fbamodel import FBAModel
 from cobra.io import write_sbml_model, read_sbml_model
 from optlang import Objective
@@ -195,6 +194,8 @@ class MSProbability:
         elepkg.build_package({"C": 100})
         ## the total flux through the members proportional to their relative abundances
         if not commkinetics and len(model_s_) > 1:
+            from modelseedpy.community.mscommunity import MSCommunity
+
             pkgmgr = MSPackageManager.get_pkg_mgr(mdlUtil.model)
             MSCommObj = MSCommunity(mdlUtil.model, model_s_)
             pkgmgr.getpkg("CommKineticPkg").build_package(kinetics_coef, MSCommObj)
