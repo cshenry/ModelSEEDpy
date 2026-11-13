@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-
-import logging
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
+import logging
 
-# Base class for FBA packages
 class ElementUptakePkg(BaseFBAPkg):
     def __init__(self, model):
         BaseFBAPkg.__init__(
