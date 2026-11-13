@@ -11,6 +11,7 @@ from cobra.core import (
     Reaction,
 )  # !!! None of these imports are used
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
+import re
 
 # Base class for FBA packages
 class BilevelPkg(BaseFBAPkg):
@@ -76,7 +77,7 @@ class BilevelPkg(BaseFBAPkg):
                         coefficients[var_name][var] = item["args"][0]["value"]
         for var in variables:
             if var.type == "continuous":
-                dvar = self.build_variable("duallb", var, obj_coef)
+                dvar = self.build_variable("duallb", var, obj_coef)   #!!! why is this repeated twice?
                 if dvar != None:
                     if var not in coefficients:
                         coefficients[var] = {}
