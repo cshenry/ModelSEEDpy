@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import re
+from typing import Iterable
 from cobra.core.dictlist import DictList
 
 logger = logging.getLogger(__name__)
@@ -8,11 +9,85 @@ logger = logging.getLogger(__name__)
 DEFAULT_SPLIT = " "
 
 
-def to_fasta(features, filename, line_size=80, fn_header=None):
+def normalize_role(s):
+    s = s.strip().lower()
+    s = re.sub(r"[\W_]+", "", s)
+    return s
+
+
+def read_fasta(f, split=DEFAULT_SPLIT, h_func=None):
+    if f.endswith(".gz"):
+        import gzip
+
+        with gzip.open(f, "rb") as fh:
+            return parse_fasta_str(fh.read().decode("utf-8"), split, h_func)
+    else:
+        with open(f, "r") as fh:
+            return parse_fasta_str(fh.read(), split, h_func)
+
+
+def parse_fasta_str(faa_str, split=DEFAULT_SPLIT, h_func=None):
+    features = []
+    seq = None
+    for line in faa_str.split("\n"):
+        if line.startswith(">"):
+            if seq:
+                features.append(seq)
+            desc = None
+            seq_id = line[1:]
+            if h_func:
+                seq_id, desc = h_func(line[1:])
+            elif split:
+                header_data = line[1:].split(split, 1)
+                seq_id = header_data[0]
+                if len(header_data) > 1:
+                    desc = header_data[
+                        1
+                    ]  # The unit test throws an error when this is commented
+
+
+            seq = MSFeature(seq_id, "", desc)
+        else:
+            if seq:
+                seq.seq += line.strip()
+    if seq and seq.seq and len(seq.seq) > 0:
+        features.append(seq)
+    return features
+
+
+class MSFeature:
+    def __init__(self, feature_id, sequence, description=None, aliases=None):
+        """
+
+        @param feature_id: identifier for the protein coding feature
+        @param sequence: protein sequence
+        @param description: description of the feature
+        """
+
+        self.id = feature_id
+        self.seq = sequence
+        self.description = description  # temporary replace with proper parsing
+        self.ontology_terms = {}
+        self.aliases = aliases or []
+
+    def add_ontology_term(self, ontology_term, value):
+        """
+        Add functional term to the feature
+
+        @param ontology_term: type of the ontology (e.g., RAST, EC)
+        @param value: value for the ontology (e.g., pyruvate kinase)
+        """
+        if ontology_term not in self.ontology_terms:
+            self.ontology_terms[ontology_term] = []
+        if value not in self.ontology_terms[ontology_term]:
+            self.ontology_terms[ontology_term].append(value)
+
+
+def to_fasta(features: Iterable[MSFeature], filename, line_size=80, fn_header=None):
     with open(filename, "w") as fh:
         for feature in features:
             if feature.seq:
-                h = f">{feature.id}\n"
+                h = f">{feature.id}{DEFAULT_SPLIT}{feature.description}\n"
                 if fn_header:
                     h = fn_header(feature)
                 fh.write(h)
