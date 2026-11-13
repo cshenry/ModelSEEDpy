@@ -25,15 +25,15 @@ def get_reaction_constraints_from_direction(direction: str) -> (float, float):
         return -1000, 1000
 
 
-def get_direction_from_constraints(lower, upper):
-    if lower < 0 < upper:
-        return "="
-    elif upper > 0:
-        return ">"
-    elif lower < 0:
-        return "<"
+def get_direction_from_constraints(lower_bound, upper_bound):
+    if lower_bound < 0 < upper_bound:
+        return '='
+    elif upper_bound > 0:
+        return '>'
+    elif lower_bound < 0:
+        return '<'
     logger.error(
-        f"The [{lower}, {upper}] bounds are not amenable with a direction string."
+        f"The [{lower_bound}, {upper_bound}] bounds are not amenable with a direction string."
     )
     return "?"
 
