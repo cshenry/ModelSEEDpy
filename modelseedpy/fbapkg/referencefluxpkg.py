@@ -22,7 +22,7 @@ class ReferenceFluxPkg(BaseFBAPkg):
             {
                 "coef": {},
                 "fixed": False,
-                "set_objective": True
+                "set_objective": True,
                 "quadratic": True,
                 "objective_coef":{},
                 "default_objective_coef": 1.0
