@@ -245,89 +245,102 @@ class MSGrowthPhenotype:
                 return None
             target_mdlutl = msgapfill.gfmodelutl
         
-        with target_mdlutl.model:
-            original_bounds = {}
-            gapfilling_coefs = {}
-            for rxn in target_mdlutl.model.reactions:
-                #Skipping exchange reactions - these should not be gapfilled or manipulated
-                if rxn.id[:3] == "EX_":
-                    continue
-                gapfilling_coefs[rxn.id] = {}
-                forscore = 100
-                revscore = 100
-                if rxn.id in reaction_scores:
-                    forscore = reaction_scores[rxn.id][">"]
-                    revscore = reaction_scores[rxn.id]["<"]
-                if rxn.id in modelutl.model.reactions:
-                    if modelutl.model.reactions.get_by_id(rxn.id).upper_bound > 0:
-                        gapfilling_coefs[rxn.id][">"] = 0.01
-                    else:
-                        original_bounds.setdefault(rxn.id, {})
-                        original_bounds[rxn.id][">"] = rxn.upper_bound
-                        rxn.upper_bound = 0
-                        gapfilling_coefs[rxn.id][">"] = forscore
-                    if modelutl.model.reactions.get_by_id(rxn.id).lower_bound < 0:
-                        gapfilling_coefs[rxn.id]["<"] = 0.01
-                    else:
-                        gapfilling_coefs[rxn.id]["<"] = revscore
-                        original_bounds.setdefault(rxn.id, {})
-                        original_bounds[rxn.id]["<"] = rxn.lower_bound
-                        rxn.lower_bound = 0
-                else:
-                    gapfilling_coefs[rxn.id][">"] = forscore
-                    gapfilling_coefs[rxn.id]["<"] = revscore
-                    original_bounds.setdefault(rxn.id, {})
-                    original_bounds[rxn.id][">"] = rxn.upper_bound
-                    original_bounds[rxn.id]["<"] = rxn.lower_bound
-                    rxn.upper_bound = 0
-                    rxn.lower_bound = 0
-            #Computing gene associations and reaction scores from annotation ontology
-            rxn_gene_hash = {}
-            if annoont != None:
-                rxn_gene_hash = annoont.get_reaction_gene_hash(feature_type="gene")
-                direction_list = [">","<"]
-                for rxn in rxn_gene_hash:
-                    rxnid = rxn+"_c0"
-                    if rxnid not in gapfilling_coefs:
-                        gapfilling_coefs[rxnid] = {">": 5, "<": 5}
-                    for direction in direction_list:
-                        current_score = gapfilling_coefs[rxnid][direction]
-                        rxn_score = None
-                        for gene in rxn_gene_hash[rxn]:
-                            new_score = rxn_gene_hash[rxn][gene]["probability"]
-                            if gene in self.gene_association_scores:
-                                new_score = -1*(1-self.gene_association_scores[gene])*new_score
-                            if rxn_score == None or (new_score < 0 and new_score < rxn_score) or (current_score > 0.1 and rxn_score > 0 and new_score > rxn_score):
-                                rxn_score = new_score
-                        if rxn_score != None:
-                            if rxn_score > 0:
-                                rxn_score = 1+rxn_score
-                            gapfilling_coefs[rxnid][direction] = rxn_score
-            #Configuring the model for the phenotype
-            configuration_output = self.configure_model_for_phenotype(target_mdlutl,add_missing_exchanges=add_missing_exchanges)
-            output["missing_transports"] = configuration_output["missing_transports"]
-            output["baseline_objective"] = configuration_output["baseline_objective"]
-            #Implementing knockouts
-            for item in self.knockouts:
-                if item in target_mdlutl.model.genes:
-                    geneobj = target_mdlutl.model.genes.get_by_id(item)
-                    geneobj.knock_out()
-                elif item in target_mdlutl.model.reactions:
-                    rxnobj = target_mdlutl.model.reactions.get_by_id(item)
-                    rxnobj.knock_out()
-                else:
-                    logger.warning("Gene or reaction "+item+" not found in model")
-            #Relaxing minimum objective constraint from gapfilling package if present
-            if gapfilling and msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"] != "none":
-                for name in msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"]:
-                    msgapfill.gfpkgmgr.getpkg("ObjConstPkg").constraints["objc"][name].lb = 0
-            #Getting objective value
-            solution = target_mdlutl.model.optimize()
-            print(self.id,solution.status,solution.objective_value)
-            output["pregapfill_objective_value"] = solution.objective_value
-            output["objective_value"] = solution.objective_value
-            output["class"] = "P"
-            if solution.status != "optimal" or output["pregapfill_objective_value"] < growth_threshold:
+        # Getting basline growth
+        if objstring != None and output["baseline_objective"] == None and self.parent:
+            output["baseline_objective"] = self.parent.baseline_objective(modelutl, objstring)
+        if output["baseline_objective"] < 1e-5:
+            output["baseline_objective"] = 0.01
+
+        # Building specific media and setting compound exception list
+        if self.parent and self.parent.atom_limits and len(self.parent.atom_limits) > 0:
+            reaction_exceptions = []
+            specific_media = self.build_media(False)
+            for mediacpd in specific_media.mediacompounds:
+                ex_hash = mediacpd.get_mdl_exchange_hash(modelutl)
+                for mdlcpd in ex_hash:
+                    reaction_exceptions.append(ex_hash[mdlcpd])
+            modelutl.pkgmgr.getpkg("ElementUptakePkg").build_package(
+                self.parent.atom_limits, exception_reactions=reaction_exceptions
+            )
+
+        # Applying media
+        if self.parent:
+            modelutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(
+                full_media, self.parent.base_uptake, self.parent.base_excretion
+            )
+        else:
+            modelutl.pkgmgr.getpkg("KBaseMediaPkg").build_package(full_media, 0, 1000)
+
+        # with modelutl.model:
+        mdl = modelutl.model.copy()
+        # Applying gene knockouts
+        for gene in self.gene_ko:
+            if gene in mdl.genes:
+                geneobj = mdl.genes.get_by_id(gene)
+                geneobj.knock_out()
+
+        # Optimizing model
+        if '1_objc' in modelutl.model.constraints:
+            constraint = modelutl.model.constraints['1_objc']
+            modelutl.model.remove_cons_vars([constraint])
+        solution = modelutl.model.optimize()
+        output["objective_value"] = solution.objective_value
+        if solution.objective_value != None and solution.objective_value > 0:
+            if flux_coefficients == None:
+                solution = cobra.flux_analysis.pfba(modelutl.model)
+            else:
+                #modelutl.printlp(lpfilename="lpfiles/gapfill.lp")
+                modelutl.pkgmgr.getpkg("ObjConstPkg").build_package(
+                    0.1, None
+                )
+                coefobj = mdl.problem.Objective(0, direction="min")
+                mdl.objective = coefobj
+                obj_coef = {}
+                for rxn in flux_coefficients:
+                    rxnid = rxn
+                    direction = "="
+                    if rxn[0:1] == ">" or rxn[0:1] == "<":
+                        direction = rxn[0:1]
+                        rxnid = rxn[1:]
+                    if rxnid in mdl.reactions:
+                        rxnobj = mdl.reactions.get_by_id(rxnid)
+                        if direction == ">" or direction == "=":
+                            obj_coef[rxnobj.forward_variable] = flux_coefficients[rxn]
+                        if direction == "<" or direction == "=":
+                            obj_coef[rxnobj.reverse_variable] = flux_coefficients[rxn]
+                coefobj.set_linear_coefficients(obj_coef)
+                solution = mdl.optimize()
+                modelutl.pkgmgr.getpkg("ObjConstPkg").clear()
+            if save_reaction_list:
+                output["reactions"] = []
+            if save_fluxes:
+                output["fluxes"] = solution.fluxes
+            output["gapfill_count"] = 0
+            output["reaction_count"] = 0
+            for reaction in mdl.reactions:
+                if reaction.id in solution.fluxes:
+                    flux = solution.fluxes[reaction.id]
+                    if abs(flux) > zero_threshold:
+                        output["reaction_count"] += 1
+                        if reaction.id[0:3] != "bio" and reaction.id[0:3] != "EX_" and reaction.id[0:3] != "DM_" and len(reaction.genes) == 0:
+                            output["gapfill_count"] += 1
+                        if save_reaction_list and flux > zero_threshold:
+                            output["reactions"].append(">"+reaction.id)
+                        elif save_reaction_list:
+                            output["reactions"].append("<"+reaction.id)
+
+        # Determining phenotype class
+        if output["objective_value"] != None and output["objective_value"] >= output["baseline_objective"] * multiplier:
+            output["postive"] = True
+            if not self.experimental_value or ignore_experimental_data:
+                output["class"] = "P"
+            elif self.experimental_value > 0:
+                output["class"] = "CP"
+            elif self.experimental_value == 0:
+                output["class"] = "FP"
+        else:
+            output["postive"] = False
+            if self.experimental_value == None or ignore_experimental_data:
                 output["class"] = "N"
                 if gapfilling:
                     for rxnid in original_bounds:
@@ -797,6 +810,7 @@ class MSGrowthPhenotypes:
         totalcount = 0
         datahash = {"summary": {}}
         for pheno in self.phenotypes:
+            mdlUtil = MSModelUtil(modelutl.model, copy=True)
             result = pheno.simulate(
                 modelutl,
                 gapfilling=gapfill_negatives,
