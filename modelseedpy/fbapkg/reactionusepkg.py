@@ -6,7 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 from optlang.symbolics import Zero, add  # !!! add is never used
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
-from modelseedpy.core.fbahelper import FBAHelper
 
 # Base class for FBA packages
 class ReactionUsePkg(BaseFBAPkg):
@@ -103,6 +102,8 @@ class ReactionUsePkg(BaseFBAPkg):
         return constraint
 
     def build_exclusion_constraint(self, flux_values=None):
+        # Deferred import to avoid circular dependency
+        from modelseedpy.core.fbahelper import FBAHelper
         flux_values = flux_values or FBAHelper.compute_flux_values_from_variables(
             self.model
         )
