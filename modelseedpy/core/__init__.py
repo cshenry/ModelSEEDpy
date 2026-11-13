@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+# Import exceptions first to avoid circular import issues
+from modelseedpy.core.exceptions import *
+
 from modelseedpy.core.rast_client import RastClient
 from modelseedpy.core.msgenome import MSGenome
 from modelseedpy.core.fbahelper import FBAHelper
@@ -11,7 +14,8 @@ from modelseedpy.core.msgapfill import MSGapfill
 from modelseedpy.core.msatpcorrection import MSATPCorrection
 from modelseedpy.core.msgrowthphenotypes import MSGrowthPhenotypes, MSGrowthPhenotype
 from modelseedpy.core.msmodelutl import MSModelUtil
+from modelseedpy.core.msminimalmedia import MSMinimalMedia, minimizeFlux_withGrowth, bioFlux_check
 from modelseedpy.core.mstemplate import MSTemplateBuilder
 from modelseedpy.core.msmodelreport import MSModelReport
 from modelseedpy.core.annotationontology import AnnotationOntology
-from modelseedpy.core.exceptions import *
+from modelseedpy.core.report import *
