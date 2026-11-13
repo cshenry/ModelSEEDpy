@@ -72,19 +72,7 @@ class RPCClient:
             if ret.headers.get("content-type") == "application/json":
                 err = ret.json()
                 if "error" in err:
-                    error_body = err["error"]
-                    # JSON-RPC servers should return an object here, but
-                    # tutorial.theseed.org and some other backends
-                    # occasionally return a plain string or a list under
-                    # load. `ServerError(**error_body)` explodes with
-                    # `TypeError: argument after ** must be a mapping,
-                    # not str`, masking the real upstream failure. Coerce
-                    # non-dict shapes into the same ServerError we'd
-                    # produce for a non-JSON 500.
-                    if isinstance(error_body, dict):
-                        raise ServerError(**error_body)
-                    else:
-                        raise ServerError("Unknown", 0, str(error_body))
+                    raise ServerError(**err["error"])
                 else:
                     raise ServerError("Unknown", 0, ret.text)
             else:
