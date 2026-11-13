@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import logging
 import pytest
 import json
 import cobra
@@ -398,3 +399,37 @@ def test_build_tests_computes_when_never_evaluated(
     assert atp_correction.selected_media is None
     atp_correction.build_tests()
     assert atp_correction.selected_media is not None
+
+
+def test_determine_growth_media_warns_when_nothing_selected(
+    get_model_with_infinite_atp_loop, template, media_glucose_aerobic, caplog
+):
+    """A model where NO medium qualified must say so in the log.
+
+    ``determine_growth_media`` leaves ``selected_media == []`` in that case and
+    raises nothing, and ``build_tests`` then returns the empty-media test alone
+    -- a far weaker guarantee than the caller asked for, with no signal that it
+    happened. The sibling tests
+    :func:`test_build_tests_preserves_expansion_filter_when_no_media_selected`
+    and :func:`test_build_tests_computes_when_never_evaluated` pin the two sides
+    of the ``is None`` guard; this one pins the operator's only warning that the
+    empty-list side was taken.
+    """
+    model = get_model_with_infinite_atp_loop()
+    atp_correction = MSATPCorrection(
+        model,
+        template,
+        [media_glucose_aerobic],
+        atp_hydrolysis_id="ATPM_c0",
+        load_default_medias=False,
+    )
+    atp_correction.evaluate_growth_media(no_gapfilling=True)
+    with caplog.at_level(logging.WARNING, logger="modelseedpy.core.msatpcorrection"):
+        atp_correction.determine_growth_media()
+
+    assert atp_correction.selected_media == []
+    assert any(
+        "No ATP test media selected" in record.getMessage()
+        for record in caplog.records
+        if record.levelno >= logging.WARNING
+    ), "determine_growth_media selected nothing and did not warn"

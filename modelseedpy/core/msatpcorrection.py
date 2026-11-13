@@ -398,6 +398,15 @@ class MSATPCorrection:
                 self.selected_media.append(media)
                 atp_att["selected_media"][media.id] = 0
 
+        # A model where nothing qualified is protected by the empty-media test
+        # ALONE, which is a far weaker guarantee than the caller asked for. Say so,
+        # because the condition is otherwise invisible: build_tests() returns a
+        # one-element list and raises nothing. Reported by jplfaria in fork PR #76.
+        if not self.selected_media:
+            logger.warning(
+                "No ATP test media selected - only the empty media test will be applied!"
+            )
+
         self.modelutl.save_attributes(atp_att, "ATP_analysis")
 
     def apply_growth_media_gapfilling(self):
