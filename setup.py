@@ -18,7 +18,7 @@ setup(
     author_email="chenry@anl.gov",
     url="https://github.com/ModelSEED/ModelSEEDpy",
     license=license,
-    packages=find_packages(exclude=("docs")),
+    packages=find_packages(exclude=("docs", "docs.*", "tests", "tests.*")),
     package_data={
         "modelseedpy": ["config.cfg", "data/*"],
     },
