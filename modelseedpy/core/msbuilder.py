@@ -431,7 +431,9 @@ class MSBuilder:
             "SBO:0000628",
         )
 
-    def _get_template_reaction_complexes(self, template_reaction):
+    def _get_template_reaction_complexes(
+        self, template_reaction, match_role_aliases=False
+    ):
         """
 
         :param template_reaction:
@@ -442,13 +444,17 @@ class MSBuilder:
             template_reaction_complexes[cpx.id] = {}
             for role, (triggering, optional) in cpx.roles.items():
                 sn = normalize_role(role.name)
+                names = [sn]
+                if match_role_aliases:
+                    names.extend(normalize_role(alias) for alias in role.aliases)
+                genes = set().union(
+                    *(self.search_name_to_genes.get(name, set()) for name in names)
+                )
                 template_reaction_complexes[cpx.id][role.id] = [
                     sn,
                     triggering,
                     optional,
-                    set()
-                    if sn not in self.search_name_to_genes
-                    else set(self.search_name_to_genes[sn]),
+                    genes,
                 ]
         return template_reaction_complexes
 
@@ -546,10 +552,14 @@ class MSBuilder:
         return complexes
 
     def get_gpr_from_template_reaction(
-        self, template_reaction, allow_incomplete_complexes=True
+        self,
+        template_reaction,
+        allow_incomplete_complexes=True,
+        *,
+        match_role_aliases=False,
     ):
         template_reaction_complexes = self._get_template_reaction_complexes(
-            template_reaction
+            template_reaction=template_reaction, match_role_aliases=match_role_aliases
         )
         if len(template_reaction_complexes) == 0:
             return None
@@ -630,11 +640,15 @@ class MSBuilder:
 
         return self.genome_class
 
-    def generate_reaction_complex_sets(self, allow_incomplete_complexes=True):
+    def generate_reaction_complex_sets(
+        self, allow_incomplete_complexes=True, *, match_role_aliases=False
+    ):
         self.reaction_to_complex_sets = {}
         for template_reaction in self.template.reactions:
             gpr_set = self.get_gpr_from_template_reaction(
-                template_reaction, allow_incomplete_complexes
+                template_reaction=template_reaction,
+                allow_incomplete_complexes=allow_incomplete_complexes,
+                match_role_aliases=match_role_aliases,
             )
             if gpr_set:
                 self.reaction_to_complex_sets[template_reaction.id] = gpr_set
@@ -1061,6 +1075,9 @@ class MSBuilder:
         biomass_classic=False,
         biomass_gc=0.5,
         add_reaction_from_rast_annotation=True,
+        *,
+        match_role_aliases=False,
+        allow_incomplete_complexes=True,
     ):
         """
 
@@ -1094,7 +1111,10 @@ class MSBuilder:
 
         self.base_model = cobra_model
 
-        self.generate_reaction_complex_sets()
+        self.generate_reaction_complex_sets(
+            allow_incomplete_complexes=allow_incomplete_complexes,
+            match_role_aliases=match_role_aliases,
+        )
         complex_groups = self.build_complex_groups(
             self.reaction_to_complex_sets.values()
         )
