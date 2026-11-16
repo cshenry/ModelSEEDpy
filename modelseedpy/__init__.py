@@ -72,6 +72,7 @@ from modelseedpy.fbapkg import (
     FullThermoPkg,
     MSPackageManager,
     ObjConstPkg,
+    ObjectivePkg,
     ChangeOptPkg,
     ElementUptakePkg,
     FitnessWeightedFluxPkg,
