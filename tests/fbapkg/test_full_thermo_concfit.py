@@ -28,6 +28,7 @@ from modelseedpy.fbapkg.fullthermopkg import FullThermoPkg
 # QP-backend availability probe (skip L2-positive tests if unavailable)
 # ---------------------------------------------------------------------------
 
+
 def _gurobi_available():
     try:
         model = cobra.Model("probe")
@@ -39,13 +40,15 @@ def _gurobi_available():
 
 GUROBI_AVAILABLE = _gurobi_available()
 requires_gurobi = pytest.mark.skipif(
-    not GUROBI_AVAILABLE, reason="gurobi optlang backend not available in this environment"
+    not GUROBI_AVAILABLE,
+    reason="gurobi optlang backend not available in this environment",
 )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_two_metabolite_model():
     """A minimal two-metabolite, zero-reaction cobra model.
@@ -57,8 +60,12 @@ def _make_two_metabolite_model():
     TMFA formulation.
     """
     model = cobra.Model("test_concfit")
-    met_a = cobra.Metabolite("metA_c0", name="metA", compartment="c0", charge=0, formula="C")
-    met_b = cobra.Metabolite("metB_c0", name="metB", compartment="c0", charge=0, formula="C")
+    met_a = cobra.Metabolite(
+        "metA_c0", name="metA", compartment="c0", charge=0, formula="C"
+    )
+    met_b = cobra.Metabolite(
+        "metB_c0", name="metB", compartment="c0", charge=0, formula="C"
+    )
     model.add_metabolites([met_a, met_b])
     return model
 
@@ -99,6 +106,7 @@ def _add_coupling_constraint(pkg, total):
 # Module 1 — weighted L1
 # ---------------------------------------------------------------------------
 
+
 class TestBackwardCompatibility:
     """AC1: weights=None must reproduce the pre-change unweighted objective —
     same terms, unit (1.0) coefficients."""
@@ -130,7 +138,10 @@ class TestBackwardCompatibility:
 
         for pkg in (pkg1, pkg2):
             coefs = pkg.model.objective.get_linear_coefficients(
-                [pkg.variables["pconcfit"]["metA_c0"], pkg.variables["nconcfit"]["metA_c0"]]
+                [
+                    pkg.variables["pconcfit"]["metA_c0"],
+                    pkg.variables["nconcfit"]["metA_c0"],
+                ]
             )
             assert all(c == 1.0 for c in coefs.values())
 
@@ -227,9 +238,9 @@ class TestWeightedL1:
         log_a = pkg.variables["logconc"]["metA_c0"].primal
         log_b = pkg.variables["logconc"]["metB_c0"].primal
 
-        assert math.isclose(log_a, targets["metA_c0"], abs_tol=1e-6), (
-            f"expected high-weight metabolite A to hit its target exactly, got logconc_A={log_a}"
-        )
+        assert math.isclose(
+            log_a, targets["metA_c0"], abs_tol=1e-6
+        ), f"expected high-weight metabolite A to hit its target exactly, got logconc_A={log_a}"
         assert math.isclose(log_b, -6.5 - targets["metA_c0"], abs_tol=1e-6)
         # A's residual is ~0 while B absorbs the whole conflict.
         assert abs(log_a - targets["metA_c0"]) < abs(log_b - targets["metB_c0"])
@@ -243,7 +254,11 @@ class TestObjectiveReplacement:
         pkg = _build_pkg("glpk")
         pkg.build_min_error_objective()
         min_error_expr_str = str(pkg.model.objective.expression)
-        assert "pdgerr" in min_error_expr_str or "ndgerr" in min_error_expr_str or min_error_expr_str == "0"
+        assert (
+            "pdgerr" in min_error_expr_str
+            or "ndgerr" in min_error_expr_str
+            or min_error_expr_str == "0"
+        )
 
         pkg.build_concfit_objective({"metA_c0": -2.0}, weights=None)
         new_expr_str = str(pkg.model.objective.expression)
@@ -255,6 +270,7 @@ class TestObjectiveReplacement:
 # ---------------------------------------------------------------------------
 # Module 2 — weighted L2
 # ---------------------------------------------------------------------------
+
 
 class TestL2Guard:
     """AC5: the QP-capability guard must raise NotImplementedError (not a
@@ -272,7 +288,10 @@ class TestL2Guard:
         with pytest.raises(NotImplementedError, match="QP-capable"):
             pkg.build_package(
                 {
-                    "custom_concentrations": {"metA_c0": [1e-10, 10], "metB_c0": [1e-10, 10]},
+                    "custom_concentrations": {
+                        "metA_c0": [1e-10, 10],
+                        "metB_c0": [1e-10, 10],
+                    },
                     "set_concfit_objective": True,
                     "target_concentrations": {"metA_c0": -2.0},
                     "concfit_objective_type": "l2",
@@ -301,7 +320,9 @@ class TestL2Quadratic:
             {"metA_c0": -2.0, "metB_c0": -3.0}, weights={"metA_c0": 2.0}
         )
         expr_str = str(pkg.model.objective.expression)
-        assert "**2" in expr_str, f"expected a squared term in the objective, got: {expr_str}"
+        assert (
+            "**2" in expr_str
+        ), f"expected a squared term in the objective, got: {expr_str}"
 
     def test_l2_no_slack_variables_created(self):
         pkg = _build_pkg("gurobi")
@@ -377,6 +398,7 @@ class TestL2Quadratic:
 # Module 3 — build_package dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestBuildPackageDispatch:
     def test_defaults_are_l1_and_none(self):
         pkg = _build_pkg("glpk")
@@ -391,7 +413,10 @@ class TestBuildPackageDispatch:
         with pytest.raises(ValueError):
             pkg.build_package(
                 {
-                    "custom_concentrations": {"metA_c0": [1e-10, 10], "metB_c0": [1e-10, 10]},
+                    "custom_concentrations": {
+                        "metA_c0": [1e-10, 10],
+                        "metB_c0": [1e-10, 10],
+                    },
                     "set_concfit_objective": True,
                 }
             )
@@ -402,7 +427,10 @@ class TestBuildPackageDispatch:
         pkg = FullThermoPkg(model)
         pkg.build_package(
             {
-                "custom_concentrations": {"metA_c0": [1e-10, 10], "metB_c0": [1e-10, 10]},
+                "custom_concentrations": {
+                    "metA_c0": [1e-10, 10],
+                    "metB_c0": [1e-10, 10],
+                },
                 "set_concfit_objective": True,
                 "target_concentrations": {"metA_c0": -2.0, "metB_c0": -3.0},
             }
@@ -416,7 +444,10 @@ class TestBuildPackageDispatch:
         pkg = FullThermoPkg(model)
         pkg.build_package(
             {
-                "custom_concentrations": {"metA_c0": [1e-10, 10], "metB_c0": [1e-10, 10]},
+                "custom_concentrations": {
+                    "metA_c0": [1e-10, 10],
+                    "metB_c0": [1e-10, 10],
+                },
                 "set_concfit_objective": True,
                 "target_concentrations": {"metA_c0": -2.0, "metB_c0": -3.0},
                 "concfit_objective_type": "l2",
@@ -434,7 +465,10 @@ class TestBuildPackageDispatch:
         with pytest.raises(ValueError):
             pkg.build_package(
                 {
-                    "custom_concentrations": {"metA_c0": [1e-10, 10], "metB_c0": [1e-10, 10]},
+                    "custom_concentrations": {
+                        "metA_c0": [1e-10, 10],
+                        "metB_c0": [1e-10, 10],
+                    },
                     "set_concfit_objective": True,
                     "target_concentrations": {"metA_c0": -2.0},
                     "concfit_objective_type": "bogus",

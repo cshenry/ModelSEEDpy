@@ -37,23 +37,35 @@ allowable_score_types = [
     "tmscore",
     "rmsd",
     "hmmscore",
-    "score"
+    "score",
 ]
+
 
 def convert_to_search_role(role):
     role = role.lower()
-    role = re.sub("\s","",role)
-    role = re.sub("[\d\-]+\.[\d\-]+\.[\d\-]+\.[\d\-]*","",role)
-    role = re.sub("\#.*$","",role)
-    role = re.sub("\(ec:*\)","",role)
-    role = re.sub("[\(\)\[\],-]","",role)
+    role = re.sub("\s", "", role)
+    role = re.sub("[\d\-]+\.[\d\-]+\.[\d\-]+\.[\d\-]*", "", role)
+    role = re.sub("\#.*$", "", role)
+    role = re.sub("\(ec:*\)", "", role)
+    role = re.sub("[\(\)\[\],-]", "", role)
     return role
 
+
 def split_role(role):
-    return re.split("\s*;\s+|\s+[\@\/]\s+",role)
+    return re.split("\s*;\s+|\s+[\@\/]\s+", role)
+
 
 class AnnotationOntologyEvidence:
-    def __init__(self, parent, event, term, probability=1, scores={}, ref_entity=None, entity_type=None):
+    def __init__(
+        self,
+        parent,
+        event,
+        term,
+        probability=1,
+        scores={},
+        ref_entity=None,
+        entity_type=None,
+    ):
         self.parent = parent
         self.event = event
         self.term = term
@@ -61,16 +73,16 @@ class AnnotationOntologyEvidence:
         self.ref_entity = ref_entity
         self.entity_type = entity_type
         self.scores = scores
-        #for item in self.scores:
-            #if item not in allowable_score_types:
-                #logger.warning(item + " not an allowable score type!")
+        # for item in self.scores:
+        # if item not in allowable_score_types:
+        # logger.warning(item + " not an allowable score type!")
 
     def to_data(self):
         output = {
-            "event":self.event.method,
-            "term":self.term.id,
-            "ontology":self.term.ontology.id,
-            "probability":self.probability
+            "event": self.event.method,
+            "term": self.term.id,
+            "ontology": self.term.ontology.id,
+            "probability": self.probability,
         }
         if self.ref_entity:
             output["ref_entity"] = self.ref_entity
@@ -128,11 +140,19 @@ class AnnotationOntologyFeature:
         self.event_terms = {}
         self.term_events = {}
 
-    def add_event_term(self, event, term, scores={}, ref_entity=None, entity_type=None,probability=1):
+    def add_event_term(
+        self, event, term, scores={}, ref_entity=None, entity_type=None, probability=1
+    ):
         if event.id not in self.event_terms:
             self.event_terms[event.id] = {}
         self.event_terms[event.id][term.id] = AnnotationOntologyEvidence(
-            self,event,term,probability=probability,scores=scores,ref_entity=ref_entity,entity_type=entity_type
+            self,
+            event,
+            term,
+            probability=probability,
+            scores=scores,
+            ref_entity=ref_entity,
+            entity_type=entity_type,
         )
         if term.id not in self.term_events:
             self.term_events[term.id] = {}
@@ -264,8 +284,10 @@ class AnnotationOntologyEvent:
                         if "reference" in item["evidence"]:
                             ref_entity = item["evidence"]["reference"][1]
                             entity_type = item["evidence"]["reference"][0]
-                    probability = 1/len(data["ontology_terms"][feature_id])
-                    feature.add_event_term(self, term, scores, ref_entity, entity_type,probability)
+                    probability = 1 / len(data["ontology_terms"][feature_id])
+                    feature.add_event_term(
+                        self, term, scores, ref_entity, entity_type, probability
+                    )
                     if "modelseed_ids" in item:
                         term.add_msrxns(item["modelseed_ids"])
         return self
@@ -449,7 +471,7 @@ class AnnotationOntology:
         ontologies=None,
         merge_all=False,
         cds_features=False,
-        feature_type=None
+        feature_type=None,
     ):
         output = {}
         feature_hash = self.genes
@@ -530,14 +552,26 @@ class AnnotationOntology:
             feature_hash[feature_or_id.id] = feature_or_id
         return feature_hash[feature_or_id.id]
 
-    def get_msgenome(self,prioritized_event_list=None,ontologies=None,merge_all=False,feature_type=None,translate_to_rast=True):
+    def get_msgenome(
+        self,
+        prioritized_event_list=None,
+        ontologies=None,
+        merge_all=False,
+        feature_type=None,
+        translate_to_rast=True,
+    ):
         newgenome = MSGenome.from_annotation_ontology(
-            self, prioritized_event_list, ontologies, merge_all,feature_type, translate_to_rast
+            self,
+            prioritized_event_list,
+            ontologies,
+            merge_all,
+            feature_type,
+            translate_to_rast,
         )
         newgenome.annoont = self
         return newgenome
-    
-    def get_events_from_priority_list(self,priority_list):
+
+    def get_events_from_priority_list(self, priority_list):
         event_list = []
         for item in priority_list:
             selected_merge = None
@@ -546,30 +580,65 @@ class AnnotationOntology:
                     if event.id not in event_list:
                         event_list.append(event.id)
                 elif item == "RAST":
-                    if len(event.method) > 4 and event.method[0:4] == "RAST" and event.id not in event_list:
+                    if (
+                        len(event.method) > 4
+                        and event.method[0:4] == "RAST"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "Prokka":
-                    if len(event.method) > 6 and event.method[0:6] == "Prokka" and event.id not in event_list:
+                    if (
+                        len(event.method) > 6
+                        and event.method[0:6] == "Prokka"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "DRAM":
-                    if len(event.method) > 4 and event.method[0:4] == "DRAM" and event.id not in event_list:
+                    if (
+                        len(event.method) > 4
+                        and event.method[0:4] == "DRAM"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "GLM4EC":
-                    if len(event.method) > 6 and event.method[0:6] == "GLM4EC" and event.id not in event_list:
+                    if (
+                        len(event.method) > 6
+                        and event.method[0:6] == "GLM4EC"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "PDB":
-                    if event.method == "KBAnnotationApps.PDBAnnotation" and event.ontology.id == "EC" and event.id not in event_list:
+                    if (
+                        event.method == "KBAnnotationApps.PDBAnnotation"
+                        and event.ontology.id == "EC"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "SNEKMER":
-                    if len(event.method) > 7 and event.method[0:7] == "Snekmer" and event.id not in event_list:
+                    if (
+                        len(event.method) > 7
+                        and event.method[0:7] == "Snekmer"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "Import":
-                    if len(event.method) > 6 and event.method[0:6] == "Import" and event.id not in event_list:
+                    if (
+                        len(event.method) > 6
+                        and event.method[0:6] == "Import"
+                        and event.id not in event_list
+                    ):
                         event_list.append(event.id)
                 elif item == "Merge":
-                    if len(event.method) > 5 and event.method[0:5] == "Merge" and event.id not in event_list:
+                    if (
+                        len(event.method) > 5
+                        and event.method[0:5] == "Merge"
+                        and event.id not in event_list
+                    ):
                         selected_merge = event.id
-                elif item.lower() in event.description.lower() or item.lower() in event.id.lower():
+                elif (
+                    item.lower() in event.description.lower()
+                    or item.lower() in event.id.lower()
+                ):
                     event_list.append(event.id)
             if selected_merge:
                 event_list.append(selected_merge)

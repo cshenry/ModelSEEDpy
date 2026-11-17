@@ -30,6 +30,7 @@ from modelseedpy.fbapkg.fullthermopkg import FullThermoPkg
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_minimal_model():
     """Return a tiny two-metabolite / one-reaction COBRA model.
 
@@ -78,11 +79,13 @@ def _make_minimal_model():
     rxn.name = "test reaction"
     rxn.lower_bound = 0
     rxn.upper_bound = 1000
-    rxn.add_metabolites({
-        met_ext: -1,
-        met_charged: 1,
-        met_neutral: 1,
-    })
+    rxn.add_metabolites(
+        {
+            met_ext: -1,
+            met_charged: 1,
+            met_neutral: 1,
+        }
+    )
 
     # Exchange reaction so the LP is not degenerate
     ex_rxn = cobra.Reaction("EX_cpd99003_e0")
@@ -106,6 +109,7 @@ def _make_minimal_model():
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultCompartmentPotential:
     """Verify that the shipped default keeps -160 mV for c0."""
 
@@ -115,9 +119,9 @@ class TestDefaultCompartmentPotential:
         pkg.build_package({})
         cp = pkg.parameters["compartment_potential"]
         assert "c0" in cp, "c0 must be present in compartment_potential defaults"
-        assert cp["c0"] == -160, (
-            f"Default c0 compartment_potential must be -160 mV, got {cp['c0']}"
-        )
+        assert (
+            cp["c0"] == -160
+        ), f"Default c0 compartment_potential must be -160 mV, got {cp['c0']}"
 
     def test_default_e0_is_zero(self):
         model = _make_minimal_model()
@@ -180,9 +184,9 @@ class TestMembraneTermScaling:
         deltag_kj = -200.0 * 4.184
         inflated_constant = deltag_kj + inflated_membrane
 
-        assert not math.isclose(constant, inflated_constant, rel_tol=0.01), (
-            "potc constant matches the pre-fix inflated value — /1000 divisor is missing"
-        )
+        assert not math.isclose(
+            constant, inflated_constant, rel_tol=0.01
+        ), "potc constant matches the pre-fix inflated value — /1000 divisor is missing"
 
     def test_neutral_met_has_zero_membrane_term(self):
         """A charge=0 metabolite must have no membrane contribution."""
@@ -193,9 +197,9 @@ class TestMembraneTermScaling:
         deltag_kj = -100.0 * 4.184
         # membrane term = 0 * anything = 0
         expected = deltag_kj
-        assert math.isclose(constant, expected, rel_tol=1e-6), (
-            f"Neutral metabolite potc constant: expected {expected:.4f}, got {constant:.4f}"
-        )
+        assert math.isclose(
+            constant, expected, rel_tol=1e-6
+        ), f"Neutral metabolite potc constant: expected {expected:.4f}, got {constant:.4f}"
 
     def test_zero_reference_compartment_has_zero_membrane_term(self):
         """Metabolites in e0 (potential=0) must have no membrane contribution."""
@@ -206,9 +210,9 @@ class TestMembraneTermScaling:
 
         deltag_kj = -50.0 * 4.184
         expected = deltag_kj + 0  # e0 potential = 0
-        assert math.isclose(constant, expected, rel_tol=1e-6), (
-            f"e0 metabolite potc constant: expected {expected:.4f}, got {constant:.4f}"
-        )
+        assert math.isclose(
+            constant, expected, rel_tol=1e-6
+        ), f"e0 metabolite potc constant: expected {expected:.4f}, got {constant:.4f}"
 
 
 class TestWarnsOnlyGuard:
@@ -220,20 +224,28 @@ class TestWarnsOnlyGuard:
         with caplog.at_level(logging.WARNING):
             pkg.build_package({"compartment_potential": {"c0": 400, "e0": 0}})
         # At least one warning about c0 being unusually large
-        msgs = [r.message for r in caplog.records if "c0" in r.message and "400" in r.message]
-        assert msgs, (
-            "Expected a WARNING for compartment_potential=400 mV (> 300 mV) but none was emitted"
-        )
+        msgs = [
+            r.message
+            for r in caplog.records
+            if "c0" in r.message and "400" in r.message
+        ]
+        assert (
+            msgs
+        ), "Expected a WARNING for compartment_potential=400 mV (> 300 mV) but none was emitted"
 
     def test_warns_above_1000_mv(self, caplog):
         model = _make_minimal_model()
         pkg = FullThermoPkg(model)
         with caplog.at_level(logging.WARNING):
             pkg.build_package({"compartment_potential": {"c0": 1500, "e0": 0}})
-        msgs = [r.message for r in caplog.records if "c0" in r.message and "1500" in r.message]
-        assert msgs, (
-            "Expected a WARNING for compartment_potential=1500 mV (> 1000 mV) but none was emitted"
-        )
+        msgs = [
+            r.message
+            for r in caplog.records
+            if "c0" in r.message and "1500" in r.message
+        ]
+        assert (
+            msgs
+        ), "Expected a WARNING for compartment_potential=1500 mV (> 1000 mV) but none was emitted"
 
     def test_no_warning_for_default_mv(self, caplog):
         """The default -160 mV must not trigger any warning."""
@@ -242,12 +254,13 @@ class TestWarnsOnlyGuard:
         with caplog.at_level(logging.WARNING):
             pkg.build_package({})  # uses defaults: c0=-160, e0=0
         suspect = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if r.levelno >= logging.WARNING and "compartment_potential" in r.message
         ]
-        assert not suspect, (
-            f"Unexpected warning(s) for default compartment_potential: {[r.message for r in suspect]}"
-        )
+        assert (
+            not suspect
+        ), f"Unexpected warning(s) for default compartment_potential: {[r.message for r in suspect]}"
 
     def test_does_not_raise_for_large_value(self):
         """Even egregiously large values must not raise an exception."""

@@ -60,29 +60,31 @@ ALIAS_MODELS = {
     "TS_Athaliana",
 }
 
+
 def convert_to_searchname(name):
     OriginalName = name
-    ending = "";
+    ending = ""
     if name[-1] == "-":
         ending = "-"
     name = name.lower()
-    name.replace(" ","")
-    name.replace(",","")
-    name.replace("-","")
-    name.replace("_","")
-    name.replace("(","")
-    name.replace(")","")
-    name.replace("}","")
-    name.replace("{","")
-    name.replace("[","")
-    name.replace("]","")
-    name.replace(":","")
-    name.replace("�","")
-    name.replace("'","")
-    name.replace("_","")
+    name.replace(" ", "")
+    name.replace(",", "")
+    name.replace("-", "")
+    name.replace("_", "")
+    name.replace("(", "")
+    name.replace(")", "")
+    name.replace("}", "")
+    name.replace("{", "")
+    name.replace("[", "")
+    name.replace("]", "")
+    name.replace(":", "")
+    name.replace("�", "")
+    name.replace("'", "")
+    name.replace("_", "")
     name += ending
-    name.replace("icacid","ate")
-    return name;
+    name.replace("icacid", "ate")
+    return name
+
 
 def get_low(ids):
     low = None
@@ -570,7 +572,7 @@ class ModelSEEDBiochem:
     default_biochemistry = None
 
     @staticmethod
-    def get(create_if_missing=True,path=config.get("biochem", "path")):
+    def get(create_if_missing=True, path=config.get("biochem", "path")):
         if not ModelSEEDBiochem.default_biochemistry:
             print("loading biochemistry database from", path)
             ModelSEEDBiochem.default_biochemistry = from_local(path)

@@ -36,6 +36,7 @@ from modelseedpy import MSGapfill, MSMedia
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def template():
     with open(
@@ -83,17 +84,17 @@ def _build_model(model_json_path, ko=None, fwd_only=False):
     if fwd_only:
         # Keep only forward-only reactions + exchanges (+ KO-d reactions are also removed)
         model_json["reactions"] = [
-            r for r in model_json["reactions"]
+            r
+            for r in model_json["reactions"]
             if r["id"] not in ko
             and (
-                r["id"].startswith("EX_")       # exchanges always kept
+                r["id"].startswith("EX_")  # exchanges always kept
                 or r.get("lower_bound", -1000) >= 0  # forward-only non-exchange
             )
         ]
     else:
         model_json["reactions"] = [
-            r for r in model_json["reactions"]
-            if r["id"] not in ko
+            r for r in model_json["reactions"] if r["id"] not in ko
         ]
 
     # Keep all metabolites so reactions can reference them
@@ -151,11 +152,12 @@ def _small_fwd_filter(model, max_count=12):
     Used by tests that call run_comprehensive_gapfilling directly, so
     they can restrict Stage 1 to trivially integral binary variables."""
     fwd = [
-        r.id for r in model.reactions
+        r.id
+        for r in model.reactions
         if r.lower_bound == 0
         and r.upper_bound > 0
         and not r.id.startswith("EX_")
-        and r.id != "ATPM_c0"   # ATP maintenance has lb > 0; skip
+        and r.id != "ATPM_c0"  # ATP maintenance has lb > 0; skip
     ]
     return set(fwd[:max_count])
 
@@ -163,6 +165,7 @@ def _small_fwd_filter(model, max_count=12):
 # ---------------------------------------------------------------------------
 # Test A: API shape — run_comprehensive_gapfilling returns correct keys
 # ---------------------------------------------------------------------------
+
 
 def test_comprehensive_gapfilling_returns_correct_shape(
     template, model_data_path, complete_media
@@ -197,6 +200,7 @@ def test_comprehensive_gapfilling_returns_correct_shape(
 # Test B: grows — integrated model produces positive biomass
 # ---------------------------------------------------------------------------
 
+
 def test_comprehensive_gapfilling_grows(template, model_data_path, complete_media):
     """(a) After comprehensive gapfilling and solution integration, the model
     produces positive biomass (slim_optimize > 0 on complete media).
@@ -218,14 +222,15 @@ def test_comprehensive_gapfilling_grows(template, model_data_path, complete_medi
 
     gf.integrate_gapfill_solution(result)
     biomass = model.slim_optimize()
-    assert biomass is not None and biomass > 0, (
-        f"Model does not grow after comprehensive gapfilling (biomass={biomass})"
-    )
+    assert (
+        biomass is not None and biomass > 0
+    ), f"Model does not grow after comprehensive gapfilling (biomass={biomass})"
 
 
 # ---------------------------------------------------------------------------
 # Test C: comprehensive > sequential — more active original reactions
 # ---------------------------------------------------------------------------
+
 
 def test_comprehensive_vs_sequential_more_active_reactions(
     template, model_data_path, standard_media
@@ -248,15 +253,31 @@ def test_comprehensive_vs_sequential_more_active_reactions(
     To keep Stage 1 tractable with GLPK, ``activation_rxn_filter`` is used
     with a small set of 10 forward-only reactions.
     """
-    ko = ["GLCpts_c0", "CYTBD_c0", "NADH16_c0", "ICL_c0", "MALS_c0", "FRUpts2_c0", "LDH_D_c0"]
+    ko = [
+        "GLCpts_c0",
+        "CYTBD_c0",
+        "NADH16_c0",
+        "ICL_c0",
+        "MALS_c0",
+        "FRUpts2_c0",
+        "LDH_D_c0",
+    ]
     target = "BIOMASS_Ecoli_core_w_GAM_c0"
 
     # Forward-only reactions whose activation Comprehensive should maximize.
     # These overlap with the KO set (ICL, MALS, FRUpts2, LDH_D are knocked out)
     # but also include unblocked reactions to maximize the contrast.
     activation_filter = {
-        "PDH_c0", "CS_c0", "SUCDi_c0", "GLNS_c0", "PYK_c0",
-        "GND_c0", "PGL_c0", "AKGDH_c0", "FRUpts2_c0", "LDH_D_c0",
+        "PDH_c0",
+        "CS_c0",
+        "SUCDi_c0",
+        "GLNS_c0",
+        "PYK_c0",
+        "GND_c0",
+        "PGL_c0",
+        "AKGDH_c0",
+        "FRUpts2_c0",
+        "LDH_D_c0",
     }
 
     # --- Sequential gapfilling ---
@@ -296,7 +317,8 @@ def test_comprehensive_vs_sequential_more_active_reactions(
                     rxn.lower_bound = -1000
                 sol = pfba(model)
             return sum(
-                1 for r in model.reactions
+                1
+                for r in model.reactions
                 if r.id in orig_ids and abs(sol.fluxes.get(r.id, 0)) > 1e-8
             )
         except Exception:
@@ -305,7 +327,9 @@ def test_comprehensive_vs_sequential_more_active_reactions(
     active_seq = count_active(model_seq, orig_ids)
     active_comp = count_active(model_comp, orig_ids)
 
-    assert active_comp > 0, "Comprehensive model has no active reactions after integration"
+    assert (
+        active_comp > 0
+    ), "Comprehensive model has no active reactions after integration"
     assert active_seq > 0, "Sequential model has no active reactions after integration"
     assert active_comp > active_seq, (
         f"Comprehensive should activate more reactions than Sequential: "
@@ -316,6 +340,7 @@ def test_comprehensive_vs_sequential_more_active_reactions(
 # ---------------------------------------------------------------------------
 # Test D: no native reactions removed after re-running standard gapfilling
 # ---------------------------------------------------------------------------
+
 
 def test_comprehensive_no_native_reactions_removed(
     template, model_data_path, complete_media, standard_media
@@ -346,14 +371,15 @@ def test_comprehensive_no_native_reactions_removed(
     # If a second gapfilling is needed, it must not remove any native reaction
     if result2 is not None:
         for rxn_id in orig_ids:
-            assert rxn_id in model.reactions, (
-                f"Native reaction {rxn_id} was removed after re-running standard gapfill"
-            )
+            assert (
+                rxn_id in model.reactions
+            ), f"Native reaction {rxn_id} was removed after re-running standard gapfill"
 
 
 # ---------------------------------------------------------------------------
 # Test E: gfmodel reusability — locks released, standard run still works
 # ---------------------------------------------------------------------------
+
 
 def test_gfmodel_reusability_after_comprehensive(
     template, model_data_path, complete_media, standard_media
@@ -378,13 +404,13 @@ def test_gfmodel_reusability_after_comprehensive(
     # Verify all activation locks have been released (lb == 0)
     rapkg = gf.gfpkgmgr.getpkg("ReactionActivationPkg")
     for rxn_id, var in rapkg.variables.get("fra", {}).items():
-        assert var.lb == 0, (
-            f"fra[{rxn_id}].lb = {var.lb} after cleanup — activation lock not released"
-        )
+        assert (
+            var.lb == 0
+        ), f"fra[{rxn_id}].lb = {var.lb} after cleanup — activation lock not released"
     for rxn_id, var in rapkg.variables.get("rra", {}).items():
-        assert var.lb == 0, (
-            f"rra[{rxn_id}].lb = {var.lb} after cleanup — activation lock not released"
-        )
+        assert (
+            var.lb == 0
+        ), f"rra[{rxn_id}].lb = {var.lb} after cleanup — activation lock not released"
 
     # Standard gapfilling must still work normally on the same instance
     std_result = gf.run_gapfilling(
@@ -401,6 +427,7 @@ def test_gfmodel_reusability_after_comprehensive(
 # ---------------------------------------------------------------------------
 # Test F: run_multi_gapfill('Comprehensive') — correct solution shape
 # ---------------------------------------------------------------------------
+
 
 def test_comprehensive_multi_gapfill_solution_shape(template, model_data_path):
     """run_multi_gapfill with gapfilling_mode='Comprehensive' returns a solution

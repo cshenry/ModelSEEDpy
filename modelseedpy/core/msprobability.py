@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from cobrakbase.core.kbasefba.fbamodel_from_cobra import CobraModelConverter
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.community.mscommunity import MSCommunity
@@ -30,15 +31,19 @@ class MSProbability:
     # TODO - add the parallelization code with an argument flag
     @staticmethod
     def megaModel(
-        clades_paths, kbase_api=None, reaction_counts_path=None, numTotal="numMembers",copy_genes=True
+        clades_paths,
+        kbase_api=None,
+        reaction_counts_path=None,
+        numTotal="numMembers",
+        copy_genes=True,
     ):
         # compute the reaction frequency of the models in a given clade
         broken_models, megaModels = [], []
         # models_paths = glob(f"{models_path}/*.xml")
         for clade, paths in clades_paths.items():
-            print(clade+"1")
+            print(clade + "1")
             if not reaction_counts_path:
-                print(clade+"2")
+                print(clade + "2")
                 if not path.exists("reaction_counts"):
                     mkdir("reaction_counts")
                 reaction_counts = {}
@@ -91,7 +96,7 @@ class MSProbability:
             # megaModel = CobraModelConverter(Model(clade, name=f"MegaModel for {clade} from {reaction_counts[numTotal]} members")).build()
             remaining_rxnIDs = set(list(reaction_counts.keys()))
             captured_reactions, captured_rxnIDs = [], set()
-            
+
             print("\n", clade)  # , end="\t")
             found_rxn_hash = {}
             for model_path in paths:
@@ -108,16 +113,25 @@ class MSProbability:
                     continue
                 for rxn in model.reactions:
                     if rxn.id not in found_rxn_hash:
-                        found_rxn_hash[rxn.id] = {"genes":{},"rxn":rxn}
+                        found_rxn_hash[rxn.id] = {"genes": {}, "rxn": rxn}
                         captured_reactions.append(rxn)
                     elif copy_genes:
                         for gene in rxn.genes:
                             if gene.id not in found_rxn_hash[rxn.id]:
                                 found_rxn_hash[rxn.id]["genes"][gene.id] = 1
-                                if len(found_rxn_hash[rxn.id]["rxn"].gene_reaction_rule) > 0:
-                                    found_rxn_hash[rxn.id]["rxn"].gene_reaction_rule += f" or {gene.id}"
+                                if (
+                                    len(
+                                        found_rxn_hash[rxn.id]["rxn"].gene_reaction_rule
+                                    )
+                                    > 0
+                                ):
+                                    found_rxn_hash[rxn.id][
+                                        "rxn"
+                                    ].gene_reaction_rule += f" or {gene.id}"
                                 else:
-                                    found_rxn_hash[rxn.id]["rxn"].gene_reaction_rule = gene.id
+                                    found_rxn_hash[rxn.id][
+                                        "rxn"
+                                    ].gene_reaction_rule = gene.id
             if captured_reactions == []:
                 print(f"\tNo models for {clade} are defined.")
                 continue
@@ -135,7 +149,7 @@ class MSProbability:
             )
             if missingRxns != set():
                 print("\nmissing reactions: ", missingRxns)
-            write_sbml_model(megaModel, clade+".xml")
+            write_sbml_model(megaModel, clade + ".xml")
             megaModels.append(megaModel)
             print("\tfinished")
         return megaModels if len(clades_paths) > 1 else megaModels[0]
@@ -173,7 +187,7 @@ class MSProbability:
         commkinetics=None,
         kinetics_coef=1000,
         printLP=False,
-        expression=None
+        expression=None,
     ):
         from modelseedpy.community.commhelper import build_from_species_models
         from modelseedpy.core.msmodelutl import MSModelUtil

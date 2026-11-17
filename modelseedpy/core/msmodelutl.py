@@ -269,8 +269,9 @@ core_rxns = {
     "rxn00011_c0": "<",
     "rxn39175_c0": "=",
     "rxn14423_c0": ">",
-    "rxn40505_c0": "="
+    "rxn40505_c0": "=",
 }
+
 
 class MSModelUtil:
     mdlutls = {}
@@ -348,12 +349,12 @@ class MSModelUtil:
             return MSModelUtil.mdlutls[model]
         else:
             return None
-    
+
     @staticmethod
     def build_from_kbase_json_file(filename, kbaseapi):
         """
         Builds an MSModelUtil object from a KBase JSON file.
-        
+
         Args:
             filename (str): The path to the KBase JSON file.
             kbaseapi (KBaseAPI): An instance of the KBase API.
@@ -381,7 +382,7 @@ class MSModelUtil:
         self.attributes = {}
         self.atp_tests = None
         self.reliability_scores = None
-        self.util=None
+        self.util = None
         if hasattr(self.model, "computed_attributes"):
             if self.model.computed_attributes:
                 self.attributes = self.model.computed_attributes
@@ -411,7 +412,7 @@ class MSModelUtil:
         if filename[-5:].lower() == ".json":
             model = cobra.io.load_json_model(filename)
         elif filename[-4:].lower() == ".xml":
-            #Resetting the logging level in cobrapy to avoid excess output
+            # Resetting the logging level in cobrapy to avoid excess output
             logging.getLogger("cobra.io.sbml").setLevel(logging.ERROR)
             model = cobra.io.read_sbml_model(filename)
         else:
@@ -431,23 +432,28 @@ class MSModelUtil:
         elif format == "xml":
             cobra.io.write_sbml_model(self.model, filename)
 
-    def printlp(self,model=None,path="",filename="debug",print=False):
+    def printlp(self, model=None, path="", filename="debug", print=False):
         if print:
             import os
+
             if len(path) > 0:
                 # Ensure directory exists
                 os.makedirs(path, exist_ok=True)
                 path = path + "/"
-            lpfilename = path+filename+".lp"
+            lpfilename = path + filename + ".lp"
             if model == None:
                 model = self.model
             with open(lpfilename, "w") as out:
                 out.write(str(model.solver))
 
-    def print_solutions(self, solution_hash,filename="reaction_solutions.csv"):
+    def print_solutions(self, solution_hash, filename="reaction_solutions.csv"):
         records = []
         for rxn in self.model.reactions:
-            record = {"id":rxn.id,"name":rxn.name,"equation":rxn.build_reaction_string(use_metabolite_names=True)}
+            record = {
+                "id": rxn.id,
+                "name": rxn.name,
+                "equation": rxn.build_reaction_string(use_metabolite_names=True),
+            }
             records.append(record)
             for key in solution_hash:
                 record[key] = solution_hash[key].fluxes[rxn.id]
@@ -465,11 +471,20 @@ class MSModelUtil:
         """
         if isinstance(media, dict):
             from modelseedpy.core.msmedia import MSMedia
+
             media = MSMedia.from_dict(media)
         self.pkgmgr.getpkg("KBaseMediaPkg").build_package(media)
 
     ########Functions related to ATP gapfilling method
-    def get_atputl(self,atp_media_filename=None,core_template=None,gapfilling_delta=0,max_gapfilling=0,forced_media=[],remake_atputil=False):
+    def get_atputl(
+        self,
+        atp_media_filename=None,
+        core_template=None,
+        gapfilling_delta=0,
+        max_gapfilling=0,
+        forced_media=[],
+        remake_atputil=False,
+    ):
         """
         Returns and creates, if needed, an atp correction object for the model
 
@@ -480,7 +495,7 @@ class MSModelUtil:
         gapfilling_delta (optional) : maximum difference in gapfilling to accept ATP condition
         max_gapfilling (optional) : maximum gapfilling allowable to accept an ATP growth condition
         forced_media (optional) : list of media in which model MUST make ATP
-        
+
         Returns
         -------
         MSATPCorrection : Object for ATP correction
@@ -489,18 +504,27 @@ class MSModelUtil:
         ------
         """
         if not self.atputl or remake_atputil:
-            from modelseedpy.core.msatpcorrection import MSATPCorrection 
+            from modelseedpy.core.msatpcorrection import MSATPCorrection
+
             self.atputl = MSATPCorrection(
-                self,core_template,[],
+                self,
+                core_template,
+                [],
                 load_default_medias=True,
                 max_gapfilling=max_gapfilling,
                 gapfilling_delta=gapfilling_delta,
                 forced_media=forced_media,
-                default_media_path=atp_media_filename
+                default_media_path=atp_media_filename,
             )
         return self.atputl
-    
-    def get_atp_tests(self,core_template=None,atp_media_filename=None,recompute=False,remake_atputil=False):
+
+    def get_atp_tests(
+        self,
+        core_template=None,
+        atp_media_filename=None,
+        recompute=False,
+        remake_atputil=False,
+    ):
         """
         Attempts to get ATP tests from attributes and failing that compute denovo using MSATPCorrection
 
@@ -517,37 +541,51 @@ class MSModelUtil:
         Raises
         ------
         """
-        #Creating MSATPCorrection object which we need regardless
-        atpcorrection = self.get_atputl(core_template=core_template,atp_media_filename=atp_media_filename,remake_atputil=remake_atputil)
-        #Returning cached tests if available
+        # Creating MSATPCorrection object which we need regardless
+        atpcorrection = self.get_atputl(
+            core_template=core_template,
+            atp_media_filename=atp_media_filename,
+            remake_atputil=remake_atputil,
+        )
+        # Returning cached tests if available
         if self.atp_tests and not recompute:
             return self.atp_tests
-        #Attempting to pull ATP tests from attributes
+        # Attempting to pull ATP tests from attributes
         if not recompute:
             logger.debug("Getting tests from attributes")
-            atp_analysis = self.get_attributes("ATP_analysis",None)
+            atp_analysis = self.get_attributes("ATP_analysis", None)
             if atp_analysis:
                 if "tests" in atp_analysis:
                     self.atp_tests = []
                     for item in atp_analysis["tests"]:
                         if item in atpcorrection.media_hash:
-                            self.atp_tests.append({
-                                "media":atpcorrection.media_hash[item],
-                                "is_max_threshold":True,
-                                "threshold":atp_analysis["tests"][item]["threshold"],
-                                "objective":atp_analysis["tests"][item]["objective"]
-                            })
+                            self.atp_tests.append(
+                                {
+                                    "media": atpcorrection.media_hash[item],
+                                    "is_max_threshold": True,
+                                    "threshold": atp_analysis["tests"][item][
+                                        "threshold"
+                                    ],
+                                    "objective": atp_analysis["tests"][item][
+                                        "objective"
+                                    ],
+                                }
+                            )
                     return self.atp_tests
                 else:
-                    logger.warning("tests attribute missing in ATP analysis. Must recalculate ATP tests!")
+                    logger.warning(
+                        "tests attribute missing in ATP analysis. Must recalculate ATP tests!"
+                    )
             else:
-                logger.warning("ATP analysis attributes missing. Must recalculate ATP tests!")
-        #If recompute called for or if attributes are missing, recompute tests
+                logger.warning(
+                    "ATP analysis attributes missing. Must recalculate ATP tests!"
+                )
+        # If recompute called for or if attributes are missing, recompute tests
         if not core_template:
             logger.warning("Cannot recompute ATP tests without a core template!")
             return None
         self.atp_tests = atpcorrection.build_tests()
-        return self.atp_tests   
+        return self.atp_tests
 
     def compute_automated_reaction_scores(self):
         """
@@ -561,11 +599,13 @@ class MSModelUtil:
         self.search_metabolite_hash = {}
         for met in self.model.metabolites:
             if len(met.id.split("_")) == 2:
-                self.add_name_to_metabolite_hash(met.id.split("_")[0],met)
+                self.add_name_to_metabolite_hash(met.id.split("_")[0], met)
             self.add_name_to_metabolite_hash(met.id, met)
             self.add_name_to_metabolite_hash(met.name, met)
             for anno in met.annotation:
-                if isinstance(met.annotation[anno], list) or isinstance(met.annotation[anno], set):
+                if isinstance(met.annotation[anno], list) or isinstance(
+                    met.annotation[anno], set
+                ):
                     for item in list(met.annotation[anno]):
                         self.add_name_to_metabolite_hash(item, met)
                 else:
@@ -634,7 +674,7 @@ class MSModelUtil:
     def exchange_list(self):
         exchange_reactions = []
         for reaction in self.model.reactions:
-            if reaction.id[:3] in ["EX_","EXF"]:
+            if reaction.id[:3] in ["EX_", "EXF"]:
                 exchange_reactions.append(reaction)
         return exchange_reactions
 
@@ -656,17 +696,22 @@ class MSModelUtil:
 
     #################################################################################
     # Functions related to phenotype simultion
-    #   Design philosophy: the phenotype types should be aware of phenotype data and 
+    #   Design philosophy: the phenotype types should be aware of phenotype data and
     #   agnostic to the model, so this code handles how to simulate a phenotype in a
     #   model. This code sets the model objective based on the phenotype type and adds
     #   the appropriate exchange reactions.
     #################################################################################
-    def set_objective_from_phenotype(self,phenotype,missing_transporters=[],create_missing_compounds=False):
+    def set_objective_from_phenotype(
+        self, phenotype, missing_transporters=[], create_missing_compounds=False
+    ):
         if phenotype.type == "growth":
             if "bio1" in self.model.reactions:
                 self.model.objective = "bio1"
             else:
-                logger.critical(phenotype.id+": growth phenotype but could not find biomass reaction!")
+                logger.critical(
+                    phenotype.id
+                    + ": growth phenotype but could not find biomass reaction!"
+                )
                 return None
         if phenotype.type == "uptake" or phenotype.type == "excretion":
             uptake = excretion = 0
@@ -675,23 +720,36 @@ class MSModelUtil:
             else:
                 excretion = 1000
             if len(phenotype.additional_compounds) == 0:
-                logger.critical(phenotype.id+": can't set uptake or excretion objective without additional compounds specified!")
+                logger.critical(
+                    phenotype.id
+                    + ": can't set uptake or excretion objective without additional compounds specified!"
+                )
                 return None
             first = True
             for cpd in phenotype.additional_compounds:
-                exid = "EX_"+cpd+"_e0"
+                exid = "EX_" + cpd + "_e0"
                 if exid not in self.model.reactions:
-                    exid = "EX_"+cpd+"_c0"
+                    exid = "EX_" + cpd + "_c0"
                     if exid not in self.model.reactions:
-                        exmets = self.find_met(cpd,"c0")
+                        exmets = self.find_met(cpd, "c0")
                         if len(exmets) == 0:
                             if create_missing_compounds:
-                                exmets = [Metabolite(cpd+"_c0",name=cpd+"_c0",compartment="c0")]
+                                exmets = [
+                                    Metabolite(
+                                        cpd + "_c0", name=cpd + "_c0", compartment="c0"
+                                    )
+                                ]
                                 self.model.add_metabolites(exmets)
                             else:
-                                logger.warning(phenotype.id+": could not find metabolite for "+cpd)
+                                logger.warning(
+                                    phenotype.id
+                                    + ": could not find metabolite for "
+                                    + cpd
+                                )
                                 return None
-                        self.add_exchanges_for_metabolites(exmets,uptake=uptake,excretion=excretion)
+                        self.add_exchanges_for_metabolites(
+                            exmets, uptake=uptake, excretion=excretion
+                        )
                         missing_transporters.append(cpd)
                 if first:
                     self.model.objective = exid
@@ -701,54 +759,70 @@ class MSModelUtil:
             if phenotype.type == "excretion":
                 for reaction in self.model.reactions:
                     if reaction.objective_coefficient != 0:
-                        reaction.objective_coefficient = -1*reaction.objective_coefficient
-        self.model.objective.direction = 'max'
+                        reaction.objective_coefficient = (
+                            -1 * reaction.objective_coefficient
+                        )
+        self.model.objective.direction = "max"
         return str(self.model.objective)
 
     #################################################################################
     # Functions related to exchanges and transport reactions
     #################################################################################
-    def add_transport_and_exchange_for_metabolite(self, met,direction="=",prefix="trans",override=False):
-        #If met is a string, attempt to find the associated metabolite
-        if isinstance(met,str):
+    def add_transport_and_exchange_for_metabolite(
+        self, met, direction="=", prefix="trans", override=False
+    ):
+        # If met is a string, attempt to find the associated metabolite
+        if isinstance(met, str):
             mets = self.find_met(met)
             if len(mets) == 0:
-                logger.critical("Metabolite "+met+" not found in model")
+                logger.critical("Metabolite " + met + " not found in model")
                 return None
             met = mets[0]
-        #Breaking down the ID to see the compartment and index - ID must take form <base id>_<compartment><index>
+        # Breaking down the ID to see the compartment and index - ID must take form <base id>_<compartment><index>
         output = MSModelUtil.parse_id(met)
         if not output:
-            logger.critical("Transport metabolite ID " + met.id + " not in proper format")
+            logger.critical(
+                "Transport metabolite ID " + met.id + " not in proper format"
+            )
             return None
-        (baseid,compartment,index) = output
-        #Checking if exchange already exists
-        if baseid+"_e0" in self.model.metabolites and not override:
-            logger.critical("Transport reaction appears to already exist for " + met.id+". Override if transport still desired.")
+        (baseid, compartment, index) = output
+        # Checking if exchange already exists
+        if baseid + "_e0" in self.model.metabolites and not override:
+            logger.critical(
+                "Transport reaction appears to already exist for "
+                + met.id
+                + ". Override if transport still desired."
+            )
             return None
-        elif baseid+"_e0" not in self.model.metabolites:
-            exmet = Metabolite(baseid+"_e0",name=met.name+"_e0",compartment="e0",charge=met.charge,formula=met.formula)
+        elif baseid + "_e0" not in self.model.metabolites:
+            exmet = Metabolite(
+                baseid + "_e0",
+                name=met.name + "_e0",
+                compartment="e0",
+                charge=met.charge,
+                formula=met.formula,
+            )
             self.model.add_metabolites([exmet])
         else:
-            exmet = self.model.metabolites.get_by_id(baseid+"_e0")
-        #Checking charge so transport will be charge balanced
+            exmet = self.model.metabolites.get_by_id(baseid + "_e0")
+        # Checking charge so transport will be charge balanced
         hmet = None
         exhmet = None
         if met.charge != 0:
-            #Finding H+ compound in model:
-            output = self.find_met("cpd00067",compartment+str(index))
+            # Finding H+ compound in model:
+            output = self.find_met("cpd00067", compartment + str(index))
             if len(output) > 0:
                 hmet = output[0]
-            output = self.find_met("cpd00067","e0")
+            output = self.find_met("cpd00067", "e0")
             if len(output) > 0:
                 exhmet = output[0]
             if not hmet or not exhmet:
                 logger.warning("No H+ metabolite found in model")
-        stoich = {met:-1,exmet:1}
+        stoich = {met: -1, exmet: 1}
         if met.charge != 0 and hmet and exhmet:
             stoich[hmet] = met.charge
-            stoich[exhmet] = -1*met.charge
-        transport = Reaction(prefix + met.id + "_"+compartment+str(index))
+            stoich[exhmet] = -1 * met.charge
+        transport = Reaction(prefix + met.id + "_" + compartment + str(index))
         transport.name = "Charge-nuetral transport for " + met.name
         transport.add_metabolites(stoich)
         transport.annotation["sbo"] = "SBO:0000185"
@@ -759,9 +833,9 @@ class MSModelUtil:
         if direction == "<" or direction == "=":
             transport.lower_bound = -1000
         self.model.add_reactions([transport])
-        self.add_exchanges_for_metabolites([exmet],0,1000)
+        self.add_exchanges_for_metabolites([exmet], 0, 1000)
         return transport
-    
+
     def exchange_hash(self):
         exchange_reactions = {}
         exlist = self.exchange_list()
@@ -772,7 +846,7 @@ class MSModelUtil:
                 else:
                     logger.warn("Nonstandard exchange reaction ignored:" + reaction.id)
         return exchange_reactions
-    
+
     def add_missing_exchanges(self, media):
         output = []
         exchange_hash = self.exchange_hash()
@@ -879,57 +953,57 @@ class MSModelUtil:
     #################################################################################
     # Functions related to utility functions
     #################################################################################
-    def assign_reliability_scores_to_reactions(self,active_reaction_sets=[]):
+    def assign_reliability_scores_to_reactions(self, active_reaction_sets=[]):
         """Assigns a reliability score to every model reaction which indicates how likely the reaction is to be accurate and to take place
 
         Returns
         -------
         { reaction ID<string> : { reaction direction<string> : score<float> }  }
         """
-        active_rxn_dictionary={}
+        active_rxn_dictionary = {}
         for item in active_reaction_sets:
             for array in item:
                 if array[0] not in active_rxn_dictionary:
                     active_rxn_dictionary[array[0]] = {}
                 if array[1] not in active_rxn_dictionary[array[0]]:
                     active_rxn_dictionary[array[0]][array[1]] = 0
-                active_rxn_dictionary[array[0]][array[1]]+=1
+                active_rxn_dictionary[array[0]][array[1]] += 1
         if self.reliability_scores == None:
             self.reliability_scores = {}
             biochem = ModelSEEDBiochem.get()
             for reaction in self.model.reactions:
-                #Pulling model reaction related data
+                # Pulling model reaction related data
                 transported_charge = 0
                 for met in reaction.metabolites:
                     coef = reaction.metabolites[met]
                     if met.id.split("_")[-1][0:1] == "e":
                         transported_charge += coef * (met.charge or 0)
-                #Pulling ModelSEED Biochemistry related data
+                # Pulling ModelSEED Biochemistry related data
                 msid = MSModelUtil.reaction_msid(reaction)
                 if msid and msid != "rxn00000" and msid in biochem.reactions:
-                    #Penalizing for net transport of ions in the wrong direction
+                    # Penalizing for net transport of ions in the wrong direction
                     forwardscore = 0
                     reversescore = 0
                     if transported_charge > 0:
-                        forwardscore += 50*transported_charge
+                        forwardscore += 50 * transported_charge
                     if transported_charge < 0:
-                        reversescore += -50*transported_charge
+                        reversescore += -50 * transported_charge
                     basescore = 0
                     msrxn = biochem.reactions.get_by_id(msid)
-                    #Penalizing for mass imbalance
+                    # Penalizing for mass imbalance
                     if msrxn.status[0:2] == "MI":
                         basescore = 1000
-                    #Penalizing for charge imbalance
+                    # Penalizing for charge imbalance
                     if msrxn.status[0:2] == "CI":
                         basescore = 800
-                    #Penalizing if no pathways TODO - cannot use this with ModelSEEDDatabase instead of ModelSEEDBiochem
-                    #if msrxn["pathways"] == None:
+                    # Penalizing if no pathways TODO - cannot use this with ModelSEEDDatabase instead of ModelSEEDBiochem
+                    # if msrxn["pathways"] == None:
                     #    basescore = 50
-                    #Penalizing if there is no deltaG
+                    # Penalizing if there is no deltaG
                     if msrxn.delta_g == 10000000 or msrxn.delta_g == None:
                         basescore = 200
                     else:
-                        #Penalizing in the direction of infeasiblility
+                        # Penalizing in the direction of infeasiblility
                         if msrxn.delta_g <= -5:
                             reversescore += 20
                         if msrxn.delta_g <= -10:
@@ -938,7 +1012,7 @@ class MSModelUtil:
                             forwardscore += 20
                         if msrxn.delta_g >= 10:
                             forwardscore += 20
-                    #Penalizing reactions in direction of production of ATP
+                    # Penalizing reactions in direction of production of ATP
                     for cpd in msrxn.metabolites:
                         if cpd.id == "cpd00002":
                             if msrxn.metabolites[cpd] < 0:
@@ -952,9 +1026,14 @@ class MSModelUtil:
                         if cpd.delta_g == 10000000 or cpd.delta_g == None:
                             basescore += 20
                     self.reliability_scores[reaction.id] = {}
-                    self.reliability_scores[reaction.id][">"] = basescore+forwardscore
-                    self.reliability_scores[reaction.id]["<"] = basescore+reversescore
-                elif reaction.id[0:3] == "EX_" or reaction.id[0:3] == "SK_" or reaction.id[0:3] == "DM_" or reaction.id[0:3] == "bio":
+                    self.reliability_scores[reaction.id][">"] = basescore + forwardscore
+                    self.reliability_scores[reaction.id]["<"] = basescore + reversescore
+                elif (
+                    reaction.id[0:3] == "EX_"
+                    or reaction.id[0:3] == "SK_"
+                    or reaction.id[0:3] == "DM_"
+                    or reaction.id[0:3] == "bio"
+                ):
                     self.reliability_scores[reaction.id] = {}
                     self.reliability_scores[reaction.id][">"] = -10
                     self.reliability_scores[reaction.id]["<"] = -10
@@ -966,14 +1045,18 @@ class MSModelUtil:
                 rev_multiplier = 1
                 if reaction.id in active_rxn_dictionary:
                     if ">" in active_rxn_dictionary[reaction.id]:
-                        for_multiplier += 0.1*active_rxn_dictionary[reaction.id][">"]
+                        for_multiplier += 0.1 * active_rxn_dictionary[reaction.id][">"]
                     if "<" in active_rxn_dictionary[reaction.id]:
-                        rev_multiplier += 0.1*active_rxn_dictionary[reaction.id]["<"]
-                self.reliability_scores[reaction.id][">"] = self.reliability_scores[reaction.id][">"]*for_multiplier
-                self.reliability_scores[reaction.id]["<"] = self.reliability_scores[reaction.id]["<"]*rev_multiplier
-        return self.reliability_scores     
-    
-    def is_core(self,rxn):
+                        rev_multiplier += 0.1 * active_rxn_dictionary[reaction.id]["<"]
+                self.reliability_scores[reaction.id][">"] = (
+                    self.reliability_scores[reaction.id][">"] * for_multiplier
+                )
+                self.reliability_scores[reaction.id]["<"] = (
+                    self.reliability_scores[reaction.id]["<"] * rev_multiplier
+                )
+        return self.reliability_scores
+
+    def is_core(self, rxn):
         """Indicates if a specified reaction is a core reaction
 
         Parameters
@@ -994,7 +1077,7 @@ class MSModelUtil:
         elif rxn in core_rxns:
             return True
         return False
-    
+
     def build_model_data_hash(self):
         data = {
             "Model": self.id,
@@ -1170,7 +1253,7 @@ class MSModelUtil:
     #################################################################################
     # Functions related to gapfilling of models
     #################################################################################
-    def convert_solution_to_list(self,solution):
+    def convert_solution_to_list(self, solution):
         """Converting solution to list format, which is easier to work with
         Parameters
         ----------
@@ -1178,26 +1261,34 @@ class MSModelUtil:
             Specifies the reactions to be added to the model to implement the gapfilling solution
         """
         output = []
-        for label in ["new","reversed"]:
+        for label in ["new", "reversed"]:
             for rxn_id in solution[label]:
-                output.append([rxn_id, solution[label][rxn_id],label])
+                output.append([rxn_id, solution[label][rxn_id], label])
         return output
 
-    def find_item_in_solution(self,input_list,input,ignore_dir=False):
+    def find_item_in_solution(self, input_list, input, ignore_dir=False):
         for item in input_list:
             if input[0] == item[0] and input[1] == item[1]:
                 return True
             elif ignore_dir and input[0] == item[0]:
                 return True
         return False
-    
-    def test_solution(self,solution,targets,medias,thresholds=[0.1],remove_unneeded_reactions=False,do_not_remove_list=[]):
+
+    def test_solution(
+        self,
+        solution,
+        targets,
+        medias,
+        thresholds=[0.1],
+        remove_unneeded_reactions=False,
+        do_not_remove_list=[],
+    ):
         """Tests if every reaction in a given gapfilling solution is actually needed for growth. Note, this code assumes the gapfilling solution is already integrated.
 
         Parameters
         ----------
         solution : {"new":{string reaction_id: string direction},"reversed":{string reaction_id: string direction}}
-                    or 
+                    or
                     list<tuple<string - reaction id, string direction>>
             Data for gapfilling solution to be tested
         target : string,
@@ -1212,27 +1303,34 @@ class MSModelUtil:
         Raises
         ------
         """
-        #Saving the current objective
+        # Saving the current objective
         current_objective = self.model.objective
-        #Saving the current media
+        # Saving the current media
         current_media = self.pkgmgr.getpkg("KBaseMediaPkg").current_media
-        #Computing the initial objective values
+        # Computing the initial objective values
         initial_objectives = []
-        for (i,target) in enumerate(targets):
-            #Setting the media
+        for (i, target) in enumerate(targets):
+            # Setting the media
             self.pkgmgr.getpkg("KBaseMediaPkg").build_package(medias[i])
-            #Setting the objective
+            # Setting the objective
             self.model.objective = target
-            #Computing the objective value
+            # Computing the objective value
             objective = self.model.slim_optimize()
             initial_objectives.append(objective)
-            logger.debug("Starting objective for " + medias[i].id + "/"+target+" = " + str(objective))
-        #Iterating through solution reactions and flagging them if they are unneeded to achieve the specified minimum objective
+            logger.debug(
+                "Starting objective for "
+                + medias[i].id
+                + "/"
+                + target
+                + " = "
+                + str(objective)
+            )
+        # Iterating through solution reactions and flagging them if they are unneeded to achieve the specified minimum objective
         unneeded = []
-        #If object is a dictionary, convert to a list
-        if isinstance(solution,dict):
+        # If object is a dictionary, convert to a list
+        if isinstance(solution, dict):
             solution = self.convert_solution_to_list(solution)
-        #Processing solution in standardized format
+        # Processing solution in standardized format
         for item in solution:
             rxn_id = item[0]
             other_original_bound = None
@@ -1245,16 +1343,18 @@ class MSModelUtil:
                 original_bound = rxnobj.lower_bound
                 if rxnobj.upper_bound < 0:
                     other_original_bound = rxnobj.upper_bound
-            #Testing all media and target and threshold combinations to see if the reaction is needed
+            # Testing all media and target and threshold combinations to see if the reaction is needed
             needed = False
-            for (i,target) in enumerate(targets):
-                if len(targets) > 1:#If there's only one target, then these steps were done earlier already
-                    #Setting the media
+            for (i, target) in enumerate(targets):
+                if (
+                    len(targets) > 1
+                ):  # If there's only one target, then these steps were done earlier already
+                    # Setting the media
                     self.pkgmgr.getpkg("KBaseMediaPkg").build_package(medias[i])
-                    #Setting the objective
+                    # Setting the objective
                     self.model.objective = target
-                #Knocking out the reaction to test for the impact on the objective
-                #This has to happen after media is applied in case the reaction is an exchange
+                # Knocking out the reaction to test for the impact on the objective
+                # This has to happen after media is applied in case the reaction is an exchange
                 if item[1] == ">":
                     if rxnobj.lower_bound > 0:
                         rxnobj.lower_bound = 0
@@ -1263,30 +1363,31 @@ class MSModelUtil:
                     if rxnobj.upper_bound < 0:
                         rxnobj.upper_bound = 0
                     rxnobj.lower_bound = 0
-                #Computing the objective value
+                # Computing the objective value
                 objective = self.model.slim_optimize()
                 if objective < thresholds[i]:
                     needed = True
                     logger.debug(
-                        medias[i].id + "/" + target + ":" +rxn_id
+                        medias[i].id
+                        + "/"
+                        + target
+                        + ":"
+                        + rxn_id
                         + item[1]
                         + " needed:"
                         + str(objective)
                         + " with min obj:"
                         + str(thresholds[i])
                     )
-            #If the reaction isn't needed for any media and target combinations, add it to the unneeded list
+            # If the reaction isn't needed for any media and target combinations, add it to the unneeded list
             if not needed:
-                unneeded.append([rxn_id, item[1], item[2],original_bound,other_original_bound])
-                logger.debug(
-                    rxn_id
-                    + item[1]
-                    + " not needed:"
-                    + str(objective)
+                unneeded.append(
+                    [rxn_id, item[1], item[2], original_bound, other_original_bound]
                 )
-                #VERY IMPORTANT: Leave the reaction knocked out for now so we screen for combinatorial effects
+                logger.debug(rxn_id + item[1] + " not needed:" + str(objective))
+                # VERY IMPORTANT: Leave the reaction knocked out for now so we screen for combinatorial effects
             else:
-                #Restore the reaction if it is needed
+                # Restore the reaction if it is needed
                 if item[1] == ">":
                     rxnobj.upper_bound = original_bound
                     if other_original_bound != None:
@@ -1296,7 +1397,7 @@ class MSModelUtil:
                     if other_original_bound != None:
                         rxnobj.upper_bound = other_original_bound
         if not remove_unneeded_reactions:
-            #Restoring the bounds on the unneeded reactions
+            # Restoring the bounds on the unneeded reactions
             for item in unneeded:
                 rxnobj = self.model.reactions.get_by_id(item[0])
                 if item[1] == ">":
@@ -1308,11 +1409,11 @@ class MSModelUtil:
                     if item[4] != None:
                         rxnobj.upper_bound = item[4]
         else:
-            #Do not restore bounds on unneeded reactions and remove reactions from model if their bounds are zero
+            # Do not restore bounds on unneeded reactions and remove reactions from model if their bounds are zero
             removed_rxns = []
             for item in unneeded:
                 rxnobj = self.model.reactions.get_by_id(item[0])
-                if self.find_item_in_solution(do_not_remove_list,item):
+                if self.find_item_in_solution(do_not_remove_list, item):
                     if item[1] == ">":
                         rxnobj.upper_bound = item[3]
                         if item[4] != None:
@@ -1321,20 +1422,26 @@ class MSModelUtil:
                         rxnobj.lower_bound = item[3]
                         if item[4] != None:
                             rxnobj.upper_bound = item[4]
-                elif rxnobj.lower_bound == 0 and rxnobj.upper_bound == 0 and not self.find_item_in_solution(do_not_remove_list,item,ignore_dir=True):
+                elif (
+                    rxnobj.lower_bound == 0
+                    and rxnobj.upper_bound == 0
+                    and not self.find_item_in_solution(
+                        do_not_remove_list, item, ignore_dir=True
+                    )
+                ):
                     removed_rxns.append(rxnobj)
             if len(removed_rxns) > 0:
                 self.model.remove_reactions(removed_rxns)
-        #Restoring the original objective
+        # Restoring the original objective
         self.model.objective = current_objective
-        #Restoring the original media
+        # Restoring the original media
         if current_media:
             self.pkgmgr.getpkg("KBaseMediaPkg").build_package(current_media)
-        #Returning the unneeded list
+        # Returning the unneeded list
         return unneeded
 
     def add_gapfilling(self, solution):
-        logger.debug("Adding gapfilling:"+str(solution))
+        logger.debug("Adding gapfilling:" + str(solution))
         self.integrated_gapfillings.append(solution)
 
     def create_kb_gapfilling_data(self, kbmodel, atpmedia_ws="94026"):
@@ -1418,13 +1525,21 @@ class MSModelUtil:
         else:
             pkgmgr = MSPackageManager.get_pkg_mgr(model)
         model.objective = condition["objective"]
-        #if condition["is_max_threshold"]:
+        # if condition["is_max_threshold"]:
         model.objective.direction = "max"
-        #else: TODO - need to revisit this
+        # else: TODO - need to revisit this
         #    model.objective.direction = "min"
         pkgmgr.getpkg("KBaseMediaPkg").build_package(condition["media"])
 
-    def test_single_condition(self, condition, apply_condition=True, model=None,report_atp_loop_reactions=False,analyze_failures=False,rxn_list=[]):
+    def test_single_condition(
+        self,
+        condition,
+        apply_condition=True,
+        model=None,
+        report_atp_loop_reactions=False,
+        analyze_failures=False,
+        rxn_list=[],
+    ):
         """Runs a single test condition to determine if objective value on set media exceeds threshold
 
         Parameters
@@ -1471,24 +1586,49 @@ class MSModelUtil:
             )
             return False
         if value >= condition["threshold"] and condition["is_max_threshold"]:
-            logger.debug("Failed high:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
+            logger.debug(
+                "Failed high:"
+                + condition["media"].id
+                + ":"
+                + str(new_objective)
+                + ";"
+                + str(condition["threshold"])
+            )
             if analyze_failures and len(rxn_list) == 1:
-                #Constraining test objective at failed value
+                # Constraining test objective at failed value
                 if value > 1000:
                     value = 1000
-                self.model.reactions.get_by_id(condition["objective"]).lower_bound = value
+                self.model.reactions.get_by_id(
+                    condition["objective"]
+                ).lower_bound = value
                 solution = pfba(self.model)
-                self.analyze_minimal_reaction_set(solution,rxn_list[0][0].id)
+                self.analyze_minimal_reaction_set(solution, rxn_list[0][0].id)
                 self.model.reactions.get_by_id(condition["objective"]).lower_bound = 0
             return False
         elif value <= condition["threshold"] and not condition["is_max_threshold"]:
-            logger.debug("Failed low:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
+            logger.debug(
+                "Failed low:"
+                + condition["media"].id
+                + ":"
+                + str(new_objective)
+                + ";"
+                + str(condition["threshold"])
+            )
             return False
         self.test_objective = new_objective
-        logger.debug("Passed:"+condition["media"].id+":"+str(new_objective)+";"+str(condition["threshold"]))
+        logger.debug(
+            "Passed:"
+            + condition["media"].id
+            + ":"
+            + str(new_objective)
+            + ";"
+            + str(condition["threshold"])
+        )
         return True
 
-    def test_condition_list(self, condition_list, model=None,positive_growth=[],rxn_list=[]):
+    def test_condition_list(
+        self, condition_list, model=None, positive_growth=[], rxn_list=[]
+    ):
         """Runs a set of test conditions to determine if objective values on set medias exceed thresholds
 
         Parameters
@@ -1509,11 +1649,15 @@ class MSModelUtil:
         if model == None:
             model = self.model
         for condition in condition_list:
-            if not self.test_single_condition(condition,apply_condition=True,model=model,rxn_list=rxn_list):
+            if not self.test_single_condition(
+                condition, apply_condition=True, model=model, rxn_list=rxn_list
+            ):
                 return False
         return True
 
-    def linear_expansion_test(self, reaction_list, condition, currmodel,positive_growth=[]):
+    def linear_expansion_test(
+        self, reaction_list, condition, currmodel, positive_growth=[]
+    ):
         """Tests addition of reactions one at a time
 
         Parameters
@@ -1530,7 +1674,12 @@ class MSModelUtil:
         ------
         """
         # First run the full test
-        if self.test_single_condition(condition, apply_condition=False, model=currmodel,positive_growth=positive_growth):
+        if self.test_single_condition(
+            condition,
+            apply_condition=False,
+            model=currmodel,
+            positive_growth=positive_growth,
+        ):
             return []
         # First knockout all reactions in the input list and save original bounds
         filtered_list = []
@@ -1547,7 +1696,9 @@ class MSModelUtil:
         for item in reaction_list:
             if item[1] == ">":
                 item[0].upper_bound = original_bound[count]
-                if not self.test_single_condition(condition, apply_condition=False, model=currmodel):
+                if not self.test_single_condition(
+                    condition, apply_condition=False, model=currmodel
+                ):
                     # logger.debug(item[0].id+":"+item[1])
                     item[0].upper_bound = 0
                     if item not in filtered_list:
@@ -1556,7 +1707,9 @@ class MSModelUtil:
                         filtered_list.append(item)
             else:
                 item[0].lower_bound = original_bound[count]
-                if not self.test_single_condition(condition, apply_condition=False, model=currmodel):
+                if not self.test_single_condition(
+                    condition, apply_condition=False, model=currmodel
+                ):
                     # logger.debug(item[0].id+":"+item[1])
                     item[0].lower_bound = 0
                     if item not in filtered_list:
@@ -1566,7 +1719,9 @@ class MSModelUtil:
             count += 1
         return filtered_list
 
-    def binary_expansion_test(self, reaction_list, condition, currmodel, depth=0,positive_growth=[]):
+    def binary_expansion_test(
+        self, reaction_list, condition, currmodel, depth=0, positive_growth=[]
+    ):
         """Conducts a binary search for bad reaction combinations
         Parameters
         ----------
@@ -1586,34 +1741,42 @@ class MSModelUtil:
         newdepth = depth + 1
         filtered_list = []
         # First run the full test
-        if self.test_single_condition(condition,apply_condition=False,model=currmodel,rxn_list=reaction_list):
-            #logger.debug("Reaction set passed"," ".join(map(str, reaction_list)))
+        if self.test_single_condition(
+            condition, apply_condition=False, model=currmodel, rxn_list=reaction_list
+        ):
+            # logger.debug("Reaction set passed"," ".join(map(str, reaction_list)))
             return []
         # Check if input list contains only one reaction:
         if len(reaction_list) == 1:
-            #logger.debug("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
+            # logger.debug("Failed:"+reaction_list[0][1]+reaction_list[0][0].id)
             if reaction_list[0][1] == ">":
                 reaction_list[0].append(reaction_list[0][0].upper_bound)
                 reaction_list[0][0].upper_bound = 0
             else:
                 reaction_list[0].append(reaction_list[0][0].lower_bound)
                 reaction_list[0][0].lower_bound = 0
-            #Check if the reaction passes the positive growth test
+            # Check if the reaction passes the positive growth test
             success = True
             if len(positive_growth) > 0:
-                #Testing positive growth conditions
+                # Testing positive growth conditions
                 for pos_condition in positive_growth:
-                    if not self.test_single_condition(pos_condition,apply_condition=True,model=currmodel):
-                        logger.debug("Does not pass positive growth tests:"+reaction_list[0][1]+reaction_list[0][0].id)
+                    if not self.test_single_condition(
+                        pos_condition, apply_condition=True, model=currmodel
+                    ):
+                        logger.debug(
+                            "Does not pass positive growth tests:"
+                            + reaction_list[0][1]
+                            + reaction_list[0][0].id
+                        )
                         success = False
                         break
-                #Restoring current test condition
+                # Restoring current test condition
                 self.apply_test_condition(condition)
             if success:
                 reaction_list[0].append(self.score)
                 filtered_list.append(reaction_list[0])
             else:
-                #Restoring reaction
+                # Restoring reaction
                 if reaction_list[0][1] == ">":
                     reaction_list[0][0].upper_bound = reaction_list[0][2]
                 else:
@@ -1639,12 +1802,18 @@ class MSModelUtil:
                     item[0].lower_bound = 0
         # Submitting first half of reactions for testing
         new_filter = self.binary_expansion_test(
-            sub_lists[0], condition, currmodel,depth=newdepth,positive_growth=positive_growth
+            sub_lists[0],
+            condition,
+            currmodel,
+            depth=newdepth,
+            positive_growth=positive_growth,
         )
         for item in new_filter:
             filtered_list.append(item)
         if self.breaking_reaction != None:
-            logger.debug("Ending early due to breaking reaction:"+self.breaking_reaction.id)
+            logger.debug(
+                "Ending early due to breaking reaction:" + self.breaking_reaction.id
+            )
             return filtered_list
         # Submitting second half of reactions for testing - now only breaking reactions are removed from the first list
         for i, item in enumerate(reaction_list):
@@ -1654,7 +1823,11 @@ class MSModelUtil:
                 else:
                     item[0].lower_bound = original_bound[i]
         new_filter = self.binary_expansion_test(
-            sub_lists[1], condition, currmodel,depth=newdepth,positive_growth=positive_growth
+            sub_lists[1],
+            condition,
+            currmodel,
+            depth=newdepth,
+            positive_growth=positive_growth,
         )
         for item in new_filter:
             filtered_list.append(item)
@@ -1669,14 +1842,14 @@ class MSModelUtil:
             else:
                 original_bound.append(item[0].lower_bound)
                 item[0].lower_bound = 0
-        result = self.test_single_condition(condition,model=model)
+        result = self.test_single_condition(condition, model=model)
         for i, item in enumerate(reaction_list):
             if item[1] == ">":
                 item[0].upper_bound = original_bound[i]
             else:
                 item[0].lower_bound = original_bound[i]
-        return result          
-    
+        return result
+
     def reaction_expansion_test(
         self,
         reaction_list,
@@ -1685,7 +1858,7 @@ class MSModelUtil:
         attribute_label="gf_filter",
         positive_growth=[],
         resort_by_score=True,
-        active_reaction_sets=[]
+        active_reaction_sets=[],
     ):
         """Adds reactions in reaction list one by one and appplies tests, filtering reactions that fail
 
@@ -1708,17 +1881,24 @@ class MSModelUtil:
         self.breaking_reaction = None
         filtered_list = []
         if resort_by_score:
-            scores = self.assign_reliability_scores_to_reactions(active_reaction_sets=active_reaction_sets)
+            scores = self.assign_reliability_scores_to_reactions(
+                active_reaction_sets=active_reaction_sets
+            )
             reaction_list = sorted(reaction_list, key=lambda x: scores[x[0].id][x[1]])
             for item in reaction_list:
-                logger.debug(item[0].id+":"+item[1]+":"+str(scores[item[0].id][item[1]]))
+                logger.debug(
+                    item[0].id + ":" + item[1] + ":" + str(scores[item[0].id][item[1]])
+                )
         for condition in condition_list:
             logger.debug(f"testing condition {condition}")
             currmodel = self.model
             tic = time.perf_counter()
             new_filtered = []
             if not self.check_if_solution_exists(reaction_list, condition, currmodel):
-                logger.debug("No solution exists that passes tests for condition "+condition["media"].id)
+                logger.debug(
+                    "No solution exists that passes tests for condition "
+                    + condition["media"].id
+                )
                 return None
             with currmodel:
                 self.apply_test_condition(condition)
@@ -1726,7 +1906,10 @@ class MSModelUtil:
                     done = False
                     while not done:
                         new_filtered = self.binary_expansion_test(
-                            reaction_list, condition, currmodel,positive_growth=positive_growth
+                            reaction_list,
+                            condition,
+                            currmodel,
+                            positive_growth=positive_growth,
                         )
                         for item in new_filtered:
                             if item not in filtered_list:
@@ -1734,19 +1917,29 @@ class MSModelUtil:
                         if self.breaking_reaction == None:
                             done = True
                         else:
-                            #Remove breaking reaction from reaction_list
-                            logger.debug("Keeping breaking reaction:"+self.breaking_reaction.id)
+                            # Remove breaking reaction from reaction_list
+                            logger.debug(
+                                "Keeping breaking reaction:" + self.breaking_reaction.id
+                            )
                             for i in range(len(reaction_list)):
                                 if reaction_list[i][0] == self.breaking_reaction:
                                     del reaction_list[i]
                                     break
-                            if not self.check_if_solution_exists(reaction_list, condition, currmodel):
-                                logger.debug("No solution exists after retaining breaking reaction:"+self.breaking_reaction.id)
+                            if not self.check_if_solution_exists(
+                                reaction_list, condition, currmodel
+                            ):
+                                logger.debug(
+                                    "No solution exists after retaining breaking reaction:"
+                                    + self.breaking_reaction.id
+                                )
                                 return None
                             self.breaking_reaction = None
                 else:
                     new_filtered = self.linear_expansion_test(
-                        reaction_list, condition, currmodel,positive_growth=positive_growth
+                        reaction_list,
+                        condition,
+                        currmodel,
+                        positive_growth=positive_growth,
                     )
                     for item in new_filtered:
                         if item not in filtered_list:
@@ -1809,7 +2002,7 @@ class MSModelUtil:
     #################################################################################
     # Functions for reaction set analysis
     #################################################################################
-    def analyze_minimal_reaction_set(self,solution,label,print_output=True):
+    def analyze_minimal_reaction_set(self, solution, label, print_output=True):
         """Systematically exploring alternative options for each reaction in an input minimal reaction set
 
         Parameters
@@ -1826,7 +2019,7 @@ class MSModelUtil:
         Raises
         ------
         """
-        #Determining reaction set as the set of currently active reactions in the input solution
+        # Determining reaction set as the set of currently active reactions in the input solution
         reaction_set = []
         output = {}
         original_objective = self.model.objective
@@ -1836,22 +2029,38 @@ class MSModelUtil:
         scores = self.assign_reliability_scores_to_reactions()
         for rxn in self.model.reactions:
             if abs(solution.fluxes[rxn.id]) < 0.000000001:
-                initial_zero_reactions[rxn.id] = {">":True,"<":True}
+                initial_zero_reactions[rxn.id] = {">": True, "<": True}
                 obj_coef[rxn.forward_variable] = 1
                 obj_coef[rxn.reverse_variable] = 1
             elif solution.fluxes[rxn.id] > 0.000000001 and rxn.lower_bound <= 0:
-                output[rxn.id] = [">",[]]
-                reaction_set.append([rxn,">",solution.fluxes[rxn.id],scores[rxn.id][">"],self.is_core(rxn)])
-                initial_zero_reactions[rxn.id] = {"<":True}
+                output[rxn.id] = [">", []]
+                reaction_set.append(
+                    [
+                        rxn,
+                        ">",
+                        solution.fluxes[rxn.id],
+                        scores[rxn.id][">"],
+                        self.is_core(rxn),
+                    ]
+                )
+                initial_zero_reactions[rxn.id] = {"<": True}
                 obj_coef[rxn.reverse_variable] = 1
             elif solution.fluxes[rxn.id] < -0.000000001 and rxn.upper_bound >= 0:
-                output[rxn.id] = ["<",[]]
-                reaction_set.append([rxn,"<",solution.fluxes[rxn.id],scores[rxn.id]["<"],self.is_core(rxn)])
-                initial_zero_reactions[rxn.id] = {">":True}
+                output[rxn.id] = ["<", []]
+                reaction_set.append(
+                    [
+                        rxn,
+                        "<",
+                        solution.fluxes[rxn.id],
+                        scores[rxn.id]["<"],
+                        self.is_core(rxn),
+                    ]
+                )
+                initial_zero_reactions[rxn.id] = {">": True}
                 obj_coef[rxn.forward_variable] = 1
         self.model.objective = minimal_deviation_objective
         minimal_deviation_objective.set_linear_coefficients(obj_coef)
-        #Knocking reactions out one at a time and checking for alternative options
+        # Knocking reactions out one at a time and checking for alternative options
         for item in reaction_set:
             original_bound = None
             if item[1] == ">":
@@ -1861,7 +2070,14 @@ class MSModelUtil:
                 original_bound = item[0].lower_bound
                 item[0].lower_bound = 0
             new_solution = self.model.optimize()
-            result = {"alternatives":[],"coupled":[],"failed":False,"flux":item[2],"score":item[3],"core":item[4]}
+            result = {
+                "alternatives": [],
+                "coupled": [],
+                "failed": False,
+                "flux": item[2],
+                "score": item[3],
+                "core": item[4],
+            }
             output[item[0].id][1].append(result)
             if new_solution.status == "optimal":
                 for secitem in reaction_set:
@@ -1869,11 +2085,20 @@ class MSModelUtil:
                         if abs(new_solution.fluxes[secitem[0].id]) < 0.000000001:
                             result["coupled"].append(secitem)
                 for rxn in self.model.reactions:
-                    if rxn.id in initial_zero_reactions and abs(new_solution.fluxes[rxn.id]) > 0.000000001:
-                        if new_solution.fluxes[rxn.id] > 0.000000001 and ">" in initial_zero_reactions[rxn.id]:
-                            result["alternatives"].append([rxn,">"])
-                        elif new_solution.fluxes[rxn.id] < -0.000000001 and "<" in initial_zero_reactions[rxn.id]:
-                            result["alternatives"].append([rxn,"<"])
+                    if (
+                        rxn.id in initial_zero_reactions
+                        and abs(new_solution.fluxes[rxn.id]) > 0.000000001
+                    ):
+                        if (
+                            new_solution.fluxes[rxn.id] > 0.000000001
+                            and ">" in initial_zero_reactions[rxn.id]
+                        ):
+                            result["alternatives"].append([rxn, ">"])
+                        elif (
+                            new_solution.fluxes[rxn.id] < -0.000000001
+                            and "<" in initial_zero_reactions[rxn.id]
+                        ):
+                            result["alternatives"].append([rxn, "<"])
             else:
                 result["failed"] = True
             if original_bound != None:
@@ -1883,23 +2108,48 @@ class MSModelUtil:
                     item[0].lower_bound = original_bound
 
         self.model.objective = original_objective
-        #Printing output if requested
+        # Printing output if requested
         if print_output:
             records = []
             for rxnid in output:
                 item = output[rxnid]
-                record = {"id":rxnid,"direction":item[0],"flux":item[1][0]["flux"],"score":item[1][0]["score"],"core":item[1][0]["core"],"equation":self.model.reactions.get_by_id(rxnid).build_reaction_string(use_metabolite_names=True),"coupled":"","alternatives":"","failed":item[1][0]["failed"]}
+                record = {
+                    "id": rxnid,
+                    "direction": item[0],
+                    "flux": item[1][0]["flux"],
+                    "score": item[1][0]["score"],
+                    "core": item[1][0]["core"],
+                    "equation": self.model.reactions.get_by_id(
+                        rxnid
+                    ).build_reaction_string(use_metabolite_names=True),
+                    "coupled": "",
+                    "alternatives": "",
+                    "failed": item[1][0]["failed"],
+                }
                 for subitem in item[1][0]["alternatives"]:
                     if len(record["alternatives"]):
                         record["alternatives"] += ";"
-                    record["alternatives"] += subitem[1]+subitem[0].id+":"+subitem[0].build_reaction_string(use_metabolite_names=True)
+                    record["alternatives"] += (
+                        subitem[1]
+                        + subitem[0].id
+                        + ":"
+                        + subitem[0].build_reaction_string(use_metabolite_names=True)
+                    )
                 for subitem in item[1][0]["coupled"]:
                     if len(record["coupled"]):
                         record["coupled"] += ";"
-                    record["coupled"] += subitem[1]+subitem[0].id+":"+subitem[0].build_reaction_string(use_metabolite_names=True)
+                    record["coupled"] += (
+                        subitem[1]
+                        + subitem[0].id
+                        + ":"
+                        + subitem[0].build_reaction_string(use_metabolite_names=True)
+                    )
                 records.append(record)
             df = pd.DataFrame.from_records(records)
-            df.to_csv("nboutput/rxn_analysis/"+label+"-min_rxn_set_analysis.csv",index=False)
+            df.to_csv(
+                "nboutput/rxn_analysis/" + label + "-min_rxn_set_analysis.csv",
+                index=False,
+            )
         return output
 
     #################################################################################
@@ -1977,7 +2227,11 @@ class MSModelUtil:
                         )
                         rxnobj.lower_bound = original_bound
                 else:
-                    logger.debug("Reaction "+item[0]+" not in model during sensitivity analysis!")
+                    logger.debug(
+                        "Reaction "
+                        + item[0]
+                        + " not in model during sensitivity analysis!"
+                    )
                     output[item[0]][item[1]] = []
             return output
 

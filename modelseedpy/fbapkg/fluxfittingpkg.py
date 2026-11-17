@@ -12,7 +12,11 @@ from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 class FluxFittingPkg(BaseFBAPkg):
     def __init__(self, model):
         BaseFBAPkg.__init__(
-            self, model, "flux fitting", {"vfitf": "reaction","vfitr": "reaction"}, {"vfitc": "reaction"}
+            self,
+            model,
+            "flux fitting",
+            {"vfitf": "reaction", "vfitr": "reaction"},
+            {"vfitc": "reaction"},
         )
 
     def build_package(self, parameters):
@@ -24,7 +28,7 @@ class FluxFittingPkg(BaseFBAPkg):
                 "totalflux": 0,
                 "set_objective": 1,
                 "default_rescaling": 0.1,
-                #"rescale_vfit_by_flux": True,
+                # "rescale_vfit_by_flux": True,
                 "quadratic_formulation": True,
                 "multiply_vfit_by_flux": False,
             },
@@ -41,7 +45,7 @@ class FluxFittingPkg(BaseFBAPkg):
             if rxnid in self.model.reactions:
                 rxnobj = self.model.reactions.get_by_id(rxnid)
                 var = self.build_fluxfit_variable(rxnobj)
-                
+
                 self.build_fluxfit_constraint(rxnobj)
         if self.parameters["set_objective"] == 1:
             self.set_fluxfit_objective()
@@ -51,24 +55,33 @@ class FluxFittingPkg(BaseFBAPkg):
         coef = 1
         if self.parameters["quadratic_formulation"]:
             for rxnid in self.variables["vfitf"]:
-                if self.parameters["multiply_vfit_by_flux"] and rxnid in self.parameters["target_flux"]:
+                if (
+                    self.parameters["multiply_vfit_by_flux"]
+                    and rxnid in self.parameters["target_flux"]
+                ):
                     coef = abs(self.parameters["target_flux"][rxnid])
                     if coef == 0:
                         coef = 0.0001
-                objvars.append(coef*self.variables["vfitf"][rxnid]**2)
+                objvars.append(coef * self.variables["vfitf"][rxnid] ** 2)
         else:
             for rxnid in self.variables["vfitf"]:
-                if self.parameters["multiply_vfit_by_flux"] and rxnid in self.parameters["target_flux"]:
+                if (
+                    self.parameters["multiply_vfit_by_flux"]
+                    and rxnid in self.parameters["target_flux"]
+                ):
                     coef = abs(self.parameters["target_flux"][rxnid])
                     if coef == 0:
                         coef = 0.0001
-                objvars.append(coef*self.variables["vfitf"][rxnid])
+                objvars.append(coef * self.variables["vfitf"][rxnid])
             for rxnid in self.variables["vfitr"]:
-                if self.parameters["multiply_vfit_by_flux"] and rxnid in self.parameters["target_flux"]:
+                if (
+                    self.parameters["multiply_vfit_by_flux"]
+                    and rxnid in self.parameters["target_flux"]
+                ):
                     coef = abs(self.parameters["target_flux"][rxnid])
                     if coef == 0:
                         coef = 0.0001
-                objvars.append(coef*self.variables["vfitr"][rxnid])
+                objvars.append(coef * self.variables["vfitr"][rxnid])
         self.model.objective = self.model.problem.Objective(
             add(objvars), direction="min", sloppy=True
         )
@@ -77,12 +90,8 @@ class FluxFittingPkg(BaseFBAPkg):
         lower_bound = -100000
         if not self.parameters["quadratic_formulation"]:
             lower_bound = 0
-            self.build_variable(
-                "vfitr", 0, 100000, "continuous", object
-            )
-        self.build_variable(
-            "vfitf", lower_bound, 100000, "continuous", object
-        )
+            self.build_variable("vfitr", 0, 100000, "continuous", object)
+        self.build_variable("vfitf", lower_bound, 100000, "continuous", object)
 
     def build_fluxfit_constraint(self, cobra_obj):
         # vfit(i) = flux(i) - v(i) <OR> vfitf(i)-vfitr(i) = flux(i) + v(i)
@@ -96,7 +105,7 @@ class FluxFittingPkg(BaseFBAPkg):
             #        vfitcoef = vfitcoef*self.parameters["default_rescaling"]#Multiply coef by fit flux which rescales by flux
             coef = {self.variables["vfitf"][cobra_obj.id]: vfitcoef}
             if not self.parameters["quadratic_formulation"]:
-                coef[self.variables["vfitr"][cobra_obj.id]] = -1*vfitcoef
+                coef[self.variables["vfitr"][cobra_obj.id]] = -1 * vfitcoef
             if self.parameters["totalflux"] == 0:
                 coef[cobra_obj.forward_variable] = -1
                 coef[cobra_obj.reverse_variable] = 1

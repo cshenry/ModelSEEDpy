@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from modelseedpy.core.msminimalmedia import minimizeFlux_withGrowth, bioFlux_check
 from modelseedpy.core.exceptions import NoFluxError, ObjectiveError
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager

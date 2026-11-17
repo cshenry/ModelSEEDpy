@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class MediaCompound:
-    def __init__(self, compound_id, lower_bound, upper_bound, concentration=None, name=None):
+    def __init__(
+        self, compound_id, lower_bound, upper_bound, concentration=None, name=None
+    ):
         self.id = compound_id
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
@@ -67,13 +69,15 @@ class MSMedia:
         for cpd_id, v in media_dict.items():
             if isinstance(v, dict):
                 # Complete format - dictionary with all fields
-                media_compounds.append(MediaCompound(
-                    v.get('id', cpd_id),
-                    v.get('lower_bound', -10),
-                    v.get('upper_bound', 1000),
-                    concentration=v.get('concentration'),
-                    name=v.get('name')
-                ))
+                media_compounds.append(
+                    MediaCompound(
+                        v.get("id", cpd_id),
+                        v.get("lower_bound", -10),
+                        v.get("upper_bound", 1000),
+                        concentration=v.get("concentration"),
+                        name=v.get("name"),
+                    )
+                )
             elif isinstance(v, tuple):
                 # Bounds format - tuple of (lower_bound, upper_bound)
                 media_compounds.append(MediaCompound(cpd_id, v[0], v[1]))
@@ -102,7 +106,12 @@ class MSMedia:
         output.media_ref = media_ref
         media_compounds = []
         for mediacpd in media_object.mediacompounds:
-            newmediacpd = MediaCompound(mediacpd.id, -1*mediacpd.maxFlux, -1*mediacpd.minFlux, concentration=mediacpd.concentration)
+            newmediacpd = MediaCompound(
+                mediacpd.id,
+                -1 * mediacpd.maxFlux,
+                -1 * mediacpd.minFlux,
+                concentration=mediacpd.concentration,
+            )
             media_compounds.append(newmediacpd)
         output.mediacompounds += media_compounds
         return output
@@ -140,15 +149,17 @@ class MSMedia:
         elif output_type == "complete":
             for compound in self.mediacompounds:
                 output[compound.id] = {
-                    'id': compound.id,
-                    'lower_bound': compound.lower_bound,
-                    'upper_bound': compound.upper_bound,
-                    'concentration': compound.concentration,
-                    'name': compound.name
+                    "id": compound.id,
+                    "lower_bound": compound.lower_bound,
+                    "upper_bound": compound.upper_bound,
+                    "concentration": compound.concentration,
+                    "name": compound.name,
                 }
 
         else:
-            raise ValueError(f"Invalid output_type '{output_type}'. Must be 'minimal', 'bounds', or 'complete'.")
+            raise ValueError(
+                f"Invalid output_type '{output_type}'. Must be 'minimal', 'bounds', or 'complete'."
+            )
 
         return output
 
@@ -173,7 +184,9 @@ class MSMedia:
                 return cpd
         return None
 
-    def add_compound(self, compound_id, lower_bound, upper_bound, concentration=None, name=None):
+    def add_compound(
+        self, compound_id, lower_bound, upper_bound, concentration=None, name=None
+    ):
         """
         Add a compound to the media.
 
@@ -192,7 +205,7 @@ class MSMedia:
             lower_bound,
             upper_bound,
             concentration=concentration,
-            name=name
+            name=name,
         )
         self.mediacompounds.append(new_compound)
         return new_compound
@@ -251,7 +264,7 @@ class MSMedia:
                 compound.id,
                 compound.lower_bound,
                 compound.upper_bound,
-                concentration=compound.concentration
+                concentration=compound.concentration,
             )
             copied_compounds.append(copied_compound)
 
