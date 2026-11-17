@@ -7,7 +7,6 @@ import math
 from optlang.symbolics import Zero, add
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 from modelseedpy.core.fbahelper import FBAHelper
-from modelseedpy.multiomics.msexpression import MSExpression
 
 # Options for default behavior
 LOWEST = 10
