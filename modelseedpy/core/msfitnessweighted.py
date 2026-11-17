@@ -25,9 +25,10 @@ Method, per model:
    (``loopless=True``) is therefore optional and off by default ("auto"). Candidates that carry flux are the
    condition's gap-fill solution; their number is the distance to growth.
 3. Per condition, restricted FVA on the model reactions with genes (inactive candidates
-   closed, biomass at least ``frac`` of the optimum of that network), a commitment class
-   per reaction (essential, active, blocked, unused), and a signed evidence score per
-   (gene, reaction) edge from the gene's fitness in that condition.
+   and unused reversal directions closed, biomass fixed at the value the weighted solve
+   used), a commitment class per reaction (essential, active, blocked, unused), and a
+   signed evidence score per (gene, reaction) edge from the gene's fitness in that
+   condition.
 
 Use only training conditions: the fitness data choose the fluxes.
 """
@@ -660,15 +661,19 @@ class MSFitnessWeightedAnalysis:
                 _release(work)
         return None, False
 
-    def _fva(self, model, reaction_ids, frac):
-        """Restricted FVA: biomass >= frac * optimum, min and max of each listed reaction."""
+    def _fva(self, model, reaction_ids, biomass_value):
+        """Restricted FVA: biomass fixed at the weighted solve's value, min and max of
+        each listed reaction. Re-maximising biomass here instead would let the restricted
+        network grow faster than the solve being classified and exclude its own fluxes."""
         out = {}
         with model:
             opt = self._optimum(model)
             if opt is None:
                 return out, None
-            model.reactions.get_by_id(self.biomass).lower_bound = (
-                frac * opt * (1 - 1e-9)
+            slack = abs(biomass_value) * 1e-9
+            model.reactions.get_by_id(self.biomass).bounds = (
+                biomass_value - slack,
+                biomass_value + slack,
             )
             for rid in reaction_ids:
                 if rid not in model.reactions:
@@ -790,7 +795,7 @@ class MSFitnessWeightedAnalysis:
             with model:
                 self._close(model, [r for r in self.candidates if r not in gapfilled])
                 self._close_reversal_directions(model, fluxes)
-                fva, opt_net = self._fva(model, list(self.edges), P["frac"])
+                fva, opt_net = self._fva(model, list(self.edges), target)
                 res["growth_network"] = opt_net
                 calls = {}
                 for rid in self.edges:
