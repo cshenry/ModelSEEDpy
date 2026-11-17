@@ -86,10 +86,15 @@ class MSATPCorrection:
             self.atp_hydrolysis = output["reaction"]
 
         self.media_hash = {}
-        self.atp_medias = []
+        # Keep the medias passed in: they used to be replaced by an empty list,
+        # so a caller's own medias were silently dropped and, with
+        # load_default_medias=False, nothing was evaluated at all.
+        self.atp_medias = list(atp_medias or [])
 
         if load_default_medias:
             self.load_default_medias(default_media_path)
+        else:
+            self.index_medias()
 
         self.forced_media = []
         for media_id in forced_media:
@@ -154,7 +159,12 @@ class MSATPCorrection:
                 media.id = media_id
                 media.name = media_id
                 self.atp_medias.append([media, min_gap.get(media_id, 0.01)])
+        self.index_medias()
 
+    def index_medias(self):
+        """Normalise every media to a [media, minimum objective] pair, hash them
+        by id and add the "empty" test medium. Runs for the medias passed to
+        __init__ as well as the default ones."""
         media_ids = set()
         temp_medias = self.atp_medias
         self.atp_medias = []
@@ -331,8 +341,10 @@ class MSATPCorrection:
                     integrate_solutions=False,
                 )
                 logger.debug(str(all_solutions))
-                # Adding the new solutions to the media gapfill stats
-                for media in all_solutions:
+                # Adding the new solutions to the media gapfill stats.
+                # run_multi_gapfill returns None when no media survive its
+                # pre-test (for example an empty media_list).
+                for media in all_solutions or {}:
                     self.media_gapfill_stats[media] = all_solutions[media]
 
         if MSATPCorrection.DEBUG:
