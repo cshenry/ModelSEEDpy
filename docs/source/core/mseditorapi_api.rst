@@ -72,12 +72,23 @@ add_custom_reaction()
 
 .. code-block:: python
 
- MSEditorAPI.add_custom_reaction(model,rxn_id,MSEquation,gpr = None)
+ MSEditorAPI.add_custom_reaction(model, stoichiometry, direction=">", rxnID="rxn42", rxnName="", subsystem="", lb=0, ub=1000, gpr=None)
 
 - *model* ``core.core.model.Model``: The model that will be expanded with the reaction.
-- *rxn_id* ``str``: The ID of the reaction that will be added to the model.
-- *MSEquation* ``modelseedpy.core.mseditorapi.msequation``: The ModelSEED reaction object that contains both the stoichiometry and direction.
+- *stoichiometry* ``dict``: The coefficients (``values``) of the reaction metabolites (``keys``). A key may be a metabolite, a metabolite ID, or a ``(compound, compartment)`` tuple of a parsed ``MSEquation``, which names the model metabolite ``compound_compartment``. Every metabolite must already be in the model.
+- *direction* ``str``: ">", "<", "=", "=>", "<=", "<=>", "forward", "backward", or "reversible". Any other value raises ``ValueError``. "<" sets the bounds to (-1000, 0) and "=" sets the lower bound to -1000.
+- *rxnID*, *rxnName*, *subsystem* ``str``: The ID, name, and subsystem of the new reaction.
+- *lb* & *ub* ``float``: The bounds of the new reaction.
 - *gpr* ``str``: The reaction GPR that will be set in the COBRA model.
+
+The older call still works, positionally or by keyword:
+
+.. code-block:: python
+
+ MSEditorAPI.add_custom_reaction(model,rxn_id,MSEquation,gpr = None)
+
+- *rxn_id* ``str``: The ID of the reaction that will be added to the model.
+- *MSEquation* ``modelseedpy.core.mseditorapi.MSEquation``: The ModelSEED reaction object that contains both the stoichiometry and direction.
 
 ------------------------
 add_ms_reaction()
@@ -91,9 +102,9 @@ add_ms_reaction()
 
 - *model* ``core.core.model.Model``: The model that will be expanded with the reaction.
 - *rxn_id* ``str``: The ID of the reaction that will be added to the model.
-- *modelseed* ``ModelSEED Database``: The ModelSEED Database object that will be used to acquire reaction information.
+- *modelseed* ``ModelSEED Database``: The ModelSEED Database object that will be used to acquire reaction information. It must provide ``get_seed_reaction`` and ``get_seed_compound``, as ``ModelSEEDBiochem`` does.
 - *compartment_equivalents* ``dict``: The compartments and their indicies that are used in the reaction.
-- *direction* ``str``: The "<", "=", or ">" direction of the reaction.
+- *direction* ``str``: The ">", "<", "=", "=>", "<=", "<=>", "forward" (default), "backward", or "reversible" direction of the reaction. Any other value raises ``ValueError``.
 
 ------------------------
 copy_model_reactions()
@@ -130,10 +141,11 @@ A class that constructs and organizes reaction information:
 
 .. code-block:: python
 
- mse = MSEquation(stoichiometry, direction)
+ mse = MSEquation(stoichiometry, direction, ID="rxn42", name="", subsystem="", lb=0, ub=1000, gpr=None)
 
-- *stoichiometry* ``dict``: The collection of stoichiometry (``values``) for all metabolites in the reaction (``keys``).
-- *direction* ``str``: The "<", "=", or ">" reaction directionality.
+- *stoichiometry* ``dict``: The collection of stoichiometry (``values``) for all metabolites in the reaction (``keys``). It is stored as ``mse.stoich``, also readable as ``mse.equation``.
+- *direction* ``str``: The "<", "=", or ">" reaction directionality, also accepted as the keyword ``d``.
+- *ID*, *name*, *subsystem*, *lb*, *ub*, *gpr*: The attributes of ``mse.rxn_obj``, a COBRA reaction that holds the stoichiometry when its keys are COBRA metabolites.
 
 ------------------------------------
 build_from_palsson_string()
@@ -143,9 +155,10 @@ build_from_palsson_string()
 
 .. code-block:: python
 
- reaction_object = MSEquation.build_from_palsson_string(equation_string, default_group='c')
+ reaction_object = MSEquation.build_from_palsson_string(equation_string, default_group='c', ID="rxn42", name="", subsystem="", lb=0, ub=1000, gpr=None)
 
-- *equation_string* ``str``: The BiGG reaction string.
-- *default_group* ``str``: The reactant identifier.
+- *equation_string* ``str``: The BiGG reaction string. "<=>", "=>" and "<=" give the directions "=", ">" and "<"; "=" without an arrow gives "?". A missing "=" or an unmatched parenthesis or bracket raises ``ValueError``.
+- *default_group* ``str``: The compartment of reactants that do not name one in brackets.
+- *ID*, *name*, *subsystem*, *lb*, *ub*, *gpr*: Passed to the returned ``MSEquation``.
 
 **Returns** *reaction_object* ``modelseedpy.core.mseditorapi.MSEquation``: The ``MSEquation`` object version of a BiGG reaction.
