@@ -415,12 +415,11 @@ def test_determine_growth_media_warns_when_nothing_selected(
     of the ``is None`` guard; this one pins the operator's only warning that the
     empty-list side was taken.
 
-    ``atp_medias`` is passed as ``[]`` rather than as a real medium on purpose.
-    ``__init__`` currently discards that argument (``self.atp_medias = []``), so
-    passing a medium here would leave the candidate list empty anyway -- and this
-    test would then be asserting "nothing was selected" for a reason that is a
-    separate bug, and would start failing the moment that bug is fixed. Asking
-    for no media explicitly makes the empty selection the test's own premise.
+    ``atp_medias`` is passed as ``[]`` rather than as a real medium on purpose:
+    asking for no media explicitly makes the empty selection the test's own
+    premise, rather than depending on whether a given medium qualifies.
+    (``__init__`` used to discard this argument, which is why the choice was
+    first made; it now keeps it.)
     """
     model = get_model_with_infinite_atp_loop()
     atp_correction = MSATPCorrection(
