@@ -164,7 +164,7 @@ class MSGrowthPhenotype:
         model_or_modelutl : Model | MSModelUtl
             Model to use to run the simulations
         """
-        output = {"baseline_objective": 0.01}
+        output = {"baseline_objective": 0.01, "missing_transports": []}
         # Translating model is not MSModelUtil
         modelutl = model_or_mdlutl
         if not isinstance(model_or_mdlutl, MSModelUtil):
