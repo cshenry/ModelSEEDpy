@@ -457,15 +457,17 @@ class MSGapfill:
             return None
 
         # --- Lock: set lb = activation_cap for active directions ---
-        locked_vars = []
-        for rxn_id, var in rapkg.variables["fra"].items():
-            if var.primal >= activation_cap - 1e-9:
-                var.lb = activation_cap
-                locked_vars.append(var)
-        for rxn_id, var in rapkg.variables["rra"].items():
-            if var.primal >= activation_cap - 1e-9:
-                var.lb = activation_cap
-                locked_vars.append(var)
+        # Read every Stage 1 primal before changing any bound: Gurobi discards
+        # the solution as soon as the model is modified, so reading a primal
+        # after the first `var.lb = ...` raises "Unable to retrieve attribute 'X'".
+        locked_vars = [
+            var
+            for pkg_vars in (rapkg.variables["fra"], rapkg.variables["rra"])
+            for var in pkg_vars.values()
+            if var.primal >= activation_cap - 1e-9
+        ]
+        for var in locked_vars:
+            var.lb = activation_cap
         logger.debug(
             "Comprehensive gapfilling: locked %d activation variables", len(locked_vars)
         )
