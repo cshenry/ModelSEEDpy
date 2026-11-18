@@ -9,6 +9,15 @@ import numpy as np
 from numpy import log as ln
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 from modelseedpy.core.fbahelper import FBAHelper
+from modelseedpy.biochem.modelseed_biochem import UNKNOWN_DELTAG, NO_ESTIMATE_ERROR
+
+logger = logging.getLogger(__name__)
+
+# Units. The database (and a metabolite's notes['deltag']) give formation energies and their
+# errors in kcal/mol. Everything inside this package -- potentials, dgp, the error variables,
+# default_max_error, custom_deltaG_error, max_potential, dg_margin -- is kJ/mol. Every value read
+# from the database is converted with KCAL_TO_KJ on the way in.
+KCAL_TO_KJ = 4.184
 
 # Base class for FBA packages
 class FullThermoPkg(BaseFBAPkg):
@@ -83,7 +92,7 @@ class FullThermoPkg(BaseFBAPkg):
             {
                 "default_max_conc": 0.02,  # M
                 "default_min_conc": 0.000001,  # M
-                "default_max_error": 5,  # KJ/mol
+                "default_max_error": 5,  # kJ/mol
                 "custom_concentrations": {},
                 "custom_deltaG_error": {"cpd00067": 0},
                 "compartment_potential": {
@@ -98,20 +107,45 @@ class FullThermoPkg(BaseFBAPkg):
                 "exclude_reactions": [],
                 "set_min_error_objective": False,
                 "set_concfit_objective": False,
+                # The bound on a compound's chemical potential, which is also the
+                # big-M of the direction rows of SimpleThermoPkg. At the old
+                # 100000 those rows are badly scaled against the kJ/mol of the
+                # energies, and the solver returns different "optimal" answers as
+                # the integrality tolerance moves; it only has to exceed the
+                # largest potential the model can reach.
+                "max_potential": 10000,  # kJ/mol
+                # the loop-law margin, kJ/mol: a reaction carrying flux must be at least this
+                # far below equilibrium. 0 makes the direction rows vacuous -- all-zero
+                # potentials satisfy them -- so near-equilibrium internal cycles are not
+                # excluded (see SimpleThermoPkg).
+                "dg_margin": 1.0,
+                # "tmfa": the margin applies only to reactions that carry flux, so a reaction
+                # whose pinned dG cannot leave (-dg_margin, dg_margin) is idle rather than
+                # making the model infeasible. "revbin" applies it to every reaction (loopless
+                # FBA). SimpleThermoPkg on its own defaults to "revbin". Either way a reaction
+                # whose dG cannot fit within +/-max_potential (large polymers) is infeasible.
+                "coupling": "tmfa",
+                # take each compound's error bound from the database's own
+                # estimate where it is larger than default_max_error
+                "use_database_error": True,
                 "concfit_objective_type": "l1",
                 "concfit_weights": None,
             },
         )
         simple_thermo_parameters = {
             "filter": self.parameters["filter"],
-            "min_potential": -100000,  # KJ/mol
-            "max_potential": 100000,  # KJ/mol
+            "dg_margin": self.parameters["dg_margin"],
+            "coupling": self.parameters["coupling"],
+            "min_potential": -self.parameters["max_potential"],
+            "max_potential": self.parameters["max_potential"],
             "dgbin": self.parameters["dgbin"],
             "exclude_reactions": self.parameters["exclude_reactions"],
         }
         if self.parameters["infeasible_model"]:
             simple_thermo_parameters["dgbin"] = True
         self.pkgmgr.getpkg("SimpleThermoPkg").build_package(simple_thermo_parameters)
+        # database_error() sets this when the database cannot be loaded; each build tries again
+        self._database_unavailable = False
 
         self.parameters[
             "combined_custom_concentrations"
@@ -157,12 +191,10 @@ class FullThermoPkg(BaseFBAPkg):
         objvars = []
         for metabolite in self.model.metabolites:
             if metabolite.id in self.variables["pdgerr"]:
-                objvars.append(1 * self.variables["pdgerr"][metabolite.id])
+                objvars.append(self.variables["pdgerr"][metabolite.id])
             if metabolite.id in self.variables["ndgerr"]:
-                objvars.append(1 * self.variables["ndgerr"][metabolite.id])
-        self.model.objective = self.model.problem.Objective(
-            add(objvars), direction="min", sloppy=True
-        )
+                objvars.append(self.variables["ndgerr"][metabolite.id])
+        self._set_min_objective(objvars)
 
     @staticmethod
     def _validate_concfit_weights(weights):
@@ -199,11 +231,14 @@ class FullThermoPkg(BaseFBAPkg):
     def build_concfit_objective(self, target_concentrations, weights=None):
         weights = weights or {}
         self._validate_concfit_weights(weights)
-        # Removing all existing concfit constraints
+        # Removing all existing concfit constraints, from the model and from
+        # self.constraints: build_constraint removes a row it still finds there, and a
+        # row already gone from the solver raises LookupError on a second fit
         for metabolite in self.model.metabolites:
             if metabolite.id in self.constraints["concfit"]:
                 self.model.remove_cons_vars(self.constraints["concfit"][metabolite.id])
-        objvars = []
+                del self.constraints["concfit"][metabolite.id]
+        objcoefs = {}
         for metabolite in self.model.metabolites:
             if metabolite.id in target_concentrations:
                 w = weights.get(metabolite.id, 1.0)
@@ -222,11 +257,22 @@ class FullThermoPkg(BaseFBAPkg):
                     },
                     metabolite,
                 )
-                objvars.append(w * self.variables["pconcfit"][metabolite.id])
-                objvars.append(w * self.variables["nconcfit"][metabolite.id])
+                objcoefs[self.variables["pconcfit"][metabolite.id]] = w
+                objcoefs[self.variables["nconcfit"][metabolite.id]] = w
+        self._set_min_objective(objcoefs)
+
+    def _set_min_objective(self, objvars):
+        # The coefficients are set on the objective rather than built into an
+        # expression: optlang cannot parse the sum of bare variables that
+        # `add([1 * var, ...])` collapses to when symengine backs it.
+        # `objvars` is {variable: coefficient}, or a list of variables that all
+        # get coefficient 1.
+        if not isinstance(objvars, dict):
+            objvars = {var: 1 for var in objvars}
         self.model.objective = self.model.problem.Objective(
-            add(objvars), direction="min", sloppy=True
+            Zero, direction="min", sloppy=True
         )
+        self.model.objective.set_linear_coefficients(objvars)
 
     def build_concfit_objective_l2(self, target_concentrations, weights=None):
         """Weighted least-squares concentration-fit objective:
@@ -289,17 +335,69 @@ class FullThermoPkg(BaseFBAPkg):
         if msid in self.parameters["combined_custom_concentrations"]:
             lb = ln(self.parameters["combined_custom_concentrations"][msid][0])
             ub = ln(self.parameters["combined_custom_concentrations"][msid][1])
-        return self.build_variable("logconc", lb, ub, "continuous", object)
+        variable = self.build_variable("logconc", lb, ub, "continuous", object)
+        # build_variable returns an earlier build's variable unchanged, so a rebuild with
+        # other concentrations would keep the old bounds
+        variable.set_bounds(lb, ub)
+        return variable
 
     def build_dgerr_variables(self, object):
         msid = self.modelutl.metabolite_msid(object)
         ub = self.parameters["default_max_error"]
+        if self.parameters["use_database_error"]:
+            # The database's error for each compound's estimate, converted to kJ/mol.
+            # The larger of it and the flat default is taken, so no compound is held
+            # tighter than the default and a poorly determined one is not held as
+            # tightly as a well determined one. (This was compared and applied in
+            # kcal/mol until it was converted, holding every such compound 4.184x too
+            # tightly.) eQuilibrator's "no estimate" marker -- an error of 12,482 to
+            # 407,722 kcal/mol, e.g. SAM 132.52 +/- 23,901 kcal/mol -- is not an error
+            # bound: the loader leaves such compounds without an energy, and
+            # database_error ignores errors from NO_ESTIMATE_ERROR up.
+            reported = self.database_error(msid)
+            if reported is not None:
+                ub = max(ub, reported)
         if msid in self.parameters["custom_deltaG_error"]:
             ub = self.parameters["custom_deltaG_error"][msid]
         elif object.id in self.parameters["custom_deltaG_error"]:
             ub = self.parameters["custom_deltaG_error"][object.id]
-        self.build_variable("pdgerr", 0, ub, "continuous", object)
-        self.build_variable("ndgerr", 0, ub, "continuous", object)
+        # set_bounds: a variable of an earlier build comes back with its old bounds
+        self.build_variable("pdgerr", 0, ub, "continuous", object).set_bounds(0, ub)
+        self.build_variable("ndgerr", 0, ub, "continuous", object).set_bounds(0, ub)
+
+    def database_error(self, msid):
+        """The error the database reports for a compound's formation energy.
+
+        The database only widens the default error bound here, and the energies may all
+        come from notes['deltag'], so a database that cannot be read is not fatal: the
+        first failure logs one warning, and this returns None (the default bound) for
+        every compound until the next build_package tries again."""
+        if msid is None or getattr(self, "_database_unavailable", False):
+            return None
+        from modelseedpy.biochem.modelseed_biochem import ModelSEEDBiochem
+
+        try:
+            if self.parameters["modelseed_db_path"] is not None:
+                biochem_db = ModelSEEDBiochem.get(
+                    path=self.parameters["modelseed_db_path"]
+                )
+            else:
+                biochem_db = ModelSEEDBiochem.get()
+        except OSError as ex:
+            self._database_unavailable = True
+            logger.warning(
+                f"FullThermoPkg: cannot load the ModelSEED database ({ex}); the error "
+                f"bounds use default_max_error ({self.parameters['default_max_error']} "
+                f"kJ/mol) without the database's own estimates. Set "
+                f"use_database_error=False to skip the database."
+            )
+            return None
+        if msid not in biochem_db.compounds:
+            return None
+        error = getattr(biochem_db.compounds.get_by_id(msid), "delta_g_error", None)
+        if error is None or abs(error) >= NO_ESTIMATE_ERROR:
+            return None
+        return abs(error) * KCAL_TO_KJ  # kcal/mol in the database, kJ/mol here
 
     def build_concfit_variables(self, object):
         self.build_variable("pconcfit", 0, 100, "continuous", object)
@@ -307,6 +405,10 @@ class FullThermoPkg(BaseFBAPkg):
 
     def build_gibbs_constraint(self, object):
         msid = self.modelutl.metabolite_msid(object)
+        # An earlier build's row goes first: a compound left free this time (no energy, or
+        # beyond max_potential) must not stay pinned by it
+        if object.id in self.constraints["potc"]:
+            self.model.remove_cons_vars(self.constraints["potc"].pop(object.id))
 
         # potential(i) (kJ/mol) = deltaG(i) (kJ/mol) + R*T(K)*lnconc(i)
         #                         + charge(i) * Faraday(kC/mol) * compartment_potential(mV) / 1000
@@ -337,21 +439,42 @@ class FullThermoPkg(BaseFBAPkg):
                 )
             else:
                 biochem_db = ModelSEEDBiochem.get()
-            mscpd = biochem_db.compounds.get_by_id(msid)
+            # a compound the database does not have gets no Gibbs constraint
+            mscpd = None
+            if msid in biochem_db.compounds:
+                mscpd = biochem_db.compounds.get_by_id(msid)
             if mscpd is not None:
                 if hasattr(mscpd, "deltag") and mscpd.deltag is not None:
                     deltag = mscpd.deltag
-                elif hasattr(compound, "delta_g") and compound.delta_g is not None:
+                elif hasattr(mscpd, "delta_g") and mscpd.delta_g is not None:
                     deltag = mscpd.delta_g
         RValue = 0.008314  # kJ/mol/K
+        if deltag is not None and abs(deltag) >= UNKNOWN_DELTAG:
+            # ModelSEED marks an unknown formation energy with 10000000 rather
+            # than a null. Taken literally it puts the compound's potential far
+            # outside the bounds of SimpleThermoPkg and the model is infeasible,
+            # so it is treated as no data: the potential stays free.
+            deltag = None
         if deltag is None:
             return None
-        if (
-            msid == "cpd00067"
-        ):  # Adding pH7 concentration to deltaG so H+ concentration cancels unless it's different from pH7
+        if abs(deltag) * KCAL_TO_KJ >= self.parameters["max_potential"]:
+            # e.g. the mycobacterial arabinogalactans, to -15,565 kJ/mol: pinning one outside
+            # the potential bounds makes the model infeasible, so it is left free instead
+            logger.debug(
+                f"FullThermoPkg: {object.id} formation energy {deltag} kcal/mol is "
+                f"beyond max_potential; its potential is left free"
+            )
+            return None
+        if msid == "cpd00067":
+            # pH-7-transformed energies: add RT ln(1e-7) back for H+ so its concentration term
+            # cancels at pH 7. RT is kJ/mol and deltag is still kcal/mol here, hence the division.
             deltag += (
-                -1 * RValue * self.parameters["temperature"] * np.log(0.0000001) / 4.184
-            )  # Dividing by 4.184 here because we multiply by this value later
+                -1
+                * RValue
+                * self.parameters["temperature"]
+                * np.log(0.0000001)
+                / KCAL_TO_KJ
+            )
         Faraday = 96.485  # kC/mol
         compartment_potential = 0  # mV
         if object.compartment in self.parameters["compartment_potential"]:
@@ -365,14 +488,14 @@ class FullThermoPkg(BaseFBAPkg):
         # Values above 1000 mV are egregiously non-physical.
         abs_cp = abs(compartment_potential)
         if abs_cp > 1000:
-            logging.warning(
+            logger.warning(
                 "compartment_potential for '%s' is %.1f mV, which is egregiously "
                 "non-physical (|V| > 1000 mV). Verify units — expected mV.",
                 object.compartment,
                 compartment_potential,
             )
         elif abs_cp > 300:
-            logging.warning(
+            logger.warning(
                 "compartment_potential for '%s' is %.1f mV, which is unusually large "
                 "(|V| > 300 mV). Typical biological membrane potentials sit well under "
                 "300 mV; verify that mV (not V) was supplied.",
@@ -381,8 +504,8 @@ class FullThermoPkg(BaseFBAPkg):
             )
         # Divide compartment_potential by 1000 to convert mV -> V.
         # Faraday (kC/mol) * V = kJ/mol, matching the kJ/mol scale of deltaG.
-        constant = deltag * 4.184 + object.charge * Faraday * (
-            compartment_potential / 1000
+        constant = (
+            deltag * KCAL_TO_KJ + object.charge * Faraday * compartment_potential / 1000
         )
         coef = {
             potential_variable: 1,
