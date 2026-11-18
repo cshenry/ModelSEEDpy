@@ -3,7 +3,7 @@ import logging
 import itertools
 from enum import Enum
 import cobra
-from modelseedpy.core.exceptions import ModelSEEDError
+from modelseedpy.core.exceptions import ModelSEEDError, GapfillingError
 from modelseedpy.core.rast_client import RastClient
 from modelseedpy.core.msgenome import normalize_role
 from modelseedpy.core.mstemplate import TemplateReactionType
@@ -295,7 +295,13 @@ def build_gpr(cpx_gene_role):
 
 class MSBuilder:
     def __init__(
-        self, genome, template=None, name=None, ontology_term="RAST", index="0"
+        self,
+        genome,
+        template=None,
+        name=None,
+        ontology_term="RAST",
+        index="0",
+        template_core=None,
     ):
         """
 
@@ -303,6 +309,8 @@ class MSBuilder:
         @param template: MSTemplate
         @param name:
         @param ontology_term:
+        @param template_core: MSTemplate, the core template build_and_gapfill gives ATP
+            correction; None lets MSATPCorrection load the default core template
         """
         if index is None or type(index) != str:
             raise TypeError("index must be str")
@@ -311,6 +319,7 @@ class MSBuilder:
         self.name = name
         self.genome = genome
         self.template = template
+        self.template_core = template_core
         self.genome_class = None
         self.search_name_to_genes, self.search_name_to_original = _aaaa(
             genome, ontology_term
@@ -932,7 +941,222 @@ class MSBuilder:
         bio_rxn.annotation[SBO_ANNOTATION] = "SBO:0000629"
         return bio_rxn
 
+    @staticmethod
+    def add_atpm(model, index="0"):
+        """Add the ATP maintenance reaction ATPM_c<index>
+        (cpd00002 + cpd00001 -> cpd00008 + cpd00009 + cpd00067) unless the model has it.
+
+        :param model: cobra.Model holding the five compounds in compartment c<index>
+        :param index: compartment index of the model
+        :return: the ATPM reaction id
+        """
+        rxn_id = f"ATPM_c{index}"
+        if rxn_id not in model.reactions:
+            atpm = Reaction(rxn_id, "ATPM", "ATPM", 0, 1000)
+            atpm.add_metabolites(
+                {
+                    model.metabolites.get_by_id(f"cpd00001_c{index}"): -1,
+                    model.metabolites.get_by_id(f"cpd00002_c{index}"): -1,
+                    model.metabolites.get_by_id(f"cpd00008_c{index}"): 1,
+                    model.metabolites.get_by_id(f"cpd00009_c{index}"): 1,
+                    model.metabolites.get_by_id(f"cpd00067_c{index}"): 1,
+                }
+            )
+            model.add_reactions([atpm])
+        return rxn_id
+
+    @staticmethod
+    def integrate_gapfill_solution(template, model, gap_fill_solution, index="0"):
+        """Add a gapfilling solution's new reactions to the model, from the template.
+
+        :param template: MSTemplate the reactions come from
+        :param model: cobra.Model to add them to
+        :param gap_fill_solution: {template reaction id: (lower bound, upper bound)}
+        :param index: compartment index of the model
+        :return: (the added reactions, the exchange reactions added for new
+            extracellular compounds)
+        """
+        added_reactions = []
+        for rxn_id, (lb, ub) in gap_fill_solution.items():
+            template_reaction = template.reactions.get_by_id(rxn_id)
+            model_reaction = template_reaction.to_reaction(model, index)
+            model_reaction.lower_bound = lb
+            model_reaction.upper_bound = ub
+            added_reactions.append(model_reaction)
+        model.add_reactions(added_reactions)
+        # extracellular compounds keep index 0 under a numeric index, the rule
+        # MSTemplateCompCompound.to_metabolite applies
+        extra_cell = "e0" if str(index).isnumeric() else f"e{index}"
+        add_exchanges = MSBuilder.add_exchanges_to_model(model, extra_cell)
+
+        return added_reactions, add_exchanges
+
+    @staticmethod
+    def apply_gapfill_reversals(model, reversed_reactions):
+        """Open the directions a gapfilling solution reversed.
+
+        MSGapfill.run_gapfilling returns two kinds of change. "new" lists template reactions
+        to add. "reversed" lists reactions the model already has, which the solution needs
+        in a direction their bounds forbid. integrate_gapfill_solution only adds the "new"
+        set. Without this step the gapfilled model lacks part of its own solution, and it
+        can fail to grow on the very medium it was gapfilled on.
+
+        Each reversed reaction is opened in the direction the gapfiller chose, to the bound
+        get_reaction_constraints_from_direction gives that direction: the same bound
+        build_and_gapfill gives a new reaction. The other bound is left as it was. A bound
+        that is already wider is kept.
+
+        :param model: the gapfilled model, which already holds the reactions
+        :param reversed_reactions: {reaction id: ">" or "<"}, the solution's "reversed" dict
+        :return: the ids of the reactions whose bounds were opened, sorted
+        """
+        applied = []
+        for rxn_id, direction in sorted((reversed_reactions or {}).items()):
+            if rxn_id not in model.reactions:
+                logger.warning(
+                    f"gapfill reversal of {rxn_id}: reaction not in the model"
+                )
+                continue
+            rxn = model.reactions.get_by_id(rxn_id)
+            lb, ub = get_reaction_constraints_from_direction(direction)
+            if ub > 0:
+                rxn.upper_bound = max(rxn.upper_bound, ub)
+            if lb < 0:
+                rxn.lower_bound = min(rxn.lower_bound, lb)
+            applied.append(rxn_id)
+        return applied
+
+    def build_and_gapfill(
+        self,
+        model_or_id,
+        gapfill_media,
+        index="0",
+        allow_all_non_grp_reactions=False,
+        annotate_with_rast=True,
+        biomass_classic=False,
+        biomass_gc=0.5,
+        add_reaction_from_rast_annotation=True,
+        add_maintenance_atp_reaction=True,
+    ):
+        """Build the base model, correct its ATP production, and gapfill it.
+
+        1. build_base_model (same arguments as build).
+        2. Optionally add ATPM_c<index> (add_atpm).
+        3. MSATPCorrection with self.template_core (None: the default core template) on
+           the default ATP medias: pick the growth medias, gapfill the core on them,
+           expand to genome scale and build the ATP test conditions.
+        4. MSGapfill with self.template on gapfill_media, targeting bio1, under those
+           tests; the solution's new reactions are added to a copy of the base model
+           and its reversals are opened (apply_gapfill_reversals).
+
+        :param gapfill_media: MSMedia to gapfill on
+        :return: (the gapfilled model, the MSATPCorrection, its test conditions, the
+            gapfill solution {template reaction id: (lb, ub)}). The gapfilled model is a
+            copy: the base model (self.base_model) keeps the ATP correction's changes
+            but not the gapfilling.
+        :raises GapfillingError: when gapfilling finds no solution on gapfill_media
+        """
+        logger.debug("Build Base Model")
+        model_base = self.build_base_model(
+            model_or_id,
+            index,
+            allow_all_non_grp_reactions,
+            annotate_with_rast,
+            biomass_classic,
+            biomass_gc,
+            add_reaction_from_rast_annotation,
+        )
+        logger.debug(f"Base Model: Reactions - {len(model_base.reactions)}")
+
+        rxn_atpm_id = None
+        if add_maintenance_atp_reaction:
+            logger.debug("Add ATPM Reaction")
+            rxn_atpm_id = MSBuilder.add_atpm(model_base, index)
+
+        # imported here, and from these modules, to avoid an import cycle with
+        # modelseedpy.core (the tests patch these names)
+        from modelseedpy.core.msatpcorrection import load_default_medias
+        from modelseedpy import MSATPCorrection, MSGapfill
+
+        logger.debug("ATP Analysis")
+        atp_correction = MSATPCorrection(
+            model_base,
+            self.template_core,
+            load_default_medias(),
+            compartment=f"c{index}",
+            atp_hydrolysis_id=rxn_atpm_id,
+            load_default_medias=False,
+        )
+        atp_correction.evaluate_growth_media()
+        atp_correction.determine_growth_media()
+        atp_correction.apply_growth_media_gapfilling()
+        atp_correction.expand_model_to_genome_scale()
+        tests = atp_correction.build_tests()
+
+        logger.debug("Gapfill Model")
+        gapfill = MSGapfill(
+            model_base,
+            default_gapfill_templates=[self.template],
+            test_conditions=tests,
+            default_target="bio1",
+        )
+        gapfill_res = gapfill.run_gapfilling(gapfill_media)
+        if gapfill_res is None:
+            raise GapfillingError(
+                f"gapfilling found no solution for bio1 on media "
+                f"{getattr(gapfill_media, 'id', gapfill_media)}"
+            )
+
+        # the solution names model reactions (template id + index); the template
+        # holds them without the index
+        gap_sol = {}
+        for rxn_id, direction in gapfill_res["new"].items():
+            template_rxn_id = rxn_id
+            if index and rxn_id.endswith(index):
+                template_rxn_id = rxn_id[: -len(index)]
+            if template_rxn_id in self.template.reactions:
+                gap_sol[template_rxn_id] = get_reaction_constraints_from_direction(
+                    direction
+                )
+        model_gapfilled = model_base.copy()
+        MSBuilder.integrate_gapfill_solution(
+            self.template, model_gapfilled, gap_sol, index
+        )
+        # the solution also reverses reactions the model already holds; gap_sol carries
+        # only the new ones, so apply the reversals here or the model loses them
+        reversed_applied = MSBuilder.apply_gapfill_reversals(
+            model_gapfilled, gapfill_res.get("reversed")
+        )
+        logger.debug(f"Gapfill reversals applied: {reversed_applied}")
+
+        return model_gapfilled, atp_correction, tests, gap_sol
+
     def build(
+        self,
+        model_or_id,
+        index="0",
+        allow_all_non_grp_reactions=False,
+        annotate_with_rast=True,
+        biomass_classic=False,
+        biomass_gc=0.5,
+        add_reaction_from_rast_annotation=True,
+    ):
+        """Build the base model from the genome and the template, and return it.
+
+        Same signature and return value as before; the body moved to
+        build_base_model. build_and_gapfill also runs ATP correction and gapfilling.
+        """
+        return self.build_base_model(
+            model_or_id,
+            index,
+            allow_all_non_grp_reactions,
+            annotate_with_rast,
+            biomass_classic,
+            biomass_gc,
+            add_reaction_from_rast_annotation,
+        )
+
+    def build_base_model(
         self,
         model_or_id,
         index="0",
