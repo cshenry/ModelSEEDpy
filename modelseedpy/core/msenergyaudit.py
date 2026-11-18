@@ -174,6 +174,8 @@ def _selected(compartments, tri, comp):
         return True
     if callable(compartments):
         return bool(compartments(tri, comp))
+    if isinstance(compartments, str):  # one id: "c10" must not select "c1"
+        compartments = (compartments,)
     return comp in compartments
 
 
@@ -182,8 +184,8 @@ def hydrolysis_sites(model, pins=ATP_PINS, compartments=None):
     c0, c1, ...) that holds all the metabolites of a pin's hydrolysis, in pin order,
     then model order.
 
-    pins as in resolve_pins. compartments: None (every such cytosol), an iterable of
-    compartment ids, or a callable (triphosphate, compartment) -> bool."""
+    pins as in resolve_pins. compartments: None (every such cytosol), one compartment
+    id, an iterable of ids, or a callable (triphosphate, compartment) -> bool."""
     mets = {m.id for m in model.metabolites}
     out = []
     for tri, di in resolve_pins(pins):
@@ -791,7 +793,8 @@ def find_energy_cycle(
 ):
     """The smallest-total-flux cycle that makes `flux` mmol ATP/gDW/h with every uptake
     closed (lax closure, forced fluxes released with release_floors, `lift_rows`
-    lifted).
+    lifted), or, when the model makes some ATP from nothing but less than `flux`, the
+    smallest-total-flux cycle at the most ATP it makes.
 
     compartment  make the ATP in this compartment's test; default the sum over all tests
     thermo       load_msdb_thermo() output: each reaction's database direction and dG
@@ -799,14 +802,16 @@ def find_energy_cycle(
     pins         None (ATP tests) or "ntp" (the other hydrolysis tests count too)
     gate         c_min, c_max, n_sigma for direction_thermo
 
-    Returns {status, reactions, fluxes, rows_lifted}. status is "cycle"; "no cycle" when
-    the model cannot make the ATP; or "infeasible" when the sealed model cannot run at
-    all (a forced flux kept with release_floors=False, say), which says nothing about
-    cycles. reactions has one row per reaction in the cycle (the test reactions left
-    out): reaction, msid, flux, bounds (during the test), db_reversibility, name,
-    against_db (runs against the database direction), dg0, dg_min, dg_err, dg_source,
-    infeasible (direction_thermo), gapfilled. fluxes is {reaction id: flux} of every
-    reaction above tol, tests included."""
+    Returns {status, atp_flux, reactions, fluxes, rows_lifted}. status is "cycle" when
+    the model makes ATP (above tol) from nothing; "no cycle" when it makes none; or
+    "infeasible" when the sealed model cannot run at all (a forced flux kept with
+    release_floors=False, say), which says nothing about cycles. atp_flux is the ATP the
+    cycle makes (mmol/gDW/h): `flux`, or less when that is all the model makes (0.0 with
+    no cycle, None when infeasible). reactions has one row per reaction in the cycle
+    (the test reactions left out): reaction, msid, flux, bounds (during the test),
+    db_reversibility, name, against_db (runs against the database direction), dg0,
+    dg_min, dg_err, dg_source, infeasible (direction_thermo), gapfilled. fluxes is
+    {reaction id: flux} of every reaction above tol, tests included."""
     gapfilled, thermo = set(gapfilled or ()), thermo or {}
     with lifted_rows(model, lift_rows) as lifted:
         out = _find_energy_cycle(
@@ -848,18 +853,26 @@ def _find_energy_cycle(
             made = sum(r.flux_expression for r in tests.values())
         con = model.problem.Constraint(made, lb=flux, ub=flux, name="energy_cycle_atp")
         model.add_cons_vars(con)
-        model.objective = model.problem.Objective(Zero, direction="min")
-        model.objective.set_linear_coefficients(
-            {
-                v: 1
-                for r in model.reactions
-                for v in (r.forward_variable, r.reverse_variable)
-            }
-        )
-        if _value(model) is None:
-            con.lb, con.ub = 0, 0
-            status = "no cycle" if _value(model) is not None else "infeasible"
-            return {"status": status, "reactions": [], "fluxes": {}}
+        _minimise_total_flux(model)
+        atp_flux = flux
+        if _value(model) is None:  # it cannot make `flux`: what can it make?
+            con.lb, con.ub = 0, None
+            model.objective = model.problem.Objective(made, direction="max")
+            most = _value(model)
+            if most is None or most <= tol:
+                con.lb, con.ub = 0, 0
+                _minimise_total_flux(model)
+                status = "no cycle" if _value(model) is not None else "infeasible"
+                return _no_cycle(status)
+            con.ub, con.lb = most, most
+            _minimise_total_flux(model)
+            if _value(model) is None:  # the maximum, to within the solver's tolerance
+                con.lb = most * (1 - 1e-6)
+                if _value(model) is None:
+                    return _no_cycle("infeasible")
+            atp_flux = sum(r.flux for r in tests.values())
+            if compartment is not None:
+                atp_flux = tests[compartment].flux
         fluxes = {r.id: r.flux for r in model.reactions if abs(r.flux) > tol}
         rows = []
         for rid, v in fluxes.items():
@@ -867,7 +880,28 @@ def _find_energy_cycle(
                 continue
             rxn = model.reactions.get_by_id(rid)
             rows.append(_cycle_row(rxn, v, thermo, gapfilled, gate))
-    return {"status": "cycle", "reactions": rows, "fluxes": fluxes}
+    return {
+        "status": "cycle",
+        "atp_flux": atp_flux,
+        "reactions": rows,
+        "fluxes": fluxes,
+    }
+
+
+def _no_cycle(status):
+    atp = 0.0 if status == "no cycle" else None
+    return {"status": status, "atp_flux": atp, "reactions": [], "fluxes": {}}
+
+
+def _minimise_total_flux(model):
+    model.objective = model.problem.Objective(Zero, direction="min")
+    model.objective.set_linear_coefficients(
+        {
+            v: 1
+            for r in model.reactions
+            for v in (r.forward_variable, r.reverse_variable)
+        }
+    )
 
 
 def conformal_cycle(
@@ -884,10 +918,11 @@ def conformal_cycle(
     support of its solution is returned. pins="ntp" allows hydrolysis of every pinned
     nucleotide and PPi as well, so a GTP loop that feeds biomass is a cycle here too.
 
-    lp: "gurobi" (gurobipy), "highs" (scipy's HiGHS) or "auto" (gurobi when gurobipy
-    imports, else highs); threads goes to the Gurobi environment (None: gurobi.env or
-    Gurobi's default). Neither solver is a dependency of this module until this function
-    is called."""
+    lp: "gurobi" (gurobipy), "highs" (scipy's HiGHS, scipy >= 1.6) or "auto" (gurobi
+    when gurobipy imports, else highs; and highs, with a warning, when Gurobi raises
+    GurobiError, as a size-limited licence does on a large model); threads goes to the
+    Gurobi environment (None: gurobi.env or Gurobi's default). Neither solver is a
+    dependency of this module until this function is called."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -920,40 +955,59 @@ def conformal_cycle(
     # w_j = sign_j * u_j in [0, 1]; maximise the flux through the active reactions
     # only, so a pin alone (ATP hydrolysis with nothing making the ATP) is not a cycle
     c = np.concatenate([-np.ones(n_active), np.zeros(len(cols) - n_active)])
-    if lp == "auto":
+    auto = lp == "auto"
+    if auto:
         try:
             import gurobipy  # noqa: F401
 
             lp = "gurobi"
         except ImportError:
             lp = "highs"
+    solved = None
     if lp == "gurobi":
         import gurobipy as gp
 
-        params = {"OutputFlag": 0}
-        if threads:
-            params["Threads"] = int(threads)
-        env = gp.Env(params=params)
-        g = gp.Model(env=env)
-        w = g.addMVar(len(cols), lb=0, ub=1, obj=c)
-        g.addMConstr(A, w, "=", np.zeros(len(index)))
-        g.optimize()
-        ok = g.Status == gp.GRB.OPTIMAL
-        value = -g.ObjVal if g.SolCount else 0.0
-        x = w.X.copy() if g.SolCount else None
-        g.dispose()
-        env.dispose()
-    else:
+        try:
+            solved = _conformal_lp_gurobi(gp, c, A, threads)
+        except gp.GurobiError as exc:
+            if not auto:
+                raise
+            logger.warning("conformal_cycle: Gurobi failed (%s); using HiGHS", exc)
+    if solved is None:
         res = linprog(
             c,
             A_eq=A,
-            b_eq=np.zeros(len(index)),
+            b_eq=np.zeros(A.shape[0]),
             bounds=[(0, 1)] * len(cols),
             method="highs",
         )
         ok = res.status == 0
-        value = -res.fun if ok else 0.0
-        x = res.x
+        solved = ok, (-res.fun if ok else 0.0), res.x
+    ok, value, x = solved
     if not ok or value <= tol:
         return []
     return [active[j].id for j in range(n_active) if x[j] > tol]
+
+
+def _conformal_lp_gurobi(gp, c, A, threads):
+    """conformal_cycle's LP in Gurobi: (optimal, objective value, solution)."""
+    import numpy as np
+
+    params = {"OutputFlag": 0}
+    if threads:
+        params["Threads"] = int(threads)
+    env = gp.Env(params=params)
+    try:
+        g = gp.Model(env=env)
+        try:
+            w = g.addMVar(len(c), lb=0, ub=1, obj=c)
+            g.addMConstr(A, w, "=", np.zeros(A.shape[0]))
+            g.optimize()
+            ok = g.Status == gp.GRB.OPTIMAL
+            value = -g.ObjVal if g.SolCount else 0.0
+            x = w.X.copy() if g.SolCount else None
+        finally:
+            g.dispose()
+    finally:
+        env.dispose()
+    return ok, value, x

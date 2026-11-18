@@ -5,6 +5,9 @@ Each toy model has ATP, ADP, Pi, PPi, H2O, H+, GTP and GDP in c0, a biomass reac
 that spends ATP, and exchanges in e0 that are closed for uptake. A test adds the
 reactions that make (or do not make) energy from nothing.
 """
+import sys
+import types
+
 import pytest
 from cobra import Metabolite, Model, Reaction
 
@@ -134,8 +137,9 @@ def test_a_floor_is_released_else_the_test_is_infeasible():
     assert released["released"] == {"rxn00062_c0": (5, 1000)}
     assert model.reactions.rxn00062_c0.bounds == (5, 1000)
     cycle = ea.find_energy_cycle(model, release_floors=False)
-    assert cycle["status"] == "infeasible"
-    assert ea.find_energy_cycle(model)["status"] == "no cycle"
+    assert cycle["status"] == "infeasible" and cycle["atp_flux"] is None
+    clean = ea.find_energy_cycle(model)
+    assert clean["status"] == "no cycle" and clean["atp_flux"] == 0.0
 
 
 def test_strict_closes_what_lax_lets_out():
@@ -252,9 +256,26 @@ def test_find_energy_cycle_names_the_cycle_and_its_uphill_step():
     assert rows["rxn90002_c0"]["infeasible"] is True
     assert rows["rxn90001_c0"]["dg0"] is None
     assert cycle["fluxes"]["ATPtest_c0"] == pytest.approx(1)
+    assert cycle["atp_flux"] == 1.0
     one = ea.find_energy_cycle(_model(*PLANTED), compartment="c0", flux=2.0)
     assert one["fluxes"]["rxn90001_c0"] == pytest.approx(2)
     assert ea.find_energy_cycle(_model(*GLYCOLYSIS))["status"] == "no cycle"
+
+
+def test_find_energy_cycle_names_a_cycle_that_makes_less_than_flux():
+    """A cycle capped at 0.5 cannot make the default 1 mmol ATP/gDW/h; it is still a
+    cycle, found at the 0.5 it makes, not "no cycle"."""
+    capped = [(rid, st, 0, 0.5) for rid, st in PLANTED]
+    sealed = ea.energy_from_nothing(_model(*capped))
+    assert sealed["atp_from_nothing"] == pytest.approx(0.5)
+    cycle = ea.find_energy_cycle(_model(*capped))
+    assert cycle["status"] == "cycle"
+    assert cycle["atp_flux"] == pytest.approx(0.5)
+    assert {r["reaction"] for r in cycle["reactions"]} == {"rxn90001_c0", "rxn90002_c0"}
+    assert cycle["fluxes"]["ATPtest_c0"] == pytest.approx(0.5)
+    part = ea.find_energy_cycle(_model(*capped), flux=0.25)
+    assert part["atp_flux"] == 0.25
+    assert part["fluxes"]["rxn90001_c0"] == pytest.approx(0.25)
 
 
 def test_conformal_cycle_finds_the_cycle_inside_a_flux():
@@ -270,6 +291,31 @@ def test_conformal_cycle_finds_the_cycle_inside_a_flux():
     loop = {"rxn90001_c0": 1.0, "rxn90004_c0": 1.0}
     assert ea.conformal_cycle(gtp, loop, lp="highs") == []
     assert len(ea.conformal_cycle(gtp, loop, lp="highs", pins="ntp")) == 2
+
+
+def test_conformal_cycle_auto_falls_back_to_highs_when_gurobi_fails(
+    monkeypatch, caplog
+):
+    """lp="auto" picks Gurobi whenever gurobipy imports; a licence that cannot solve
+    the LP (GurobiError) must not stop it."""
+
+    class GurobiError(Exception):
+        pass
+
+    def no_licence(*args, **kwargs):
+        raise GurobiError("Model too large for size-limited license")
+
+    fake = types.ModuleType("gurobipy")
+    fake.GurobiError, fake.Env = GurobiError, no_licence
+    monkeypatch.setitem(sys.modules, "gurobipy", fake)
+    model = _model(*PLANTED)
+    looped = {"rxn90001_c0": 3.0, "rxn90002_c0": 3.0}
+    expected = ea.conformal_cycle(model, looped, lp="highs")
+    with caplog.at_level("WARNING", logger="modelseedpy.core.msenergyaudit"):
+        assert ea.conformal_cycle(model, looped) == expected and expected
+    assert "Gurobi failed" in caplog.text
+    with pytest.raises(GurobiError):
+        ea.conformal_cycle(model, looped, lp="gurobi")
 
 
 def test_electrons_from_nothing_reports_a_reduced_product_made_from_co2():
@@ -289,6 +335,10 @@ def test_hydrolysis_sites_and_the_compartment_filter():
     ]
     assert sites[0][2] == {ATP: -1, H2O: -1, ADP: 1, PI: 1, H: 1}
     assert ea.hydrolysis_sites(model, compartments=[]) == []
+    assert len(ea.hydrolysis_sites(model, compartments="c0")) == 1
+    assert (
+        ea.hydrolysis_sites(model, compartments="c00") == []
+    )  # an id, not a substring
     only_atp = ea.hydrolysis_sites(model, "ntp", lambda tri, c: tri == "cpd00002")
     assert len(only_atp) == 1
     with pytest.raises(ValueError):
