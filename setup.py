@@ -20,7 +20,9 @@ setup(
     license=license,
     packages=find_packages(exclude=("docs", "docs.*", "tests", "tests.*")),
     package_data={
-        "modelseedpy": ["config.cfg", "data/*"],
+        # "data/*" does not descend into subfolders: the classifier (data/ml) and
+        # the templates (data/templates) must be listed to ship
+        "modelseedpy": ["config.cfg", "data/*", "data/ml/*", "data/templates/*"],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",

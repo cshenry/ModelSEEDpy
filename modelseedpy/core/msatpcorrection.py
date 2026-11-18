@@ -39,6 +39,40 @@ default_threshold_multipiers = {
 }
 
 
+def load_default_medias(default_media_path=None, default_min_obj=0.01):
+    """Read the default ATP test medias without an MSATPCorrection instance.
+
+    Parses the same file the same way as MSATPCorrection.load_default_medias, which
+    fills self.atp_medias; MSBuilder.build_and_gapfill passes this list in as
+    atp_medias.
+
+    :param default_media_path: medias TSV; None reads data/atp_medias.tsv
+    :param default_min_obj: minimum objective for a media without a min_gap entry
+    :return: list of [MSMedia, minimum objective]
+    """
+    if default_media_path is None:
+        import os.path as _path
+
+        current_file_path = _path.dirname(_path.abspath(__file__))
+        default_media_path = f"{current_file_path}/../data/atp_medias.tsv"
+    atp_medias = []
+    medias = pd.read_csv(default_media_path, sep="\t", index_col=0).to_dict()
+    for media_id in medias:
+        if media_id not in ["name", "msid"]:
+            media_d = {}
+            for exchange, v in medias[media_id].items():
+                if v > 0:
+                    k = exchange.split("_")[1]
+                    media_d[k] = v
+            media_d["cpd00001"] = 1000
+            media_d["cpd00067"] = 1000
+            media = MSMedia.from_dict(media_d)
+            media.id = media_id
+            media.name = media_id
+            atp_medias.append([media, min_gap.get(media_id, default_min_obj)])
+    return atp_medias
+
+
 class MSATPCorrection:
 
     DEBUG = False
@@ -86,10 +120,15 @@ class MSATPCorrection:
             self.atp_hydrolysis = output["reaction"]
 
         self.media_hash = {}
-        self.atp_medias = []
+        # Keep the medias passed in: they used to be replaced by an empty list,
+        # so a caller's own medias were silently dropped and, with
+        # load_default_medias=False, nothing was evaluated at all.
+        self.atp_medias = list(atp_medias or [])
 
         if load_default_medias:
             self.load_default_medias(default_media_path)
+        else:
+            self.index_medias()
 
         self.forced_media = []
         for media_id in forced_media:
@@ -154,7 +193,12 @@ class MSATPCorrection:
                 media.id = media_id
                 media.name = media_id
                 self.atp_medias.append([media, min_gap.get(media_id, 0.01)])
+        self.index_medias()
 
+    def index_medias(self):
+        """Normalise every media to a [media, minimum objective] pair, hash them
+        by id and add the "empty" test medium. Runs for the medias passed to
+        __init__ as well as the default ones."""
         media_ids = set()
         temp_medias = self.atp_medias
         self.atp_medias = []
@@ -331,8 +375,10 @@ class MSATPCorrection:
                     integrate_solutions=False,
                 )
                 logger.debug(str(all_solutions))
-                # Adding the new solutions to the media gapfill stats
-                for media in all_solutions:
+                # Adding the new solutions to the media gapfill stats.
+                # run_multi_gapfill returns None when no media survive its
+                # pre-test (for example an empty media_list).
+                for media in all_solutions or {}:
                     self.media_gapfill_stats[media] = all_solutions[media]
 
         if MSATPCorrection.DEBUG:

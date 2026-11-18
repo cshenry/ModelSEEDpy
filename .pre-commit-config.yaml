@@ -5,8 +5,10 @@ repos:
       - id: fix-encoding-pragma
       - id: check-merge-conflict
       - id: end-of-file-fixer
+        exclude: ^modelseedpy/data/(ml|templates)/
       - id: debug-statements
       - id: check-added-large-files
+        exclude: ^modelseedpy/data/(ml|templates)/
       - id: check-ast
       - id: check-byte-order-marker
       - id: check-case-conflict
@@ -22,7 +24,7 @@ repos:
       - id: check-json
         exclude: examples/
       - id: pretty-format-json
-        exclude: examples/
+        exclude: examples/|^modelseedpy/data/(ml|templates)/
         args:
           - --autofix
           - --top-keys=_id

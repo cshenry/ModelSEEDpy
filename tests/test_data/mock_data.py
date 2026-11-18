@@ -410,3 +410,26 @@ def mock_model_ecoli_core(seed=True):
     }
 
     return remap(model, bigg_to_seed_cpd, bigg_to_seed_rxn)
+
+
+def mock_genome_ecoli_rast():
+    """E. coli K-12 MG1655 (RefSeq GCF_000005845.2) proteins with their RAST
+    functional roles (tests/test_data/ecoli_rast.json, protein id -> roles),
+    as an MSGenome. No sequences: the classifier and MSBuilder read only the
+    RAST ontology terms."""
+    import json
+    import os
+    from modelseedpy.core.msgenome import MSGenome, MSFeature
+
+    path = os.path.join(os.path.dirname(__file__), "ecoli_rast.json")
+    with open(path) as fh:
+        protein_roles = json.load(fh)
+    features = []
+    for protein_id, roles in protein_roles.items():
+        feature = MSFeature(protein_id, "")
+        for role in roles:
+            feature.add_ontology_term("RAST", role)
+        features.append(feature)
+    genome = MSGenome()
+    genome.add_features(features)
+    return genome
