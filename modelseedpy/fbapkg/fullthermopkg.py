@@ -337,11 +337,14 @@ class FullThermoPkg(BaseFBAPkg):
                 )
             else:
                 biochem_db = ModelSEEDBiochem.get()
-            mscpd = biochem_db.compounds.get_by_id(msid)
+            # a compound the database does not have gets no Gibbs constraint
+            mscpd = None
+            if msid in biochem_db.compounds:
+                mscpd = biochem_db.compounds.get_by_id(msid)
             if mscpd is not None:
                 if hasattr(mscpd, "deltag") and mscpd.deltag is not None:
                     deltag = mscpd.deltag
-                elif hasattr(compound, "delta_g") and compound.delta_g is not None:
+                elif hasattr(mscpd, "delta_g") and mscpd.delta_g is not None:
                     deltag = mscpd.delta_g
         RValue = 0.008314  # kJ/mol/K
         if deltag is None:
