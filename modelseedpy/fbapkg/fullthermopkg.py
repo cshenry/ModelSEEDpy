@@ -199,10 +199,13 @@ class FullThermoPkg(BaseFBAPkg):
     def build_concfit_objective(self, target_concentrations, weights=None):
         weights = weights or {}
         self._validate_concfit_weights(weights)
-        # Removing all existing concfit constraints
+        # Removing all existing concfit constraints, from the model and from
+        # self.constraints: build_constraint removes a row it still finds there, and a
+        # row already gone from the solver raises LookupError on a second fit
         for metabolite in self.model.metabolites:
             if metabolite.id in self.constraints["concfit"]:
                 self.model.remove_cons_vars(self.constraints["concfit"][metabolite.id])
+                del self.constraints["concfit"][metabolite.id]
         objvars = []
         for metabolite in self.model.metabolites:
             if metabolite.id in target_concentrations:

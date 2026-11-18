@@ -267,6 +267,28 @@ class TestObjectiveReplacement:
         assert "pconcfit" in new_expr_str or "nconcfit" in new_expr_str
 
 
+class TestL1Refit:
+    """Fitting new targets on the same package replaces the previous fit's rows.
+
+    The L1 builder removed old concfit rows from the model but left them in
+    self.constraints, so the second fit raised LookupError ('not in solver')."""
+
+    def test_second_and_third_fit_replace_the_rows(self):
+        pkg = _build_pkg("glpk")
+        pkg.build_concfit_objective({"metA_c0": -2.0})
+        pkg.build_concfit_objective({"metA_c0": -3.0, "metB_c0": -4.0})
+        # a fit that drops metA must remove its row too
+        pkg.build_concfit_objective({"metB_c0": -5.0})
+
+        rows = sorted(
+            c.name for c in pkg.model.constraints if c.name.endswith("_concfit")
+        )
+        assert rows == ["metB_c0_concfit"]
+        assert sorted(pkg.constraints["concfit"]) == ["metB_c0"]
+        assert pkg.model.slim_optimize() == pytest.approx(0, abs=1e-9)
+        assert pkg.variables["logconc"]["metB_c0"].primal == pytest.approx(-5.0)
+
+
 # ---------------------------------------------------------------------------
 # Module 2 — weighted L2
 # ---------------------------------------------------------------------------
