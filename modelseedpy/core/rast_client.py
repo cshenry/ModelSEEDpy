@@ -91,7 +91,11 @@ class RastClient:
         return self.f(p_features)
 
     def annotate_protein_sequences(self, protein_seqs: dict):
-        p_features = [{"id": protein_id, "protein_translation": protein_seq}]
+        """Annotate {protein id: protein sequence} in one RAST call."""
+        p_features = [
+            {"id": protein_id, "protein_translation": protein_seq}
+            for protein_id, protein_seq in protein_seqs.items()
+        ]
         return self.f(p_features)
 
     def f1(self, protein_id, protein_seq):
