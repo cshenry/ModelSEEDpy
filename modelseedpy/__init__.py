@@ -75,6 +75,7 @@ from modelseedpy.fbapkg import (
     ObjectivePkg,
     ChangeOptPkg,
     ElementUptakePkg,
+    ElementClosurePkg,
     ReactionActivationPkg,
     ExpressionActivationPkg,
 )
