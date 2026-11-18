@@ -12,6 +12,8 @@ from cobra.flux_analysis import pfba
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
 from modelseedpy.biochem.modelseed_biochem import ModelSEEDBiochem
 from modelseedpy.core.fbahelper import FBAHelper
+from modelseedpy.core.exceptions import ModelError
+from math import isclose
 from multiprocessing import Value
 
 # from builtins import None
@@ -366,9 +368,40 @@ class MSModelUtil:
         model = factory.build_object_from_file(filename, "KBaseFBA.FBAModel")
         return MSModelUtil(model)
 
-    def __init__(self, model):
+    def __init__(self, model, copy=False, environment=None, climit=None, o2limit=None):
+        """
+        Parameters
+        ----------
+        model : cobra.Model
+        copy : bool
+            Work on a copy of the model, so that the caller's model is never changed.
+            Raises ModelError if the copy's objective value differs from the original's.
+        environment : dict, MSMedia or None
+            A medium applied through add_medium() once the util is built (to the copy
+            when copy=True). None keeps the model's own exchange bounds.
+        climit, o2limit : float, None or False
+            Total carbon uptake limit (ElementUptakePkg "C") and O2 uptake limit
+            (EX_cpd00007_e0). Giving one derives the other (climit = 3 * o2limit,
+            o2limit = climit / 3). None or False on both applies neither.
+        """
         self.model = model
-        self.pkgmgr = MSPackageManager.get_pkg_mgr(model)
+        self.id = model.id
+        if copy:
+            org_obj_val = model.slim_optimize()
+            self.model = model.copy()
+            self.model.objective = model.objective
+            new_obj_val = self.model.slim_optimize()
+            if (
+                not isclose(org_obj_val, new_obj_val, rel_tol=1e-2)
+                and org_obj_val > 1e-2
+            ):
+                raise ModelError(
+                    f"The {model.id} objective value is corrupted by being copied,"
+                    f" where the original objective value is {org_obj_val}"
+                    f" and the new objective value is {new_obj_val}."
+                )
+        # keyed by self.model, which is the copy when copy=True
+        self.pkgmgr = MSPackageManager.get_pkg_mgr(self.model)
         self.wsid = None
         self.atputl = None
         self.gfutl = None
@@ -392,6 +425,41 @@ class MSModelUtil:
             self.attributes["auxotrophy"] = {}
         if "fbas" not in self.attributes:
             self.attributes["fbas"] = {}
+        # the forward variable of the objective, e.g. "bio1"
+        self.biomass_objective = None
+        for var in self.model.objective.variables:
+            if "reverse" not in var.name:
+                self.biomass_objective = var.name
+        self.climit = None
+        self.o2limit = None
+        self._apply_uptake_limits(climit, o2limit)
+        if environment is not None:
+            self.add_medium(environment)
+
+    def _apply_uptake_limits(self, climit, o2limit):
+        """Caps total carbon uptake at climit and O2 uptake at o2limit.
+
+        The resolved limits are kept on the util (self.climit, self.o2limit), so that
+        add_medium() re-applies the O2 cap after it replaces the medium.
+        """
+        if not FBAHelper.isnumber(climit) and not FBAHelper.isnumber(o2limit):
+            return
+        if not FBAHelper.isnumber(climit):
+            climit = 3 * o2limit
+        if not FBAHelper.isnumber(o2limit):
+            o2limit = climit / 3
+        self.climit, self.o2limit = climit, o2limit
+        if "C_elements" in self.model.constraints:
+            return
+        self.pkgmgr.getpkg("ElementUptakePkg").build_package({"C": climit})
+        self._cap_o2_uptake()
+
+    def _cap_o2_uptake(self):
+        # only tightens: a medium that gives less O2 than o2limit, or none, keeps it
+        if self.o2limit is None or "EX_cpd00007_e0" not in self.model.reactions:
+            return
+        o2_ex = self.model.reactions.get_by_id("EX_cpd00007_e0")
+        o2_ex.lower_bound = max(o2_ex.lower_bound, -self.o2limit)
 
     ########I/O functions
     @staticmethod
@@ -678,6 +746,58 @@ class MSModelUtil:
                 exchange_reactions.append(reaction)
         return exchange_reactions
 
+    def transport_list(self):
+        """Reactions with a compound on both sides (e.g. cpd00027_e0 -> cpd00027_c0),
+        biomass reactions (cpd11416) excluded."""
+        transports = []
+        for rxn in self.model.reactions:
+            reactant_ids = {met.id.split("_")[0] for met in rxn.reactants}
+            product_ids = {met.id.split("_")[0] for met in rxn.products}
+            if not reactant_ids & product_ids:
+                continue
+            if "cpd11416" in reactant_ids | product_ids:
+                continue
+            transports.append(rxn)
+        return transports
+
+    def internal_list(self):
+        """Reactions that are neither exchanges nor transports."""
+        excluded = {rxn.id for rxn in self.exchange_list() + self.transport_list()}
+        return [rxn for rxn in self.model.reactions if rxn.id not in excluded]
+
+    def carbon_exchange_list(self, include_unknown=True):
+        """Exchanges of carbon compounds; include_unknown also keeps exchanges whose
+        compound has no formula."""
+        return [
+            ex
+            for ex in self.exchange_list()
+            if "C" in ex.reactants[0].elements
+            or (include_unknown and not ex.reactants[0].elements)
+        ]
+
+    def metabolites_set(self, reactions_set=None, ids=False):
+        """The metabolites (or their ids) of reactions_set, all reactions by default."""
+        rxns = self.model.reactions if reactions_set is None else reactions_set
+        if ids:
+            return {met.id for rxn in rxns for met in rxn.metabolites}
+        return {met for rxn in rxns for met in rxn.metabolites}
+
+    def exchange_mets_list(self):
+        return self.metabolites_set(self.exchange_list())
+
+    def carbon_exchange_mets_list(self, include_unknown=True):
+        return self.metabolites_set(self.carbon_exchange_list(include_unknown))
+
+    def standard_exchanges(self):
+        """Raises ModelError unless every exchange has one reactant and no product."""
+        for ex in self.exchange_list():
+            if len(ex.reactants) != 1 or len(ex.products) != 0:
+                raise ModelError(
+                    f"The exchange {ex.id} has {len(ex.reactants)} reactants and "
+                    f"{len(ex.products)} products, which is non-standard and is "
+                    "incompatible with various ModelSEED operations."
+                )
+
     def nonexchange_reaction_count(self):
         count = 0
         for reaction in self.model.reactions:
@@ -949,6 +1069,136 @@ class MSModelUtil:
             cobra_reaction.reaction
         self.model.add_reactions(output)
         return output
+
+    def add_cons_vars(self, vars_cons, sloppy=False):
+        self.model.add_cons_vars(vars_cons, sloppy=sloppy)
+        self.model.solver.update()
+
+    def remove_cons_vars(self, vars_cons):
+        self.model.remove_cons_vars(vars_cons)
+        self.model.solver.update()
+
+    def create_constraint(self, constraint, coef=None, sloppy=False, printing=False):
+        """Adds an optlang constraint, then sets its linear coefficients (coef, a dict
+        of variable: coefficient), which needs the constraint to be in the model."""
+        self.add_cons_vars(constraint, sloppy=sloppy)
+        if coef:
+            constraint.set_linear_coefficients(coef)
+            self.model.solver.update()
+
+    def remove_constraint(self, consName):
+        """Removes every constraint whose name contains consName."""
+        matches = [cons for cons in self.model.constraints if consName in cons.name]
+        if matches:
+            self.remove_cons_vars(matches)
+
+    def add_objective(self, objective, direction="max", coef=None):
+        """Sets the objective to the expression objective (Zero with coef, a dict of
+        variable: coefficient, for a linear objective)."""
+        self.model.objective = self.model.problem.Objective(
+            objective, direction=direction
+        )
+        self.model.solver.update()
+        if coef:
+            self.model.objective.set_linear_coefficients(coef)
+            self.model.solver.update()
+
+    def add_minimal_objective_cons(
+        self, min_value=0.1, objective_expr=None, name="min_value"
+    ):
+        """Constrains objective_expr (the current objective by default) to at least
+        min_value; when the constraint exists already, only its lower bound changes."""
+        if name in self.model.constraints:
+            logger.debug(
+                f"The {name} constraint already exists in {self.model.id}; its lower"
+                f" bound is updated from {self.model.constraints[name].lb} to {min_value}."
+            )
+            self.model.constraints[name].lb = min_value
+            return
+        objective_expr = objective_expr or self.model.objective.expression
+        self.create_constraint(
+            self.model.problem.Constraint(
+                objective_expr, lb=min_value, ub=None, name=name
+            )
+        )
+
+    def add_timeout(self, timeout_s=10):
+        self.model.solver.configuration.timeout = timeout_s
+
+    def add_medium(self, media, uniform_uptake=None):
+        """Sets the model's medium and returns it (model.medium).
+
+        Parameters
+        ----------
+        media : MSMedia, dict or None
+            An MSMedia gives each compound its own uptake bound. A dict maps exchange
+            ids, or compound ids (read as EX_<id>_e0), to uptake rates. Compounds
+            without an exchange in the model are skipped, and every uptake not listed
+            is closed. None leaves the medium unchanged.
+        uniform_uptake : float or None
+            When given, every compound of the medium gets this uptake instead.
+
+        The O2 cap of the o2limit given to the constructor is applied again afterwards,
+        since setting model.medium overwrites the EX_cpd00007_e0 bound.
+        """
+        if media is None:
+            return self.model.medium
+        exIDs = [exRXN.id for exRXN in self.exchange_list()]
+        if not hasattr(media, "items"):
+            media = FBAHelper.convert_kbase_media(media, uniform_uptake)
+        elif not any(["EX_" in x for x in list(media.keys())]):
+            media = {"EX_" + k + "_e0": v for k, v in media.items()}
+        medium = {ex: uptake for ex, uptake in media.items() if ex in exIDs}
+        if uniform_uptake is not None:
+            medium = {ex: uniform_uptake for ex, uptake in medium.items() if uptake > 0}
+        self.model.medium = medium
+        self._cap_o2_uptake()
+        return self.model.medium
+
+    def run_fba(self, media=None, pfba=False, fva_reactions=None):
+        """Optimizes the model: pFBA when pfba, FVA of fva_reactions when given, else
+        FBA. A media (MSMedia) is applied first through KBaseMediaPkg."""
+        from cobra import flux_analysis
+
+        if media:
+            self.pkgmgr.getpkg("KBaseMediaPkg").build_package(media)
+        if pfba:
+            return flux_analysis.pfba(self.model)
+        if fva_reactions is not None:
+            return flux_analysis.variability.flux_variability_analysis(
+                self.model, fva_reactions
+            )
+        return self.model.optimize()
+
+    def costless_excreta(self, pfba=False):
+        """The compounds (ids without the EX_ prefix and _e0 suffix) that the model
+        excretes at its maximal objective value; with pfba, in the solution that
+        minimizes total flux at that value. The model is left as it was."""
+        original_objective = self.model.objective
+        minBio_cons = self.model.problem.Constraint(
+            self.model.objective.expression,
+            lb=self.model.slim_optimize(),
+            name="minBio",
+        )
+        self.add_cons_vars([minBio_cons])
+        try:
+            if pfba:
+                total_flux = {
+                    var: 1
+                    for rxn in self.model.reactions
+                    for var in (rxn.forward_variable, rxn.reverse_variable)
+                }
+                self.add_objective(Zero, "min", total_flux)
+            sol = self.model.optimize()
+        finally:
+            if pfba:
+                self.model.objective = original_objective
+            self.remove_cons_vars([minBio_cons])
+        return [
+            rxnID.replace("EX_", "").replace("_e0", "")
+            for rxnID, flux in sol.fluxes.items()
+            if rxnID.startswith("EX_") and flux > 0
+        ]
 
     #################################################################################
     # Functions related to utility functions
