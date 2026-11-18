@@ -22,6 +22,7 @@ setup(
     package_data={
         "modelseedpy": [
             "config.cfg",
+            "biochem/*.html",
             "core/*.html",
             "data/*",
             "data/categories/*",

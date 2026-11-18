@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""HTML reports for FBA solutions, SteadyCom and CommScores results.
+"""HTML reports for FBA solutions, SteadyCom and CommScores results, and the
+ModelSEED database corrections of ``biochem.modelseed_justification``.
 
-Each report function renders a Jinja2 template that ships beside this module
-(``core/*.html``), writes it to ``export_html_path`` and returns the HTML.
+Each report function renders a Jinja2 template that ships with the package
+(``core/*.html``, ``biochem/msdb_template.html``), writes it to
+``export_html_path`` and returns the HTML.
 """
 from itertools import zip_longest
 from numpy import isnan, load
@@ -13,9 +15,9 @@ package_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 templates_dir = os.path.abspath(os.path.dirname(__file__))
 
 
-def _render(template_name, content, export_html_path):
+def _render(template_name, content, export_html_path, directory=templates_dir):
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(templates_dir),
+        loader=jinja2.FileSystemLoader(directory),
         autoescape=jinja2.select_autoescape(["html", "xml"]),
     )
     html_report = env.get_template(template_name).render(content)
@@ -458,3 +460,48 @@ def commscores_report(
         .to_html(),
     }
     return _render("commscores_template.html", content, export_html_path)
+
+
+def msdb_justification_report(
+    proposed_changes, export_html_path="msdb_correction_report.html"
+):
+    """HTML report of the changes ``justifyDB`` proposes,
+    ``{compound or reaction ID: {property: {"original": x, "proposed": y}}}``:
+    a table with one row per changed property, and a heatmap of the changes."""
+    from pandas import DataFrame, to_numeric
+
+    table = DataFrame(
+        [
+            {
+                "ID": entity,
+                "property": prop,
+                "original": values["original"],
+                "proposed": values["proposed"],
+            }
+            for entity, props in proposed_changes.items()
+            for prop, values in props.items()
+        ],
+        columns=["ID", "property", "original", "proposed"],
+    )
+    original = to_numeric(table["original"], errors="coerce")
+    proposed = to_numeric(table["proposed"], errors="coerce")
+    table["change"] = proposed - original
+    # the change relative to the smaller magnitude; undefined when either is 0
+    smaller = original.abs().where(original.abs() < proposed.abs(), proposed.abs())
+    table["normalized_change"] = table["change"].abs() / smaller.where(smaller != 0)
+    if table.empty:
+        heatmap = "<p>No changes were proposed.</p>"
+    else:
+        heatmap = (
+            table.pivot(index="ID", columns="property", values="change")
+            .style.background_gradient()
+            .format("{:g}", na_rep="")
+            .to_html()
+        )
+    content = {"table": table.to_html(index=False), "heatmap": heatmap}
+    return _render(
+        "msdb_template.html",
+        content,
+        export_html_path,
+        os.path.join(package_dir, "biochem"),
+    )
