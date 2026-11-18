@@ -51,7 +51,8 @@ from modelseedpy.core import (
 )
 from modelseedpy.core.exceptions import *
 
-# from modelseedpy.community import MSCommunity, MSCompatibility, CommKineticPkg
+# Community modelling lives in the standalone MSCommunity package
+# (https://github.com/ModelSEED/MSCommunity).
 
 from modelseedpy.biochem import ModelSEEDBiochem
 
