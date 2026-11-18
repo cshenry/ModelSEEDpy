@@ -219,6 +219,96 @@ def _load_aliases_df(df_aliases, seed_index=1, source_index=3, alias_id_index=2)
     return aliases
 
 
+# The 2026-09-11 reorganization of the ModelSEEDDatabase moved the formation
+# energies and the pKas out of the top-level `deltag`/`deltagerr`/`pka`/`pkb`
+# fields (and out of the compound TSVs) and into per-source blocks:
+#
+#   "thermodynamics": {"eQuilibrator": [value, error], "Group contribution": [...]}
+#   "pkas": {"Marvin": {"kind": ..., "pKa": "1:1.80;1:6.95", "pKb": ""}}
+#
+# The retired top-level energy was a mixture of those sources -- of the records
+# that carried one, some match Group contribution exactly, a few eQuilibrator,
+# and most match none of them -- so it cannot be reproduced, and a source is
+# chosen here instead. eQuilibrator and dGPredictor are already transformed to
+# pH 7, which is the convention FullThermoPkg assumes; Group contribution is
+# not, so it is not used as a silent fallback. Set DELTA_G_SOURCES to change
+# the order, and read `delta_g_source` on a compound to see which one it got.
+# A record that still carries the top-level fields (the old schema) is read
+# from them exactly as before.
+DELTA_G_SOURCES = ("eQuilibrator", "dGPredictor")
+PKA_SOURCES = ("Marvin", "Literature", "MolGpKa")
+
+# Units: every energy and error in these blocks is in kcal/mol (transformed to pH 7 for
+# eQuilibrator and dGPredictor).
+#
+# Two "no estimate" markers have to be recognized, and they are in different units:
+#   - ModelSEED's own, 10000000, stored as the energy and the error (UNKNOWN_DELTAG). Only
+#     Group contribution carries it.
+#   - eQuilibrator's. When it cannot estimate a compound it reports an uncertainty of order
+#     1e5 kJ/mol, which the database stores converted to kcal/mol: 12,482 to 407,722 for 9,457
+#     compounds (SAM: 132.52 +/- 23,901.43). eQuilibrator's genuine errors reach 38.5 kcal/mol,
+#     so nothing lies between its two populations and NO_ESTIMATE_ERROR sits in that gap. The
+#     test is applied to eQuilibrator only: dGPredictor has no marker, and its genuine errors
+#     reach 911 kcal/mol.
+# A compound carrying a marker gets no energy -- its potential stays free -- rather than the next
+# source's. The sources are not on one scale: across the ~16,700 compounds both estimate,
+# dGPredictor runs below eQuilibrator by an amount that grows with size (median -1.6 kcal/mol at
+# C1-3, -32 at C11-20, -103 at C21+), although the two agree on reaction energies. Mixing them
+# compound by compound moves reaction energies by hundreds of kJ/mol (rxn01406 comes out +370
+# kJ/mol against the database's own -176). A compound eQuilibrator has no entry for at all still
+# takes dGPredictor's.
+UNKNOWN_DELTAG = 1e6  # kcal/mol; ModelSEED stores 10000000
+NO_ESTIMATE_ERROR = 1000.0  # kcal/mol; eQuilibrator's marker is >= 12,482
+NO_ESTIMATE_SOURCES = ("eQuilibrator",)
+
+
+def _thermodynamics(record):
+    """(delta_g, delta_g_error, source) of a compound record, old schema or new.
+
+    Values are kcal/mol. A record with a top-level `deltag`, or with no per-source block, is
+    read from its top-level fields unchanged, as before (source "deltag", or None when there is
+    no energy). An entry carrying a "no estimate" marker leaves the energy unknown,
+    (None, None, None), rather than falling through to the next source (see NO_ESTIMATE_ERROR).
+    """
+    block = record.get("thermodynamics")
+    if record.get("deltag") is not None or not block:
+        delta_g = record.get("deltag")
+        source = "deltag" if delta_g is not None else None
+        return delta_g, record.get("deltagerr"), source
+    for source in DELTA_G_SOURCES:
+        values = block.get(source)
+        if not values or values[0] is None:
+            continue
+        error = values[1] if len(values) > 1 else None
+        if abs(values[0]) >= UNKNOWN_DELTAG:
+            return None, None, None
+        if (
+            source in NO_ESTIMATE_SOURCES
+            and error is not None
+            and abs(error) >= NO_ESTIMATE_ERROR
+        ):
+            return None, None, None
+        return values[0], error, source
+    return None, None, None
+
+
+def _pkas(record):
+    """(pKa, pKb) strings of a compound record, old schema or new.
+
+    The top-level `pka`/`pkb` fields, when either is set, are returned unchanged, as before.
+    Otherwise the first source in PKA_SOURCES with a value is used. The two formats differ:
+    the old fields read "1:11:11.30" (index:atom:pKa), the per-source blocks "1:11.30".
+    """
+    if record.get("pka") is not None or record.get("pkb") is not None:
+        return record.get("pka"), record.get("pkb")
+    block = record.get("pkas") or {}
+    for source in PKA_SOURCES:
+        entry = block.get(source)
+        if entry and (entry.get("pKa") or entry.get("pKb")):
+            return entry.get("pKa") or None, entry.get("pKb") or None
+    return None, None
+
+
 def _load_metabolites(
     database_path: str, aliases=None, names=None, structures=None
 ) -> dict:
@@ -239,6 +329,8 @@ def _load_metabolites(
                         cpd_names = set()
                         if o["id"] in names:
                             cpd_names |= names[o["id"]]
+                        delta_g, delta_g_error, delta_g_source = _thermodynamics(o)
+                        pka, pkb = _pkas(o)
                         cpd = ModelSEEDCompound2(
                             cpd_id=o["id"],
                             formula=o.get("formula"),
@@ -248,14 +340,16 @@ def _load_metabolites(
                             abbr=o.get("abbreviation"),
                             names=cpd_names,
                             mass=o.get("mass"),
-                            delta_g=o.get("deltag"),
-                            delta_g_error=o.get("deltagerr"),
+                            delta_g=delta_g,
+                            delta_g_error=delta_g_error,
                             is_core=o.get("is_core"),
                             is_obsolete=o.get("is_obsolete"),
-                            pka=o.get("pka"),
-                            pkb=o.get("pkb"),
+                            pka=pka,
+                            pkb=pkb,
                             source=o.get("source"),
+                            pathways=o.get("pathways"),
                         )
+                        cpd.delta_g_source = delta_g_source
                         if cpd.id in aliases:
                             cpd.annotation.update(aliases[cpd.id])
                         if cpd.id in structures:
