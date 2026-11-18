@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from cobrakbase.core.kbasefba.fbamodel_from_cobra import CobraModelConverter
 from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
-from modelseedpy.community.mscommunity import MSCommunity
 from cobrakbase.core.kbasefba.fbamodel import FBAModel
 from cobra.io import write_sbml_model, read_sbml_model
 from optlang import Objective
@@ -189,7 +188,9 @@ class MSProbability:
         printLP=False,
         expression=None,
     ):
-        from modelseedpy.community.commhelper import build_from_species_models
+        # community modelling lives in the standalone MSCommunity package
+        from mscommunity.commhelper import build_from_species_models
+        from mscommunity.mscommsim import MSCommunity
         from modelseedpy.core.msmodelutl import MSModelUtil
         from modelseedpy.fbapkg.elementuptakepkg import ElementUptakePkg
         from optlang.symbolics import Zero
