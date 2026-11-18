@@ -157,3 +157,39 @@ def test_build_from_palsson_string_4(editor):
     )
     # assert(test.equation == "{('cpd00001', 'c'): -1, ('cpd00002', 'e'): -1, ('cpd00003', 'c'): 2, ('cpd00004', 'c'): 1}")
     assert eq.direction == "?"
+
+
+def _stoich_by_id(reaction):
+    return {met.id: coef for met, coef in reaction.metabolites.items()}
+
+
+def test_add_custom_reaction(editor, example_model):
+    """
+    testing for add_custom_reaction()
+    add a reaction parsed from a string, with metabolites already in the model
+    """
+    equation = MSEquation.build_from_palsson_string(
+        "cpd00002 + cpd00001 => cpd00008 + cpd00009 + cpd00067", "c0"
+    )
+    editor.add_custom_reaction(example_model, "bio2", equation)
+    reaction = example_model.reactions.get_by_id("bio2")
+    assert _stoich_by_id(reaction) == {
+        "cpd00002_c0": -1,
+        "cpd00001_c0": -1,
+        "cpd00008_c0": 1,
+        "cpd00009_c0": 1,
+        "cpd00067_c0": 1,
+    }
+    assert reaction.bounds == (0, 1000)
+
+
+def test_edit_biomass_compound_new_reaction(editor, example_model):
+    """
+    testing for edit_biomass_compound()
+    a biomass reaction absent from the model is created
+    """
+    editor.edit_biomass_compound(example_model, "bio9", "cpd00001_c0", -1)
+    biomass = example_model.reactions.get_by_id("bio9")
+    assert _stoich_by_id(biomass) == {"cpd00001_c0": -1}
+    editor.edit_biomass_compound(example_model, "bio9", "cpd00001_c0", -2)
+    assert _stoich_by_id(biomass) == {"cpd00001_c0": -2}

@@ -70,7 +70,7 @@ class MSEditorAPI:
                 raise Exception("Metabolite", cpd_id, " is not in the model.")
         else:  # if there is no biomass reaction
             biomass_rxn = Reaction(biomass_id)
-            model.add_reaction(biomass_rxn)
+            model.add_reactions([biomass_rxn])
             if cpd_id in model.metabolites:
                 biomass_rxn.add_metabolites(
                     {model.metabolites.get_by_id(cpd_id): new_coef}
@@ -97,7 +97,7 @@ class MSEditorAPI:
                 metabolites[met_id] = MSEquation.equation[key]
             else:
                 raise Exception("Error,", met_id, "not in model metabolites list")
-        model.add_reaction(new_rxn)
+        model.add_reactions([new_rxn])
         # new_rxn.gene_reaction_rule = gpr
         new_rxn.add_metabolites(metabolites)
 
