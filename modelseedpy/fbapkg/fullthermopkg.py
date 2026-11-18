@@ -292,7 +292,11 @@ class FullThermoPkg(BaseFBAPkg):
         if msid in self.parameters["combined_custom_concentrations"]:
             lb = ln(self.parameters["combined_custom_concentrations"][msid][0])
             ub = ln(self.parameters["combined_custom_concentrations"][msid][1])
-        return self.build_variable("logconc", lb, ub, "continuous", object)
+        variable = self.build_variable("logconc", lb, ub, "continuous", object)
+        # build_variable returns an earlier build's variable unchanged, so a rebuild with
+        # other concentrations would keep the old bounds
+        variable.set_bounds(lb, ub)
+        return variable
 
     def build_dgerr_variables(self, object):
         msid = self.modelutl.metabolite_msid(object)
@@ -301,8 +305,9 @@ class FullThermoPkg(BaseFBAPkg):
             ub = self.parameters["custom_deltaG_error"][msid]
         elif object.id in self.parameters["custom_deltaG_error"]:
             ub = self.parameters["custom_deltaG_error"][object.id]
-        self.build_variable("pdgerr", 0, ub, "continuous", object)
-        self.build_variable("ndgerr", 0, ub, "continuous", object)
+        # set_bounds: a variable of an earlier build comes back with its old bounds
+        self.build_variable("pdgerr", 0, ub, "continuous", object).set_bounds(0, ub)
+        self.build_variable("ndgerr", 0, ub, "continuous", object).set_bounds(0, ub)
 
     def build_concfit_variables(self, object):
         self.build_variable("pconcfit", 0, 100, "continuous", object)
