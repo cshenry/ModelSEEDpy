@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from modelseedpy.core.rpcclient import RPCClient
 from modelseedpy.core.msgenome import MSFeature  # !!! import is never used
 import re
@@ -7,6 +8,8 @@ from modelseedpy.core.msgenome import (
     read_fasta,
     normalize_role,
 )  # move this to this lib     # !!! read_fasta is never used
+
+logger = logging.getLogger(__name__)
 
 ### delete this after ####
 def aux_rast_result(res, g):
@@ -43,6 +46,18 @@ def aux_template(template):
                     rxn_roles[r.id].add(normalize_role(roles[role_id]["name"]))
                     # print(role_id, normalize_role(roles[role_id]['name']))
     return rxn_roles
+
+
+def split_annotation(annotation) -> list:
+    """Split a RAST function into its roles at "; ", " / " and " @".
+
+    Each role is stripped of surrounding whitespace; empty roles are dropped,
+    so an empty or missing function gives [].
+    """
+    if not annotation:
+        return []
+    roles = [role.strip() for role in re.split("; | / | @", annotation)]
+    return [role for role in roles if role]
 
 
 class RastClient:
@@ -91,8 +106,36 @@ class RastClient:
         return self.f(p_features)
 
     def annotate_protein_sequences(self, protein_seqs: dict):
-        p_features = [{"id": protein_id, "protein_translation": protein_seq}]
+        """Annotate {protein id: protein sequence} in one RAST call."""
+        p_features = [
+            {"id": protein_id, "protein_translation": protein_seq}
+            for protein_id, protein_seq in protein_seqs.items()
+        ]
         return self.f(p_features)
+
+    def annotate_protein_batch(self, protein_seqs: dict, chunk_size: int = 5000):
+        """Annotate {protein id: protein sequence}, sending chunk_size proteins per RAST call.
+
+        Returns {protein id: RAST function}. A protein that RAST gives no function
+        is left out, as is every protein of a call that returns an empty result.
+        """
+        if chunk_size < 1:
+            raise ValueError(f"chunk_size must be at least 1, not {chunk_size}.")
+        protein_annotations = {}
+        proteins = list(protein_seqs.items())
+        for start in range(0, len(proteins), chunk_size):
+            chunk = dict(proteins[start : start + chunk_size])
+            result = self.annotate_protein_sequences(chunk)
+            if not result or "features" not in result[0]:
+                logger.warning(
+                    f"RAST returned no features for the {len(chunk)} proteins "
+                    f"starting at {next(iter(chunk))}."
+                )
+                continue
+            for feature in result[0]["features"]:
+                if "function" in feature:
+                    protein_annotations[feature["id"]] = feature["function"]
+        return protein_annotations
 
     def f1(self, protein_id, protein_seq):
         p_features = [{"id": protein_id, "protein_translation": protein_seq}]
