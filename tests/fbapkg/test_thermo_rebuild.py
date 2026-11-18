@@ -59,14 +59,15 @@ def test_rebuild_resets_concentration_and_error_bounds():
 
 
 def test_full_build_after_a_simple_build_takes_its_own_potential_bounds():
-    # glucose at -3000 kcal/mol = -12552 kJ/mol fits FullThermoPkg's +/-100000, but a
-    # SimpleThermoPkg built first at its default max_potential of 10000 left the potentials
-    # at +/-10000, and the model was infeasible where a fresh FullThermoPkg build is not
+    # glucose at -3000 kcal/mol = -12552 kJ/mol fits a FullThermoPkg max_potential of 100000
+    # (the old fixed bound; the default is now 10000), but a SimpleThermoPkg built first at
+    # its default max_potential of 10000 left the potentials at +/-10000, and the model was
+    # infeasible where a fresh FullThermoPkg build is not
     m = _model(deltag_glc=-3000.0, deltag_pyr=-1501.0)
     pkgmgr = MSPackageManager.get_pkg_mgr(m)
     simple = pkgmgr.getpkg("SimpleThermoPkg")
     simple.build_package({})
-    pkgmgr.getpkg("FullThermoPkg").build_package({})
+    pkgmgr.getpkg("FullThermoPkg").build_package({"max_potential": 100000})
     assert m.slim_optimize() == pytest.approx(20)
     for kind in ("potential", "dgp"):
         for var in simple.variables[kind].values():
