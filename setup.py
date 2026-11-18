@@ -20,7 +20,13 @@ setup(
     license=license,
     packages=find_packages(exclude=("docs", "docs.*", "tests", "tests.*")),
     package_data={
-        "modelseedpy": ["config.cfg", "data/*"],
+        "modelseedpy": [
+            "config.cfg",
+            "biochem/*.html",
+            "core/*.html",
+            "data/*",
+            "data/categories/*",
+        ],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
