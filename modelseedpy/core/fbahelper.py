@@ -287,6 +287,97 @@ class FBAHelper:
         return media.id
 
     @staticmethod
+    def mediaName(media):
+        """Alias of medianame."""
+        return FBAHelper.medianame(media)
+
+    @staticmethod
+    def isnumber(value):
+        """True when float(value) works, except for bools and "nan"/"inf"."""
+        if str(value) in ["nan", "inf", "True", "False"]:
+            return False
+        try:
+            float(value)
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
+    def rxn_mets_list(rxn):
+        return rxn.reactants + rxn.products
+
+    @staticmethod
+    def sum_dict(d1, d2):
+        """Adds the values of d1 into d2 (in place) and returns d2."""
+        for key, value in d1.items():
+            if key in d2:
+                d2[key] += value
+            else:
+                d2[key] = value
+        return d2
+
+    @staticmethod
+    def clean_fluxes(sol_fluxes, tol=1e-8):
+        """Drops the fluxes below tol from a dict, or zeroes them in a Series."""
+        if isinstance(sol_fluxes, dict):
+            return {key: flux for key, flux in sol_fluxes.items() if abs(flux) >= tol}
+        cleaned_fluxes = sol_fluxes.copy()
+        cleaned_fluxes[abs(cleaned_fluxes) < tol] = 0
+        return cleaned_fluxes
+
+    @staticmethod
+    def remove_compartment(objID):
+        """cpd00027_e0 -> cpd00027"""
+        return re.sub(r"(\_\w\d+)", "", objID)
+
+    @staticmethod
+    def compartment_index(string):
+        """The trailing compartment index: cpd00027_c1 -> 1"""
+        return int(re.search(r"(?<=\_|\w)(\d+)(?=$)", string).group())
+
+    @staticmethod
+    def solution_to_dict(solution):
+        return {key: flux for key, flux in solution.fluxes.items()}
+
+    @staticmethod
+    def solution_to_rxns_dict(solution, model):
+        return {
+            model.reactions.get_by_id(key): flux
+            for key, flux in solution.fluxes.items()
+        }
+
+    @staticmethod
+    def solution_to_variables_dict(solution, model):
+        """Each reaction's flux keyed by its forward variable."""
+        return {model.variables.get(key): flux for key, flux in solution.fluxes.items()}
+
+    @staticmethod
+    def remove_media_compounds(media_dict, compounds, printing=True):
+        edited_dic = media_dict.copy()
+        for cpd in compounds:
+            if cpd in edited_dic:
+                edited_dic.pop(cpd)
+                if printing:
+                    print(f"{cpd} removed")
+            else:
+                logger.error(f"The {cpd} is not located in the media.")
+        return edited_dic
+
+    @staticmethod
+    def convert_kbase_media(kbase_media, uniform_uptake=1000):
+        """An MSMedia as a {"EX_<cpd>_e0": uptake} medium: every compound at
+        uniform_uptake, or at its own uptake bound when uniform_uptake is None."""
+        if uniform_uptake is None:
+            return {
+                "EX_" + exID: -bound[0]
+                for exID, bound in kbase_media.get_media_constraints().items()
+            }
+        return {
+            "EX_" + exID: uniform_uptake
+            for exID in kbase_media.get_media_constraints().keys()
+        }
+
+    @staticmethod
     def validate_dictionary(dictionary, required_keys, optional_keys={}):
         for item in required_keys:
             if item not in dictionary:
