@@ -728,6 +728,13 @@ class GapfillingPkg(BaseFBAPkg):
             )
             for condition in condition_list:
                 condition["change"] = False
+        if filtered_list is None:
+            # reaction_expansion_test's sentinel: a test fails even with every
+            # candidate reaction blocked, so no filtering can make it pass
+            logger.warning(
+                "Gapfilling test conditions cannot be met by any filtering of the solution"
+            )
+            return None
         if len(filtered_list) > 0:
             if max_iterations > 0:
                 logger.warning("Gapfilling test failed " + str(11 - max_iterations))
@@ -849,6 +856,14 @@ class GapfillingPkg(BaseFBAPkg):
                 filtered_list = self.modelutl.reaction_expansion_test(
                     rxnlist, test_conditions, active_reaction_sets=active_reaction_sets
                 )  # ,positive_growth=growth_conditions
+                if filtered_list is None:
+                    # reaction_expansion_test's sentinel: the model fails a test even with every
+                    # gapfilling candidate blocked, so no filtering can make the tests pass
+                    raise ValueError(
+                        "gapfilling test conditions fail even with every gapfilling candidate "
+                        "blocked: the model itself violates them (e.g. makes ATP on the empty "
+                        "medium) -- check its draft reactions before gapfilling with tests"
+                    )
         # Adding base filter reactions to model
         if base_filter != None:
             gf_filter_att = self.modelutl.get_attributes("gf_filter", {})
