@@ -568,12 +568,37 @@ class ModelSEEDDatabase:
             self.metabolite_reactions[m.seed_id].add(rxn.id)
 
 
+def default_biochem_path():
+    """Where ModelSEEDBiochem.get() finds the ModelSEED database.
+
+    In order: the MODELSEED_DB_PATH environment variable; config.cfg's
+    [biochem] path (/deps/ModelSEEDDatabase, the KBase image layout) when it
+    exists; a ModelSEEDDatabase checkout beside this repository, located
+    from the package itself rather than the working directory. If none
+    exists, the configured path is returned and loading reports it.
+    """
+    env_path = os.environ.get("MODELSEED_DB_PATH")
+    if env_path:
+        return env_path
+    configured = config.get("biochem", "path")
+    if os.path.isdir(configured):
+        return configured
+    package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sibling = os.path.join(
+        os.path.dirname(os.path.dirname(package_dir)), "ModelSEEDDatabase"
+    )
+    if os.path.isdir(sibling):
+        return sibling
+    return configured
+
+
 class ModelSEEDBiochem:
     default_biochemistry = None
 
     @staticmethod
-    def get(create_if_missing=True, path=config.get("biochem", "path")):
+    def get(create_if_missing=True, path=None):
         if not ModelSEEDBiochem.default_biochemistry:
+            path = path or default_biochem_path()
             print("loading biochemistry database from", path)
             ModelSEEDBiochem.default_biochemistry = from_local(path)
         return ModelSEEDBiochem.default_biochemistry
