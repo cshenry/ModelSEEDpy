@@ -40,6 +40,7 @@ from modelseedpy.core import (
     MSGrowthPhenotypes,
     MSGrowthPhenotype,
     MSModelUtil,
+    MSMinimalMedia,
     FBAHelper,
     MSEditorAPI,
     MSATPCorrection,
