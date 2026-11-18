@@ -5,21 +5,19 @@ from modelseedpy.core.fbahelper import FBAHelper
 from modelseedpy.core.msmodelutl import MSModelUtil
 from modelseedpy.fbapkg.basefbapkg import BaseFBAPkg
 from itertools import combinations, permutations, chain
-from optlang import Variable, Constraint
 from cobra.medium import minimal_medium
 from optlang.symbolics import Zero
 from math import isclose, inf, factorial
-
-# from deepdiff import DeepDiff
 from time import process_time
 from pprint import pprint
 import logging
 import json, re
 
 logger = logging.getLogger(__name__)
+M = 1000
 
 
-def _exchange_solution(sol_dict):
+def _exchange_solution(sol_dict, clean_fluxes=False):
     if isinstance(list(sol_dict.keys())[0], str):
         return {
             rxn: abs(flux)
@@ -32,11 +30,14 @@ def _exchange_solution(sol_dict):
             for rxn, flux in sol_dict.items()
             if "EX_" in rxn.id and flux < 0
         }
-    return {
+    fluxes = {
         rxn.name: abs(flux)
         for rxn, flux in sol_dict.items()
         if "EX_" in rxn.name and flux < 0
     }
+    if clean_fluxes:
+        fluxes = FBAHelper.clean_fluxes(fluxes)
+    return fluxes
 
 
 def _model_growth(sol_dict):
@@ -70,46 +71,49 @@ def verify(org_model, min_media):
 
 def bioFlux_check(model, sol=None, sol_dict=None, min_growth=0.1):
     sol_dict = sol_dict or FBAHelper.solution_to_variables_dict(sol, model)
-    # print({k:v for k,v in sol_dict.items() if v > 1E-8})
-    simulated_growth = max(
-        sum(
-            [
-                flux
-                for var, flux in sol_dict.items()
-                if re.search(r"(^bio\d+$)", var.name)
-            ]
-        ),
-        sol.objective_value,
+    simulated_growth = sum(
+        [flux for var, flux in sol_dict.items() if re.search(r"(^bio\d+$)", var.name)]
     )
-    if simulated_growth < min_growth * 0.9999:
+    if simulated_growth < min_growth * 0.9999 and simulated_growth + min_growth > 1e-8:
         raise ObjectiveError(
             f"The assigned minimal_growth of {min_growth} was not maintained during the simulation,"
             f" where the observed growth value was {simulated_growth}."
         )
-    if sol.status != "optimal":
-        display(sol)
+    if sol is not None and sol.status != "optimal":
+        logger.warning(f"The simulation of {model.id} ended with status {sol.status}.")
     return sol_dict
 
 
 def minimizeFlux_withGrowth(model_util, min_growth, obj):
-    model_util.add_minimal_objective_cons(min_growth)
+    model_util.add_minimal_objective_cons(min_growth, name="min_growth")
     model_util.add_objective(obj, "min")
-    # print(model_util.model.objective)
-    # print([(cons.lb, cons.expression) for cons in model_util.model.constraints if "min" in cons.name])
     sol = model_util.model.optimize()
-    # print(sol.objective_value)
-    sol_dict = bioFlux_check(model_util.model, sol, min_growth=min_growth)
+    sol_dict = bioFlux_check(model_util.model, sol, None, min_growth)
     return sol, sol_dict
 
 
 class MSMinimalMedia:
     @staticmethod
-    def _influx_objective(model_util, interacting):
-        rxns = (
+    def _influx_objective(model_util, interacting, minExchanges=1e-5):
+        influxes = []
+        exchanges = (
             model_util.exchange_list() if interacting else model_util.transport_list()
         )
-        influxes = []
-        for rxn in rxns:
+        for rxn in exchanges:
+            # TODO: double-check the sign of the exchange variables
+            # prevent miniscule exchanges
+            exVar = model_util.model.problem.Variable(
+                f"{rxn.id}_bin", lb=0, ub=1, type="binary"
+            )
+            model_util.add_cons_vars(exVar)
+            model_util.create_constraint(
+                model_util.model.problem.Constraint(Zero, ub=0, name=f"{rxn.id}_M"),
+                coef={rxn.reverse_variable: 1, exVar: -M},
+            )
+            model_util.create_constraint(
+                model_util.model.problem.Constraint(Zero, ub=0, name=f"{rxn.id}_min"),
+                coef={rxn.reverse_variable: -1, exVar: minExchanges},
+            )
             if any(
                 ["e0" in met.id for met in rxn.reactants]
             ):  # this is essentially every exchange
@@ -122,45 +126,84 @@ class MSMinimalMedia:
                 logger.critical(
                     f"The reaction {rxn} lacks exchange metabolites, which indicates an error."
                 )
-        return influxes
+        return influxes, model_util
 
     @staticmethod
     def minimize_flux(
-        org_model, min_growth=None, environment=None, interacting=True, printing=True
+        org_model=None,
+        min_growth=None,
+        environment=None,
+        interacting=True,
+        printing=True,
+        pfba=True,
+        climit=None,
+        o2limit=None,
+        minExchange=None,
+        errorOut=True,
+        model_util=None,
     ):
         """minimize the total in-flux of exchange reactions in the model"""
-        if org_model.slim_optimize() == 0:
-            raise ObjectiveError(
-                f"The model {org_model.id} possesses an objective value of 0 in complete media, "
-                "which is incompatible with minimal media computations."
+        # A util passed in stands for its model, which is copied like any other.
+        org_model = org_model if org_model is not None else model_util.model
+        # all changes go to a copy: the caller's model keeps its medium
+        model_util = MSModelUtil(org_model, True, None, climit, o2limit)
+        try:
+            if environment:
+                # add_medium re-applies the O2 cap of o2limit (or climit / 3)
+                model_util.add_medium(environment)
+            # the growth guard must run under the requested environment (on the copy),
+            # not under whatever medium the caller's model happened to carry
+            growth = model_util.model.slim_optimize()
+            if growth != growth or growth <= 1e-8:
+                mess = (
+                    f"The model {org_model.id} possesses an objective value of {growth} under the"
+                    " requested environment, which is incompatible with minimal media computations."
+                )
+                if errorOut:
+                    raise ObjectiveError(mess)
+                print(mess)
+                return {}, None
+            if model_util.biomass_objective is None:
+                raise ObjectiveError(f"The model {org_model.id} has no objective.")
+            # define the MILP
+            sol_growth = model_util.run_fba(None, pfba).fluxes[
+                model_util.biomass_objective
+            ]
+            ## some models can't grow at min_growth and therefore are limited by their max_growth
+            min_growth = (
+                sol_growth if min_growth is None else min(min_growth, sol_growth)
             )
-        model_util = MSModelUtil(org_model, True)
-        model_util.add_medium(environment or model_util.model.medium)
-        # define the MILP
-        min_growth = (
-            model_util.model.slim_optimize()
-            if min_growth is None
-            else min(min_growth, model_util.model.slim_optimize())
-        )
-        # min_flux = MSMinimalMedia._min_consumption_objective(model_util, interacting)
-        media_exchanges = MSMinimalMedia._influx_objective(model_util, interacting)
-        # parse the minimal media
-        sol, sol_dict = minimizeFlux_withGrowth(
-            model_util, min_growth, sum(media_exchanges)
-        )
-        min_media = _exchange_solution(sol_dict)
-        total_flux = sum([abs(flux) for flux in min_media.values()])
-        simulated_sol = verify(org_model, min_media)
-        if simulated_sol.status != "optimal":
-            raise FeasibilityError(
-                f"The simulation was not optimal, with a status of {simulated_sol.status}"
+            minExchange = minExchange or min_growth / 1000
+            media_exchanges, model_util = MSMinimalMedia._influx_objective(
+                model_util, interacting, minExchange
             )
-        if printing:
-            print(
-                f"The minimal flux media for {org_model.id} consists of {len(min_media)} compounds and a {total_flux} total influx,"
-                f" with a growth value of {simulated_sol.objective_value}"
+            sol, sol_dict = minimizeFlux_withGrowth(
+                model_util, min_growth, sum(media_exchanges)
             )
-        return min_media, sol
+            # parse the minimal media
+            min_media = _exchange_solution(sol_dict, clean_fluxes=True)
+            total_flux = sum([abs(flux) for flux in min_media.values()])
+            simulated_sol = verify(org_model, min_media)
+            if simulated_sol.status != "optimal":
+                raise FeasibilityError(
+                    f"The simulation was not optimal, with a status of {simulated_sol.status}"
+                )
+            if printing:
+                print(
+                    f"The minimal flux media for {org_model.id} consists of {len(min_media)} compounds and a {total_flux} total influx,"
+                    f" with a growth value of {simulated_sol.objective_value}"
+                )
+            return min_media, sol
+        finally:
+            # release the throwaway copy's registry entries: the class-level
+            # MSPackageManager.pkgmgrs and MSModelUtil.mdlutls dicts would
+            # otherwise pin its full model for the process lifetime — one leaked
+            # copy per minimal-media call, which OOM-killed large multi-worker
+            # media sweeps. Both registries are keyed by the model.
+            from modelseedpy.fbapkg.mspackagemanager import MSPackageManager
+
+            MSPackageManager.pkgmgrs.pop(model_util.model, None)
+            MSModelUtil.mdlutls.pop(model_util.model, None)
 
     @staticmethod
     def _min_consumption_objective(model_util, interacting):
@@ -185,11 +228,15 @@ class MSMinimalMedia:
                     f"{model_util.model.id} and thus is skipped.\n"
                 )
                 continue
-            vars[rxn.id] = Variable(var_name, lb=0, ub=1, type="binary")
+            vars[rxn.id] = model_util.model.problem.Variable(
+                var_name, lb=0, ub=1, type="binary"
+            )
             model_util.add_cons_vars([vars[rxn.id]])
             # bin_flux: {rxn_bin}*1000 >= {rxn_rev_flux}
             model_util.create_constraint(
-                Constraint(Zero, lb=0, ub=None, name=cons_name),
+                model_util.model.problem.Constraint(
+                    Zero, lb=0, ub=None, name=cons_name
+                ),
                 coef={vars[rxn.id]: 1000, rxn.reverse_variable: -1},
             )
         return vars
@@ -268,7 +315,7 @@ class MSMinimalMedia:
             min_media = sol_media if len(sol_media) < len(min_media) else min_media
             ## omit the solution from future searches
             model_util.create_constraint(
-                Constraint(
+                model_util.model.problem.Constraint(
                     Zero,
                     lb=None,
                     ub=len(sol_dict) - 1,
@@ -328,7 +375,9 @@ class MSMinimalMedia:
                 }
             )
         knocked_model_utl.create_constraint(
-            Constraint(Zero, lb=0.1, ub=None, name=f"{rxnVar.name}-sol{sol_index}"),
+            org_model.problem.Constraint(
+                Zero, lb=0.1, ub=None, name=f"{rxnVar.name}-sol{sol_index}"
+            ),
             coef,
         )
         return knocked_model_utl.optimize()
@@ -348,6 +397,8 @@ class MSMinimalMedia:
             interdependencies = {}
 
             ## explore permutations after removing the selected variable
+            from deepdiff import DeepDiff
+
             diff = DeepDiff(
                 sol_dict_sans_ex,
                 FBAHelper.solution_to_dict(
@@ -404,12 +455,24 @@ class MSMinimalMedia:
         min_growth=None,
         environment=None,
         interacting=True,
-        solution_limit=5,
+        pfba=True,
         printing=True,
+        climit=None,
+        o2limit=None,
+        errorOut=True,
+        solution_limit=5,
     ):
         if minimization_method == "minFlux":
             return MSMinimalMedia.minimize_flux(
-                model, min_growth, environment, interacting, printing
+                model,
+                min_growth,
+                environment,
+                interacting,
+                printing=printing,
+                pfba=pfba,
+                climit=climit,
+                o2limit=o2limit,
+                errorOut=errorOut,
             )
         if minimization_method == "minComponents":
             return minimal_medium(model, min_growth, minimize_components=True)
@@ -449,8 +512,8 @@ class MSMinimalMedia:
                     min_growth,
                     environment,
                     interacting,
-                    n_solutions,
-                    printing,
+                    printing=printing,
+                    solution_limit=n_solutions,
                 ),
                 "solution": FBAHelper.solution_to_dict(model_util.model.optimize()),
             }
@@ -473,8 +536,8 @@ class MSMinimalMedia:
                 min_growth,
                 environment,
                 interacting,
-                n_solutions,
-                printing,
+                printing=printing,
+                solution_limit=n_solutions,
             )
         return media
 
@@ -492,9 +555,9 @@ class MSMinimalMedia:
         media = media or MSMinimalMedia.comm_media_est(
             models,
             comm_model,
-            min_growth,
-            minimization_method,
-            environment,
+            minimization_method=minimization_method,
+            min_growth=min_growth,
+            environment=environment,
             printing=printing,
         )
         org_media = media["community_media"].copy()
@@ -514,6 +577,8 @@ class MSMinimalMedia:
         media["community_media"] = {
             ID: flux for ID, flux in media["community_media"].items() if flux > 0
         }  # influx in media
+        from deepdiff import DeepDiff
+
         syntrophic_diff = DeepDiff(org_media, media["community_media"])
         changed_quantity = (
             0
@@ -681,6 +746,8 @@ class MSMinimalMedia:
 
         # communicate results
         jenga_media = media.copy()
+        from deepdiff import DeepDiff
+
         jenga_difference = DeepDiff(original_media, jenga_media)
         changed_quantity = (
             0 if not jenga_difference else len(list(jenga_difference.values())[0])
