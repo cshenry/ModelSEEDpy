@@ -37,22 +37,20 @@ class SimpleThermoPkg(BaseFBAPkg):
                 self.build_fluxcoupling_constraint(reaction)
 
     def build_potential_variable(self, object):
-        return self.build_variable(
-            "potential",
-            -1 * self.parameters["max_potential"],
-            self.parameters["max_potential"],
-            "continuous",
-            object,
-        )
+        M = self.parameters["max_potential"]
+        variable = self.build_variable("potential", -M, M, "continuous", object)
+        # build_variable returns an earlier build's variable unchanged, so a rebuild with
+        # another max_potential would keep the old bounds
+        variable.set_bounds(-M, M)
+        return variable
 
     def build_dgp_variable(self, object):
-        return self.build_variable(
-            "dgp",
-            -1 * self.parameters["max_potential"],
-            self.parameters["max_potential"],
-            "continuous",
-            object,
-        )
+        M = self.parameters["max_potential"]
+        variable = self.build_variable("dgp", -M, M, "continuous", object)
+        # build_variable returns an earlier build's variable unchanged, so a rebuild with
+        # another max_potential would keep the old bounds
+        variable.set_bounds(-M, M)
+        return variable
 
     def build_dgp_constraint(self, object):
         # Gibbs: dg = Sum(st(i,j)*p(j))
