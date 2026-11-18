@@ -240,22 +240,21 @@ def _load_metabolites(
                         if o["id"] in names:
                             cpd_names |= names[o["id"]]
                         cpd = ModelSEEDCompound2(
-                            o["id"],
-                            o.get("formula"),
-                            o.get("name"),
-                            o.get("charge"),
-                            "",
-                            o.get("abbreviation"),
-                            cpd_names,
-                            o.get("mass"),
-                            o.get("deltag"),
-                            o.get("deltagerr"),
-                            o.get("is_core"),
-                            o.get("is_obsolete"),
-                            None,
-                            o.get("pka"),
-                            o.get("pkb"),
-                            o.get("source"),
+                            cpd_id=o["id"],
+                            formula=o.get("formula"),
+                            name=o.get("name"),
+                            charge=o.get("charge"),
+                            compartment="",
+                            abbr=o.get("abbreviation"),
+                            names=cpd_names,
+                            mass=o.get("mass"),
+                            delta_g=o.get("deltag"),
+                            delta_g_error=o.get("deltagerr"),
+                            is_core=o.get("is_core"),
+                            is_obsolete=o.get("is_obsolete"),
+                            pka=o.get("pka"),
+                            pkb=o.get("pkb"),
+                            source=o.get("source"),
                         )
                         if cpd.id in aliases:
                             cpd.annotation.update(aliases[cpd.id])
