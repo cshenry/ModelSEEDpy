@@ -704,6 +704,58 @@ class GapfillingPkg(BaseFBAPkg):
                     rxnobj.upper_bound = 0
                 rxnobj.update_variable_bounds()
 
+    def expansion_test_candidates(self, reaction_list, *condition_lists):
+        """Returns the items of reaction_list that reaction_expansion_test may block
+
+        reaction_expansion_test blocks a direction of any candidate whose removal
+        lets a test condition pass. Blocking the reaction a condition maximizes
+        always lets an is_max_threshold test pass, so a test objective offered as a
+        candidate (e.g. the ATP hydrolysis reaction of the ATP tests) can be blocked
+        in place of the reactions that actually break the test, which leaves the
+        test unable to fail for the rest of gapfilling. Biomass reactions are
+        excluded too, as are exchange, demand and sink reactions, which build_package
+        already leaves out of original_reactions: KBaseMediaPkg rewrites exchange
+        bounds whenever a test condition or media is applied, so blocking one has
+        no lasting effect on the gapfilling database.
+
+        Parameters
+        ----------
+        reaction_list : list<[obj reaction,{>|<}]>
+            Candidate reactions and directions
+        condition_lists : list<dict>
+            Condition lists whose "objective" reactions must not be candidates
+
+        Returns
+        -------
+        list<[obj reaction,{>|<}]>
+            The same items, without the excluded reactions
+        """
+        objective_ids = set()
+        for condition_list in condition_lists:
+            for condition in condition_list or []:
+                objective = condition.get("objective")
+                if isinstance(objective, str):
+                    objective_ids.add(objective)
+                elif hasattr(objective, "id"):
+                    objective_ids.add(objective.id)
+        candidates = []
+        for item in reaction_list:
+            reaction = item[0]
+            sbo = reaction.annotation.get("sbo")
+            if (
+                reaction.id in objective_ids
+                or FBAHelper.is_ex(reaction)
+                or FBAHelper.is_biomass(reaction)
+                or sbo == "SBO:0000629"
+                or (isinstance(sbo, list) and "SBO:0000629" in sbo)
+            ):
+                continue
+            candidates.append(item)
+        logger.debug(
+            "Expansion test candidates: %d of %d", len(candidates), len(reaction_list)
+        )
+        return candidates
+
     def run_test_conditions(self, condition_list, solution=None, max_iterations=10):
         if solution == None:
             solution = self.compute_gapfilled_solution()
@@ -716,6 +768,7 @@ class GapfillingPkg(BaseFBAPkg):
             reaction_list.append(
                 [self.model.reactions.get_by_id(rxnid), solution["new"][rxnid]]
             )
+        reaction_list = self.expansion_test_candidates(reaction_list, condition_list)
         filtered_list = []
         with self.model:
             # Setting all gapfilled reactions not in the solution to zero
@@ -843,6 +896,9 @@ class GapfillingPkg(BaseFBAPkg):
                             rxnlist.append([reaction, "<"])
                         if reaction.upper_bound > 0:
                             rxnlist.append([reaction, ">"])
+                rxnlist = self.expansion_test_candidates(
+                    rxnlist, test_conditions, growth_conditions
+                )
                 logger.debug("Full model: %d", len(self.modelutl.model.reactions))
                 logger.debug("Gapfilling count: %d", len(self.gapfilling_penalties))
                 logger.debug("Reaction list: %d", len(rxndict))
@@ -937,7 +993,11 @@ class GapfillingPkg(BaseFBAPkg):
             # Checking for model reactions that can be removed to enable all tests to pass
             self.reset_objective_minimum(0, False)
             filtered_list = self.modelutl.reaction_expansion_test(
-                self.parameters["original_reactions"],
+                self.expansion_test_candidates(
+                    self.parameters["original_reactions"],
+                    test_conditions,
+                    growth_conditions,
+                ),
                 test_conditions,
                 positive_growth=growth_conditions,
             )
